@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>維修追蹤系統 - Mobile</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family: "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(900px 460px at 0% 0%, var(--module-accent-soft), transparent 58%),
+        radial-gradient(760px 420px at 100% 0%, rgba(14, 165, 233, 0.06), transparent 62%),
+        linear-gradient(180deg, var(--color-background) 0%, var(--color-surface-muted) 100%);
+      background-attachment: fixed;
+      color: var(--color-text);
+      overflow-x: hidden;
+    }
+:root {
+      /* 企業級 B2B：低彩度、層次清楚（V161.092 視覺層次/模組 Accent） */
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --color-primary-soft: rgba(37, 99, 235, 0.10);
+      --color-secondary: #0ea5e9;
+      --color-success: #16a34a;
+      --color-warning: #d97706;
+      --color-error: #dc2626;
+
+      /* 三層背景：稍深底色 + 白色面板 + 白色卡片 */
+      --color-background: #f4f6fb;
+      --color-surface: #ffffff;
+      --color-surface-muted: #f2f5fa;
+      --color-panel: #ffffff;
+      --color-panel-alt: #f7f9fd;
+
+      --color-text: #0f172a;
+      --color-text-secondary: #475569;
+      --color-border: #dbe2ef;
+      --color-shadow: rgba(15, 23, 42, 0.08);
+      /* 模組 Accent（預設=primary；由 core/theme.js 依路由動態覆寫） */
+      --module-accent: var(--color-primary);
+      --module-accent-ink: var(--color-primary);
+      --module-accent-soft: var(--color-primary-soft);
+      --focus-ring: var(--color-primary-soft);
+      --color-backdrop: rgba(15, 23, 42, 0.40);
+
+      /* 陰影下修：避免「漂浮玩具感」 */
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
+      --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.14);
+
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --ring: 0 0 0 3px var(--focus-ring);
+    }
+    .btn{padding:10px 14px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);border-radius:10px;font-size:14px;cursor:pointer}
+    .btn.primary{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+    .btn.primary:hover{background:var(--color-primary-hover);}
+    .btn.danger{background:var(--color-error);border-color:var(--color-error);color:#fff}
+    .btn.danger:hover{filter:brightness(.95)}
+    .input{width:100%;padding:10px 12px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text);border-radius:10px;font-size:14px;outline:none}
+    .input:focus{border-color:var(--module-accent);box-shadow: var(--ring)}
+    textarea.input{resize:vertical}
+    select.input{background:var(--color-surface)}
+    .app{min-height:100vh;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--color-border);background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);position:sticky;top:0;z-index:10}
+    .brand{font-weight:700;color:var(--color-primary);font-size:14px}
+    #main-content{flex:1;overflow-y:auto;padding-bottom:84px}
+    /* Bottom Tab Bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:6px;padding:8px 10px;background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);border-top:1px solid var(--color-border);z-index:20;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab-item{flex:0 0 auto;min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;border-radius:12px;color:var(--color-text-secondary);cursor:pointer;border:1px solid transparent;user-select:none}
+.tab-item.active{background:var(--module-accent-soft);border-color:var(--module-accent-soft);color:var(--module-accent-ink)}
+.tab-icon{font-size:18px;line-height:1}
+.tab-label{font-size:12px;line-height:1}
+  </style>
+
+  <!-- Core UI Kit（統一 Desktop/Mobile 元件樣式） -->
+  <link rel="stylesheet" href="core/ui.css">
+</head>
+<body>
+  <!-- Firebase SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+
+  <!-- Core -->
+  <script src="core/config.js"></script>
+  
+  <script src="core/utils/strings.js"></script>
+  <script src="core/utils/time.js"></script>
+  <script src="core/utils/dom.js"></script>
+<script src="core/utils.js"></script>
+  <script src="core/registry.js"></script>
+  <script src="core/app-state.js"></script>
+  <script src="core/theme.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/saved-views.js"></script>
+  <script src="core/form-validate.js"></script>
+  <script src="core/listPaging.js"></script>
+  <script src="core/error-handler.js"></script>
+  <script src="core/bootstrap.js"></script>
+  <script src="core/auth.js"></script>
+  <script src="core/user-admin.js"></script>
+  <script src="core/linkage.js"></script>
+  <script src="core/module-loader.js"></script>
+
+  <!-- Customers (must load before repairs forms auto-complete) -->
+  <script src="features/customers/customers.model.js"></script>
+  <script src="features/customers/customers.service.js"></script>
+
+  <!-- Repairs -->
+  <script src="features/repairs/repairs.model.js"></script>
+  <script src="features/repairs/repairs.service.js"></script>
+
+  <!-- Machines -->
+
+  <!-- Settings -->
+  <script src="features/settings/settings.model.js"></script>
+  <script src="features/settings/settings.service.js"></script>
+  <!-- Repair Templates (V161.105) -->
+  <script src="features/templates/repairTemplates.model.js"></script>
+  <script src="features/templates/repairTemplates.service.js"></script>
+
+  <!-- Weekly -->
+  <script src="features/weekly/weekly.model.js"></script>
+  <script src="features/weekly/weekly.service.js"></script>
+
+  <!-- ========================================
+       零件管理模組
+       ======================================== -->
+  <script src="features/parts/parts.model.js"></script>
+  <script src="features/parts/parts.service.js"></script>
+
+  <!-- ========================================
+       報價管理模組
+       ======================================== -->
+  <script src="features/quotes/quotes.model.js"></script>
+  <script src="features/quotes/quotes.service.js"></script>
+
+  <!-- ========================================
+       訂單/採購追蹤模組
+       ======================================== -->
+  <script src="features/orders/orders.model.js"></script>
+  <script src="features/orders/orders.service.js"></script>
+
+  <!-- ========================================
+       使用者操作指南
+       ======================================== -->
+
+  <!-- ========================================
+       知識庫（KB-1）
+       ======================================== -->
+  <script src="features/kb/kb.model.js"></script>
+  <script src="features/kb/kb.service.js"></script>
+
+  <!-- ========================================
+       機台保養管理（MNT-1）
+       ======================================== -->
+  <script src="features/maintenance/maintenance.model.js"></script>
+  <script src="features/maintenance/maintenance.service.js"></script>
+
+  <div id="app-container"></div>
+
+    <script>
+    class _AppRouter {
+      constructor(containerId) {
+        this.containerId = containerId;
+        this.current = null;
+        this.currentFeature = null;
+        this.isNavigating = false;
+      }
+
+      _routeMeta(route){
+        const map = {
+          repairs:   { title: '📋 維修管理', subtitle: '維修單建立／進度追蹤' },
+          machines:  { title: '🖥️ 機台歷史', subtitle: '依序號查詢維修歷史' },
+          maintenance: { title: '🛠️ 機台保養', subtitle: '設備／保養紀錄／提醒／報表' },
+          customers: { title: '👥 客戶管理', subtitle: '公司／聯絡人資料維護' },
+          parts:     { title: '🧩 零件追蹤', subtitle: '需求 → 到貨 → 更換' },
+          quotes:    { title: '🧾 報價管理', subtitle: '建立報價／狀態追蹤' },
+          orders:    { title: '📦 訂單追蹤', subtitle: '採購與到貨進度' },
+          kb:        { title: '📚 知識庫', subtitle: 'FAQ／故障模式／SOP／案例查詢' },
+          weekly:    { title: '📊 週報', subtitle: '本週／下週彙整' },
+          guide:     { title: '📘 使用者指南', subtitle: '快速上手／流程／FAQ' },
+          settings:  { title: '⚙️ 設定', subtitle: '預設值／釘選／系統參數' },
+        };
+        return map[route] || map.repairs;
+      }
+
+      _updateHeader(route){
+        const meta = this._routeMeta(route);
+        const t = document.getElementById('mobile-header-title');
+        const s = document.getElementById('mobile-header-subtitle');
+        if (t) t.textContent = meta.title;
+        if (s) s.textContent = `${meta.subtitle} · ${AppConfig.getFullVersion()}`;
+      }
+      setActive(route) {
+        document.querySelectorAll('[data-route]').forEach(el => {
+          el.classList.toggle('active', el.getAttribute('data-route') === route);
+        });
+      }
+
+      _controllerByRoute(route){
+        const r = (route || '').toString().trim();
+        const map = {
+          repairs: 'RepairController',
+          machines: 'MachinesController',
+          maintenance: 'MaintenanceController',
+          customers: 'CustomerController',
+          parts: 'PartsController',
+          quotes: 'QuotesController',
+          orders: 'OrdersController',
+          kb: 'KBController',
+          weekly: 'WeeklyController',
+          guide: 'GuideController',
+          settings: 'SettingsController'
+        };
+        const key = map[r];
+        return key ? window[key] : null;
+      }
+
+      _destroyCurrentIfNeeded(nextRoute){
+        try {
+          const cur = (this.current || '').toString().trim();
+          const next = (nextRoute || '').toString().trim();
+          if (!cur || cur === next) return;
+          const ctrl = this._controllerByRoute(cur);
+          if (ctrl && typeof ctrl.destroy === 'function') {
+            ctrl.destroy();
+          }
+        } catch (e) {
+          console.warn('Router destroy current failed:', e);
+        }
+      }
+      async navigate(route) {
+        if (this.isNavigating) return;
+        if (this.current === route) return;
+
+        const allowed = ['repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'kb', 'weekly', 'guide', 'settings'];
+        if (!allowed.includes(route)) route = 'repairs';
+
+        this.isNavigating = true;
+        try {
+          // 依路由套用模組 Accent（避免全站視覺過度單調）
+          try { window.AppTheme?.apply?.(route); } catch (_) {}
+
+          // 更新頁首（標題/副標）
+          this._updateHeader(route);
+
+          // 效能/穩定性：離開舊模組時先釋放 UI（避免殘留 listener / 定時器）
+          this._destroyCurrentIfNeeded(route);
+
+          this.setActive(route);
+          const host = document.getElementById(this.containerId);
+          if (!host) throw new Error('module container not found');
+
+    // 延遲載入：確保該模組的 UI/Controller/CSS 已載入
+    try {
+      if (window.ModuleLoader && typeof window.ModuleLoader.ensure === 'function') {
+        const firstScript = window.ModuleLoader?.manifest?.[route]?.scripts?.[0] || '';
+        const alreadyLoaded = !!(firstScript && window.ModuleLoader?._loadedScripts?.has?.(firstScript));
+        if (!alreadyLoaded) {
+          try { host.innerHTML = '<div style="padding:24px;color:#64748b">載入中…</div>'; } catch (_) {}
+        }
+        await window.ModuleLoader.ensure(route);
+      }
+    } catch (e) {
+      console.error(e);
+      host.innerHTML = '<div style="padding:24px;color:#b91c1c">模組載入失敗：' + (e?.message || e) + '</div>';
+      return;
+    }
+
+          if (route === 'repairs') {
+            if (window.RepairController?.reload) {
+              await window.RepairController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">維修模組尚未載入</div>';
+            }
+          } else if (route === 'machines') {
+          if (window.MachinesController?.reload) {
+            await window.MachinesController.reload(this.containerId);
+          } else {
+            host.innerHTML = '<div style="padding:24px">機台歷史模組尚未載入</div>';
+          }
+        } else if (route === 'maintenance') {
+            if (window.MaintenanceController?.reload) {
+              await window.MaintenanceController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">機台保養模組尚未載入</div>';
+            }
+          } else if (route === 'customers') {
+            if (window.CustomerController?.reload) {
+              await window.CustomerController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">客戶模組尚未載入</div>';
+            }
+          } else if (route === 'parts') {
+            if (window.PartsController?.reload) {
+              await window.PartsController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">零件模組尚未載入</div>';
+            }
+          } else if (route === 'quotes') {
+            if (window.QuotesController?.reload) {
+              await window.QuotesController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">報價模組尚未載入</div>';
+            }
+          } else if (route === 'orders') {
+            if (window.OrdersController?.reload) {
+              await window.OrdersController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">訂單模組尚未載入</div>';
+            }
+          } else if (route === 'kb') {
+            if (window.KBController?.reload) {
+              await window.KBController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">知識庫模組尚未載入</div>';
+            }
+          } else if (route === 'weekly') {
+            if (window.WeeklyController?.reload) {
+              await window.WeeklyController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">週報模組尚未載入</div>';
+            }
+          } else if (route === 'guide') {
+            if (window.GuideController?.reload) {
+              await window.GuideController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">使用者指南模組尚未載入</div>';
+            }
+          } else if (route === 'settings') {
+            if (window.SettingsController?.reload) {
+              await window.SettingsController.reload(this.containerId);
+            } else {
+              host.innerHTML = '<div style="padding:24px">設定模組尚未載入</div>';
+            }
+          }
+
+          this.current = route;
+          this.currentFeature = route;
+        } catch (e) {
+          console.error(e);
+          window.ErrorHandler?.log?.('HIGH', 'Router', 'Navigation failed', { error: e, route });
+        } finally {
+          this.isNavigating = false;
+        }
+      }
+    }
+
+    class MainApp {
+      constructor() {
+        this.isInitialized = false;
+        this._prefBound = false;
+      }
+
+      setDensity(value){
+        const v = (value === 'compact') ? 'compact' : 'comfortable';
+        try { document.body.dataset.density = v; } catch (_) {}
+      }
+
+      async applyUIPreferences(){
+        let density = 'comfortable';
+        try {
+          const ss = (typeof window._svc === 'function' ? window._svc('SettingsService') : window.SettingsService);
+          if (ss?.getSettings) {
+            const s = await ss.getSettings();
+            density = s?.uiDensity || 'comfortable';
+          }
+        } catch (e) {
+          console.warn('applyUIPreferences failed:', e);
+        }
+        this.setDensity(density);
+
+        if (!this._prefBound) {
+          this._prefBound = true;
+          window.addEventListener('settings:updated', (ev) => {
+            this.setDensity(ev?.detail?.uiDensity);
+          });
+        }
+      }
+      render() {
+        document.getElementById('app-container').innerHTML = `
+          <div class="app">
+            <header>
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <div id="mobile-header-title" class="brand">📋 維修管理</div>
+                <div id="mobile-header-subtitle" class="muted">${AppConfig.getFullVersion()}</div>
+              </div>
+              <div style="margin-left:auto"><button class="btn ghost" onclick="window.logout()">登出</button></div>
+            </header>
+
+            <div id="main-content"></div>
+
+            <div class="tabbar">
+              <div class="tab-item active" data-route="repairs" onclick="AppRouter.navigate('repairs')">
+                <div class="tab-icon">📋</div>
+                <div class="tab-label">維修</div>
+              </div>
+              <div class="tab-item" data-route="machines" onclick="AppRouter.navigate('machines')">
+                <div class="tab-icon">🖥️</div>
+                <div class="tab-label">機台</div>
+              </div>
+              <div class="tab-item" data-route="maintenance" onclick="AppRouter.navigate('maintenance')">
+                <div class="tab-icon">🛠️</div>
+                <div class="tab-label">保養</div>
+              </div>
+<div class="tab-item" data-route="customers" onclick="AppRouter.navigate('customers')">
+                <div class="tab-icon">👥</div>
+                <div class="tab-label">客戶</div>
+              </div>
+              <div class="tab-item" data-route="parts" onclick="AppRouter.navigate('parts')">
+                <div class="tab-icon">🧩</div>
+                <div class="tab-label">零件</div>
+              </div>
+              <div class="tab-item" data-route="quotes" onclick="AppRouter.navigate('quotes')">
+                <div class="tab-icon">🧾</div>
+                <div class="tab-label">報價</div>
+              </div>
+              <div class="tab-item" data-route="orders" onclick="AppRouter.navigate('orders')">
+                <div class="tab-icon">📦</div>
+                <div class="tab-label">訂單</div>
+              </div>
+              <div class="tab-item" data-route="kb" onclick="AppRouter.navigate('kb')">
+                <div class="tab-icon">📚</div>
+                <div class="tab-label">知識</div>
+              </div>
+              <div class="tab-item" data-route="weekly" onclick="AppRouter.navigate('weekly')">
+                <div class="tab-icon">📊</div>
+                <div class="tab-label">週報</div>
+              </div>
+              <div class="tab-item" data-route="guide" onclick="AppRouter.navigate('guide')">
+                <div class="tab-icon">📘</div>
+                <div class="tab-label">指南</div>
+              </div>
+              <div class="tab-item" data-route="settings" onclick="AppRouter.navigate('settings')">
+                <div class="tab-icon">⚙️</div>
+                <div class="tab-label">設定</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      async init() {
+        if (this.isInitialized) return;
+        this.render();
+
+        await this.applyUIPreferences();
+
+        window.AppRouter = new _AppRouter('main-content');
+        await window.AppRouter.navigate('repairs');
+        this.isInitialized = true;
+      }
+    }
+
+    const mainApp = new MainApp();
+    window.MainApp = mainApp;
+
+    window.addEventListener('auth:login', () => {
+      try { window.resetAllServices && window.resetAllServices(); } catch (e) {}
+      mainApp.init();
+    });
+    window.addEventListener('auth:logout', () => {
+      try { window.resetAllServices && window.resetAllServices(); } catch (e) {}
+      try { const c = document.getElementById('app-container'); if (c) c.innerHTML = ''; } catch (e) {}
+      mainApp.isInitialized = false;
+    });
+  </script>
+</body>
+</html>

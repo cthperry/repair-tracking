@@ -1,0 +1,150 @@
+/* ========================================
+   訂單/採購追蹤（Orders）
+   ======================================== */
+
+.orders-module {
+  padding: 16px;
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.orders-search {
+  width: min(360px, 52vw);
+}
+
+.orders-filters {
+  padding: 10px 12px;
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.orders-filters-inner{display:flex;flex-direction:column;gap:10px;}
+.orders-filters-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.orders-filters-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.orders-advanced-filters{margin-top:6px;}
+
+.orders-filters .chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.orders-filters .filter-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.orders-filters .filter-group{display:flex;flex-direction:column;gap:6px;min-width:180px;}
+.orders-filters-hint{font-size:12px;}
+
+.orders-summary{margin-top:2px;}
+.orders-stats{padding:2px 0;}
+.stat-card.clickable{cursor:pointer;}
+.stat-card.clickable:active{transform:translateY(1px);}
+
+.order-card-sub{font-size:12px;line-height:1.35;white-space:normal;}
+
+.orders-list {
+  min-height: 200px;
+}
+
+
+.orders-list-footer{
+  margin-top:10px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid var(--color-border);
+  border-radius:14px;
+  background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+}
+.orders-list-footer-actions{display:flex;align-items:center;gap:10px;}
+
+@media (max-width: 768px) {
+  .orders-list-footer{flex-direction:column;align-items:stretch;}
+  .orders-list-footer-actions{justify-content:stretch;}
+  .orders-list-footer-actions .btn{width:100%;}
+}
+
+
+/* 訂單明細（Modal Header / Table）視覺一致化：對齊 Quotes 明細風格 */
+.detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-header-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.orders-detail-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.orders-detail-title h3{margin:0;}
+.orders-detail-sub{font-size:12px;white-space:normal;line-height:1.35;}
+
+.order-items-wrap{max-width:100%;}
+.order-items-table{min-width:1500px;}
+.order-num-input{max-width:90px;text-align:right;}
+.order-money-input{max-width:140px;text-align:right;}
+
+/* 項目（訂單明細）工具列 / 互動 */
+.order-items-head{display:flex;flex-direction:column;gap:6px;}
+.order-items-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:-4px 0 8px;}
+.order-items-toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.order-text-input{min-width:240px;}
+.order-mpn-input{min-width:160px;}
+.order-vendor-input{min-width:180px;}
+.order-unit-input{min-width:90px;}
+.op-col{white-space:nowrap;}
+.order-remove-btn{color:var(--color-error);border-color:rgba(220,38,38,.28);}
+.order-remove-btn:hover{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.36);}
+.order-empty-inline{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 0;color:var(--color-text-secondary);}
+
+
+.order-total-row{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 12px;
+  border:1px solid var(--color-border);
+  border-radius:12px;
+  background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+}
+.order-total-amount{font-weight:900;color:var(--color-text);}
+.order-scroll-hint{margin-top:8px;font-size:12px;}
+
+@media (max-width: 768px) {
+  .orders-search { width: 100%; }
+  .order-items-table{min-width:1100px;}
+  .order-total-row{flex-direction:column;align-items:stretch;gap:6px;}
+}
+
+/* ========================================
+   增量渲染 Placeholder（避免大量資料初次渲染卡頓）
+   ======================================== */
+.orders-cards.is-rendering{min-height:160px;}
+
+.order-card.placeholder{cursor:default;opacity:.78;}
+
+.order-card.placeholder .ph{
+  display:block;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(148,163,184,.20) 25%, rgba(148,163,184,.34) 37%, rgba(148,163,184,.20) 63%);
+  background-size: 400% 100%;
+  animation: orders-shimmer 1.15s ease-in-out infinite;
+}
+
+.order-card.placeholder .ph-line{height:12px;}
+.order-card.placeholder .ph-badge{height:20px;width:72px;border-radius:999px;}
+
+.order-card.placeholder .w-40{width:40%;}
+.order-card.placeholder .w-50{width:50%;}
+.order-card.placeholder .w-60{width:60%;}
+.order-card.placeholder .w-70{width:70%;}
+.order-card.placeholder .w-80{width:80%;}
+.order-card.placeholder .w-90{width:90%;}
+
+@keyframes orders-shimmer{
+  0%{background-position: 100% 0;}
+  100%{background-position: 0 0;}
+}

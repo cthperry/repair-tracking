@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>維修追蹤系統 - Desktop</title>
+  
+  <!-- ========================================
+       ${AppConfig.getFullVersion()}
+       這是一個全新的模組化架構
+       核心理念：穩定性、可維護性、效能
+       ======================================== -->
+  
+  <style>
+    /* ========================================
+       Reset & Base Styles
+       ======================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+
+      font-size: 14px;
+
+      font-family: \"Noto Sans TC\", \"Microsoft JhengHei\", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 0% 0%, var(--module-accent-soft), transparent 55%),
+        radial-gradient(900px 520px at 100% 0%, rgba(14, 165, 233, 0.06), transparent 60%),
+        linear-gradient(180deg, var(--color-background) 0%, var(--color-surface-muted) 100%);
+      background-attachment: fixed;
+      color: var(--color-text);
+      overflow-x: hidden;
+    }
+    
+    /* 基礎變數（會被 config.js 覆寫） */
+            :root {
+      /* 企業級 B2B：低彩度、層次清楚（V161.092 視覺層次/模組 Accent） */
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --color-primary-soft: rgba(37, 99, 235, 0.10);
+      --color-secondary: #0ea5e9;
+      --color-success: #16a34a;
+      --color-warning: #d97706;
+      --color-error: #dc2626;
+
+      /* 三層背景：稍深底色 + 白色面板 + 白色卡片 */
+      --color-background: #f4f6fb;
+      --color-surface: #ffffff;
+      --color-surface-muted: #f2f5fa;
+      --color-panel: #ffffff;
+      --color-panel-alt: #f7f9fd;
+
+      --color-text: #0f172a;
+      --color-text-secondary: #475569;
+      --color-border: #dbe2ef;
+      --color-shadow: rgba(15, 23, 42, 0.08);
+      --color-backdrop: rgba(15, 23, 42, 0.40);
+
+      /* 模組 Accent（預設=primary；由 core/theme.js 依路由動態覆寫） */
+      --module-accent: var(--color-primary);
+      --module-accent-ink: var(--color-primary);
+      --module-accent-soft: var(--color-primary-soft);
+      --focus-ring: var(--color-primary-soft);
+
+      /* 陰影下修：避免「漂浮玩具感」 */
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
+      --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.14);
+
+      --radius-sm: 10px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --ring: 0 0 0 3px var(--focus-ring);
+    }
+    /* ========================================
+       Loading Screen (由 Bootstrap 渲染)
+       ======================================== */
+    /* Bootstrap 會動態插入載入畫面 */
+    
+    /* ========================================
+       Login Screen (由 Auth 渲染)
+       ======================================== */
+    /* Auth 會動態插入登入表單 */
+    
+    /* ========================================
+       Main App Layout (登入後顯示)
+       ======================================== */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    
+    aside {
+      width: 248px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,253,0.92) 100%);
+      border-right: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 12px 12px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(10px);
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(247,249,253,0.90) 100%);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-left{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .header-title{font-weight:900;font-size:14px;color:var(--color-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .header-subtitle{font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .header-right{display:flex;align-items:center;gap:10px;}
+    
+    .brand {
+      font-weight: 800;
+      font-size: 14px;
+      color: var(--color-text);
+      letter-spacing: 0.2px;
+    }
+
+    .brand-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      background: var(--module-accent-soft);
+      border: 1px solid rgba(37,99,235,0.18);
+      color: var(--module-accent-ink);
+      font-weight: 900;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+
+    .user-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.45);
+      background: rgba(255,255,255,.65);
+    }
+    .user-avatar{
+      width:26px;height:26px;border-radius:999px;
+      display:flex;align-items:center;justify-content:center;
+      background: var(--module-accent-soft);
+      color: var(--module-accent-ink);
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .user-name{font-weight:800;font-size:13px;color:var(--color-text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+    .sidebar-header{padding: 10px 10px 0 10px;}
+    .sidebar-title{font-weight:900;font-size:14px;color:var(--color-text);}
+    .sidebar-sub{margin-top:4px;}
+
+    .sidebar-nav{padding: 0 10px; flex: 1; overflow-y: auto;}
+
+    .sidebar-footer{padding: 0 10px 10px 10px;}
+    
+    /* ========================================
+       Utility Classes
+       ======================================== */
+    .muted {
+      color: var(--color-text-secondary);
+      font-size: 12px;
+    }
+    
+    .right {
+      margin-left: auto;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 12px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      user-select: none;
+    }
+    
+    .btn:hover { background: var(--color-panel-alt); }
+
+    /* 企業系統避免過度「彈跳/漂浮」動效 */
+    .btn:active{transform:none;}
+    .btn:focus{outline:none;box-shadow: var(--ring);border-color:var(--module-accent);}
+    
+    .btn.primary {
+      background: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+    }
+    
+    .btn.primary:hover {
+      background: var(--color-primary-hover);
+    }
+
+    .btn.danger{background:var(--color-error);border-color:var(--color-error);color:#fff;}
+    .btn.danger:hover{filter:brightness(0.95);}
+
+    .btn.ghost{background:transparent;}
+    .btn.ghost:hover{background: var(--color-background);}
+
+    .input{width:100%;padding:10px 12px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text);border-radius:10px;font-size:14px;outline:none;}
+    .input:focus{border-color:var(--module-accent);box-shadow: var(--ring);}
+    textarea.input{resize:vertical;}
+    select.input{background:var(--color-surface);}
+  
+    /* ========================================
+       Navigation
+       ======================================== */
+    .nav-title{color:var(--color-text-secondary);font-size:12px;margin-bottom:8px;}
+    .nav-item{padding:10px 10px;border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--color-text-secondary);border:1px solid transparent;user-select:none;}
+    .nav-item:hover{background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.18);color:var(--color-text);}
+    .nav-item.active{background:var(--module-accent-soft);box-shadow: inset 3px 0 0 var(--module-accent);border-radius:10px;color:var(--module-accent-ink);}
+    .nav-item.disabled{cursor:not-allowed;opacity:.5;}
+    .nav-item.disabled:hover{background:transparent;border-color:transparent;color:var(--color-text-secondary);}
+  </style>
+
+  <!-- Core UI Kit（統一 Desktop/Mobile 元件樣式） -->
+  <link rel="stylesheet" href="core/ui.css">
+</head>
+<body>
+  <!-- ========================================
+       所有 UI 都由 JavaScript 動態渲染
+       這裡只保留最基本的容器
+       ======================================== -->
+  
+  <!-- Firebase SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  
+  <!-- ========================================
+       核心模組載入順序（關鍵！）
+       1. Config (配置)
+       2. ErrorHandler (錯誤處理)
+       3. Bootstrap (系統啟動)
+       4. Auth (認證)
+       ======================================== -->
+  
+  <!-- Step 1: 載入配置 -->
+  <script src="core/config.js"></script>
+
+  
+  <script src="core/utils/strings.js"></script>
+  <script src="core/utils/time.js"></script>
+  <script src="core/utils/dom.js"></script>
+<!-- Step 1.2: 共用工具（日期/服務初始化等） -->
+  <script src="core/utils.js"></script>
+  <script src="core/registry.js"></script>
+  <script src="core/app-state.js"></script>
+
+  <!-- Step 1.5: 主題/配色（模組 Accent） -->
+  <script src="core/theme.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/saved-views.js"></script>
+  <script src="core/form-validate.js"></script>
+  <script src="core/listPaging.js"></script>
+  
+  <!-- Step 2: 載入錯誤處理器 -->
+  <script src="core/error-handler.js"></script>
+  
+  <!-- Step 3: 載入啟動器 -->
+  <script src="core/bootstrap.js"></script>
+  
+  <!-- Step 4: 載入認證系統 -->
+  <script src="core/auth.js"></script>
+  <script src="core/user-admin.js"></script>
+  <script src="core/linkage.js"></script>
+  <script src="core/module-loader.js"></script>
+  
+  <!-- ========================================
+       客戶管理模組（登入後載入）
+       ======================================== -->
+  <script src="features/customers/customers.model.js"></script>
+  <script src="features/customers/customers.service.js"></script>
+
+<!-- ========================================
+       維修管理模組（登入後載入）
+       ======================================== -->
+  <script src="features/repairs/repairs.model.js"></script>
+  <script src="features/repairs/repairs.service.js"></script>
+
+  <!-- ========================================
+       機台歷史模組（登入後載入）
+       ======================================== -->
+
+  <!-- ========================================
+       設定模組
+       ======================================== -->
+  <script src="features/settings/settings.model.js"></script>
+  <script src="features/settings/settings.service.js"></script>
+  <!-- Repair Templates (V161.105) -->
+  <script src="features/templates/repairTemplates.model.js"></script>
+  <script src="features/templates/repairTemplates.service.js"></script>
+
+  <!-- ========================================
+       使用者操作指南
+       ======================================== -->
+
+
+  
+  
+  
+  <!-- ========================================
+       知識庫（KB-1）
+       ======================================== -->
+  <script src="features/kb/kb.model.js"></script>
+  <script src="features/kb/kb.service.js"></script>
+
+  <!-- ========================================
+       機台保養管理（MNT-1）
+       ======================================== -->
+  <script src="features/maintenance/maintenance.model.js"></script>
+  <script src="features/maintenance/maintenance.service.js"></script>
+
+<!-- ========================================
+       週報模組
+       ======================================== -->
+  <script src="features/weekly/weekly.model.js"></script>
+  <script src="features/weekly/weekly.service.js"></script>
+
+  <!-- ========================================
+       零件管理模組
+       ======================================== -->
+  <script src="features/parts/parts.model.js"></script>
+  <script src="features/parts/parts.service.js"></script>
+
+  <!-- ========================================
+       報價管理模組
+       ======================================== -->
+  <script src="features/quotes/quotes.model.js"></script>
+  <script src="features/quotes/quotes.service.js"></script>
+
+  <!-- ========================================
+       訂單/採購追蹤模組
+       ======================================== -->
+  <script src="features/orders/orders.model.js"></script>
+  <script src="features/orders/orders.service.js"></script>
+  
+  <!-- ========================================
+       主應用程式（登入後才載入）
+       ======================================== -->
+  <script>
+    /**
+     * 主應用程式初始化
+     * 這段程式只在登入成功後執行
+     */
+    
+    /**
+     * 簡易 Router（Desktop/Mobile 共用概念）
+     */
+    class _AppRouter {
+      constructor(containerId) {
+        this.containerId = containerId;
+        this.current = null;
+        this.currentFeature = null;
+        this.isNavigating = false;
+      }
+
+      _routeMeta(route){
+        const map = {
+          repairs:   { title: '📋 維修管理', subtitle: '維修單建立／進度追蹤／歷史紀錄' },
+          machines:  { title: '🖥️ 機台歷史', subtitle: '依序號快速查詢維修歷史' },
+          maintenance: { title: '🛠️ 機台保養', subtitle: '設備管理／保養紀錄／提醒／報表' },
+          customers: { title: '👥 客戶管理', subtitle: '公司／聯絡人資料維護與釘選' },
+          parts:     { title: '🧩 零件追蹤', subtitle: '需求 → 報價 → 下單 → 到貨 → 更換' },
+          quotes:    { title: '🧾 報價管理', subtitle: '建立報價單並追蹤核准/送出狀態' },
+          orders:    { title: '📦 訂單追蹤', subtitle: '採購與到貨進度、結案狀態管理' },
+          kb:       { title: "📚 知識庫", subtitle: "FAQ／故障模式／SOP／案例查詢" },
+          weekly:    { title: '📊 週報', subtitle: '本週工作彙整／下週計畫' },
+          guide:     { title: '📘 使用者指南', subtitle: '快速上手／重點流程／FAQ' },
+          settings:  { title: '⚙️ 設定', subtitle: '預設值、Top N 釘選、系統參數' },
+        };
+        return map[route] || map.repairs;
+      }
+
+      _updateHeader(route){
+        const meta = this._routeMeta(route);
+        const t = document.getElementById('header-title');
+        const s = document.getElementById('header-subtitle');
+        if (t) t.textContent = meta.title;
+        if (s) s.textContent = `${meta.subtitle} · ${AppConfig.getFullVersion()}`;
+      }
+      setActive(route) {
+        document.querySelectorAll('[data-route]').forEach(el => {
+          el.classList.toggle('active', el.getAttribute('data-route') === route);
+        });
+      }
+
+      _controllerByRoute(route){
+        const r = (route || '').toString().trim();
+        const map = {
+          repairs: 'RepairController',
+          machines: 'MachinesController',
+          maintenance: 'MaintenanceController',
+          customers: 'CustomerController',
+          parts: 'PartsController',
+          quotes: 'QuotesController',
+          orders: 'OrdersController',
+          kb: 'KBController',
+          weekly: 'WeeklyController',
+          guide: 'GuideController',
+          settings: 'SettingsController'
+        };
+        const key = map[r];
+        return key ? window[key] : null;
+      }
+
+      _destroyCurrentIfNeeded(nextRoute){
+        try {
+          const cur = (this.current || '').toString().trim();
+          const next = (nextRoute || '').toString().trim();
+          if (!cur || cur === next) return;
+          const ctrl = this._controllerByRoute(cur);
+          if (ctrl && typeof ctrl.destroy === 'function') {
+            ctrl.destroy();
+          }
+        } catch (e) {
+          console.warn('Router destroy current failed:', e);
+        }
+      }
+async navigate(route) {
+  if (this.isNavigating) return;
+
+  const allowed = ['repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'kb', 'weekly', 'guide', 'settings'];
+  if (!allowed.includes(route)) route = 'repairs';
+
+  this.isNavigating = true;
+  try {
+    // 依路由套用模組 Accent（避免全站視覺過度單調）
+    try { window.AppTheme?.apply?.(route); } catch (_) {}
+
+    // 更新頁首（標題/副標）
+    this._updateHeader(route);
+
+	    // 效能/穩定性：離開舊模組時先釋放 UI（避免殘留 listener / 定時器）
+	    this._destroyCurrentIfNeeded(route);
+
+	    // 效能/穩定：離開上一個模組時先 destroy，避免背景監聽器/定時器堆疊
+	    this._destroyCurrentIfNeeded(route);
+
+    this.setActive(route);
+
+    const host = document.getElementById(this.containerId);
+    if (!host) throw new Error('module container not found');
+
+    // 延遲載入：確保該模組的 UI/Controller/CSS 已載入
+    try {
+      if (window.ModuleLoader && typeof window.ModuleLoader.ensure === 'function') {
+        const firstScript = window.ModuleLoader?.manifest?.[route]?.scripts?.[0] || '';
+        const alreadyLoaded = !!(firstScript && window.ModuleLoader?._loadedScripts?.has?.(firstScript));
+        if (!alreadyLoaded) {
+          try { host.innerHTML = '<div style="padding:24px;color:#64748b">載入中…</div>'; } catch (_) {}
+        }
+        await window.ModuleLoader.ensure(route);
+      }
+    } catch (e) {
+      console.error(e);
+      host.innerHTML = '<div style="padding:24px;color:#b91c1c">模組載入失敗：' + (e?.message || e) + '</div>';
+      return;
+    }
+
+    if (route === 'repairs') {
+      if (window.RepairController?.reload) {
+        await window.RepairController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">維修模組尚未載入</div>';
+      }
+    } else if (route === 'machines') {
+      if (window.MachinesController?.reload) {
+        await window.MachinesController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">機台歷史模組尚未載入</div>';
+      }
+    } else if (route === 'maintenance') {
+      if (window.MaintenanceController?.reload) {
+        await window.MaintenanceController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">機台保養模組尚未載入</div>';
+      }
+    } else if (route === 'customers') {
+      if (window.CustomerController?.reload) {
+        await window.CustomerController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">客戶模組尚未載入</div>';
+      }
+    } else if (route === 'kb') {
+      if (window.KBController?.reload) {
+        await window.KBController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">知識庫模組尚未載入</div>';
+      }
+    } else if (route === 'weekly') {
+      if (window.WeeklyController?.reload) {
+        await window.WeeklyController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">週報模組尚未載入</div>';
+      }
+    } else if (route === 'guide') {
+      if (window.GuideController?.reload) {
+        await window.GuideController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">操作指南模組尚未載入</div>';
+      }
+    } else if (route === 'settings') {
+      if (window.SettingsController?.reload) {
+        await window.SettingsController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">設定模組尚未載入</div>';
+      }
+    } else if (route === 'parts') {
+      if (window.PartsController?.reload) {
+        await window.PartsController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">零件模組尚未載入</div>';
+      }
+    } else if (route === 'quotes') {
+      if (window.QuotesController?.reload) {
+        await window.QuotesController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">報價模組尚未載入</div>';
+      }
+    } else if (route === 'orders') {
+      if (window.OrdersController?.reload) {
+        await window.OrdersController.reload(this.containerId);
+      } else {
+        host.innerHTML = '<div style="padding:24px">訂單模組尚未載入</div>';
+      }
+    }
+
+    this.current = route;
+    this.currentFeature = route;
+  } catch (e) {
+    console.error('Router navigate error:', e);
+    window.ErrorHandler?.log?.('HIGH', 'Router', 'Navigation failed', { error: e, route });
+  } finally {
+    this.isNavigating = false;
+  }
+}
+    }
+
+    class MainApp {
+      constructor() {
+        this.isInitialized = false;
+        this._prefBound = false;
+      }
+      
+      /**
+       * 初始化主應用
+       */
+      async init() {
+        if (this.isInitialized) return;
+        
+        try {
+          // 渲染主框架
+          this.renderMainFrame();
+
+          // 套用使用者 UI 偏好（例如列表密度）
+          await this.applyUIPreferences();
+          
+          // 初始化 Router
+          window.AppRouter = new _AppRouter('main-content');
+          // 預設進入維修管理
+          await window.AppRouter.navigate('repairs');
+          
+          this.isInitialized = true;
+        } catch (error) {
+          console.error('Main App initialization error:', error);
+          window.ErrorHandler.log('HIGH', 'MainApp', 'Initialization failed', { error });
+        }
+      }
+      
+      /**
+       * 渲染主框架
+       */
+      renderMainFrame() {
+        const container = document.getElementById('app-container');
+        if (!container) return;
+        
+        container.innerHTML = `
+          <div class="app">
+            <aside>
+              <div class="sidebar-header">
+                <div class="sidebar-title">維修追蹤系統 <span class="brand-badge">${AppConfig.VERSION}.${AppConfig.BUILD_NUMBER}</span></div>
+                <div class="muted sidebar-sub">${AppConfig.VERSION_NAME}</div>
+                <div style="height:10px"></div>
+                <div class="user-pill" title="登入使用者">
+                  <div class="user-avatar">${(window.currentUser?.displayName || 'U').trim().slice(0,1).toUpperCase()}</div>
+                  <div class="user-name">${window.currentUser?.displayName || '未知'}</div>
+                </div>
+              </div>
+
+              <!-- 導航選單 -->
+              <nav class="sidebar-nav">
+                <div class="nav-title">功能選單</div>
+                <div class="nav-item active" data-route="repairs" onclick="AppRouter.navigate('repairs')">📋 維修管理</div>
+                <div class="nav-item" data-route="machines" onclick="AppRouter.navigate('machines')">🖥️ 機台歷史</div>
+                <div class="nav-item" data-route="maintenance" onclick="AppRouter.navigate('maintenance')">🛠️ 機台保養</div>
+                <div class="nav-item" data-route="customers" onclick="AppRouter.navigate('customers')">👥 客戶管理</div>
+                <div class="nav-item" data-route="parts" onclick="AppRouter.navigate('parts')">🧩 零件追蹤</div>
+                <div class="nav-item" data-route="quotes" onclick="AppRouter.navigate('quotes')">🧾 報價</div>
+                <div class="nav-item" data-route="orders" onclick="AppRouter.navigate('orders')">📦 訂單</div>
+                <div class="nav-item" data-route="kb" onclick="AppRouter.navigate('kb')">📚 知識庫</div>
+                <div class="nav-item" data-route="weekly" onclick="AppRouter.navigate('weekly')">📊 週報</div>
+                <div class="nav-item" data-route="guide" onclick="AppRouter.navigate('guide')">📘 使用者指南</div>
+                <div class="nav-item" data-route="settings" onclick="AppRouter.navigate('settings')">⚙️ 設定</div>
+              </nav>
+
+              <div class="sidebar-footer">
+                <div class="muted">${AppConfig.getFullVersion()}</div>
+              </div>
+            </aside>
+            
+            <main>
+              <header>
+                <div class="header-left">
+                  <div id="header-title" class="header-title">📋 維修管理</div>
+                  <div id="header-subtitle" class="header-subtitle">${AppConfig.getFullVersion()}</div>
+                </div>
+                <div class="header-right">
+                  <button class="btn ghost" onclick="window.logout()">登出</button>
+                </div>
+              </header>
+              
+              <div id="main-content" style="flex: 1; overflow-y: auto;">
+                <!-- 模組將在這裡渲染 -->
+              </div>
+            </main>
+          </div>
+        `;
+        
+      }
+
+      setDensity(value){
+        const v = (value === 'compact') ? 'compact' : 'comfortable';
+        try { document.body.dataset.density = v; } catch (_) {}
+      }
+
+      async applyUIPreferences(){
+        // 預設：舒適
+        let density = 'comfortable';
+        try {
+          const ss = (typeof window._svc === 'function' ? window._svc('SettingsService') : window.SettingsService);
+          if (ss?.getSettings) {
+            const s = await ss.getSettings();
+            density = s?.uiDensity || 'comfortable';
+          }
+        } catch (e) {
+          console.warn('applyUIPreferences failed:', e);
+        }
+        this.setDensity(density);
+
+        // 即時更新（設定儲存後立即生效）
+        if (!this._prefBound) {
+          this._prefBound = true;
+          window.addEventListener('settings:updated', (ev) => {
+            this.setDensity(ev?.detail?.uiDensity);
+          });
+        }
+      }
+    }
+    
+    // 建立主應用實例
+    const mainApp = new MainApp();
+    window.MainApp = mainApp;
+    
+    // 監聽登入成功事件
+    window.addEventListener('auth:login', () => {
+      try { window.resetAllServices && window.resetAllServices(); } catch (e) {}
+      mainApp.init();
+    });
+    
+    // 監聽登出事件
+    window.addEventListener('auth:logout', () => {
+      try { window.resetAllServices && window.resetAllServices(); } catch (e) {}
+      try { const c = document.getElementById('app-container'); if (c) c.innerHTML = ''; } catch (e) {}
+      mainApp.isInitialized = false;
+    });
+  </script>
+  
+  <!-- ========================================
+       開發工具（僅開發模式）
+       ======================================== -->
+  <script>
+    if (AppConfig.isDevelopment()) {
+    }
+  </script>
+</body>
+</html>

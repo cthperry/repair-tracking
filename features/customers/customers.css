@@ -1,0 +1,222 @@
+/* ========================================
+   Customers Module
+   ======================================== */
+
+.customers-module {
+  padding: 16px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.customers-toolbar{margin-bottom:12px;}
+
+/* ========================================
+   P3：可摺疊篩選面板
+   ======================================== */
+.customers-filters{margin:12px 0 14px;}
+.customers-filters-grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.customers-filters-flags{
+  display:flex;
+  align-items:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+  padding-bottom:2px;
+}
+
+@media (max-width: 860px){
+  .customers-filters-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .customers-filters-flags{grid-column:1/-1;}
+}
+@media (max-width: 560px){
+  .customers-filters-grid{grid-template-columns:1fr;}
+}
+
+
+.customers-search {
+  min-width: 220px;
+}
+
+.customers-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.company-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;}
+
+/* ========================================
+   增量渲染 Placeholder（避免大量公司卡片初次渲染卡頓）
+   ======================================== */
+.company-cards.is-rendering{min-height:200px;}
+
+.company-card.placeholder{cursor:default;opacity:.78;}
+.company-card.placeholder:hover{border-color:var(--color-border);box-shadow:var(--shadow-sm);}
+
+.company-card.placeholder .ph{
+  display:block;
+  background:linear-gradient(90deg, rgba(148,163,184,0.20) 25%, rgba(148,163,184,0.34) 50%, rgba(148,163,184,0.20) 75%);
+  background-size:200% 100%;
+  border-radius:10px;
+  margin:8px 0;
+  animation:phShimmer 1.2s ease-in-out infinite;
+}
+
+.company-card.placeholder .ph-line{height:12px;}
+.company-card.placeholder .ph-badge{height:20px;width:72px;border-radius:999px;}
+
+@keyframes phShimmer{
+  0%{background-position:200% 0;}
+  100%{background-position:-200% 0;}
+}
+
+.company-card{padding:12px;}
+
+.company-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  /* Accordion UX */
+  cursor: pointer;
+  user-select: none;
+}
+
+.company-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.company-toggle {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.company-card.is-collapsed .company-header {
+  margin-bottom: 8px;
+}
+
+.company-card.is-collapsed .company-contacts {
+  display: none;
+}
+
+/* 收合預覽：顯示最上方一位聯絡人 */
+.company-preview {
+  display: none;
+}
+
+.company-card.is-collapsed .company-preview {
+  display: block;
+}
+
+.contact-row.contact-preview {
+  padding: 10px;
+}
+
+.contact-preview-empty {
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  background: var(--color-panel-alt);
+}
+
+.company-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+.company-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.company-contacts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.contact-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-panel-alt);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.contact-row:hover {
+  border-color: rgba(148, 163, 184, 0.65);
+  box-shadow: var(--shadow-md);
+}
+
+.contact-name {
+  font-weight: 700;
+  color: var(--color-text);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.contact-meta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.contact-meta a {
+  color: var(--color-secondary);
+  text-decoration: none;
+}
+
+.contact-meta a:hover {
+  text-decoration: underline;
+}
+
+.customer-card{padding:12px;cursor:pointer;}
+
+.customer-name {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.customer-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.customer-links a {
+  color: var(--color-secondary);
+  text-decoration: none;
+}
+
+.customer-links a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .customers-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customers-search { width: 100%; min-width: 0; }
+}
