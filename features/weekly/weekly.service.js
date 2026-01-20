@@ -134,18 +134,28 @@ class WeeklyService {
    */
   getThisWeekRepairsText() {
     const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || '');
+
+    const basis = (window.SettingsService?.settings?.weeklyThisWeekBasis === 'updated') ? 'updated' : 'created';
+    const getBasisDate = (r) => {
+      if (!r || typeof r !== 'object') return '';
+      if (basis === 'created') {
+        const cd = String(r.createdDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(cd)) return cd;
+        const iso = r.createdAt || '';
+        if (!iso) return '';
+        try { return WeeklyModel.toTaiwanDateString(new Date(iso)); } catch (_) { return ''; }
+      }
+      // updated
+      const iso = r.updatedAt || r.createdAt || '';
+      if (!iso) return '';
+      try { return WeeklyModel.toTaiwanDateString(new Date(iso)); } catch (_) { return ''; }
+    };
     const repairs = (window.RepairService && typeof window.RepairService.getAll === 'function')
       ? window.RepairService.getAll()
       : [];
 
     const start = this.weekStart;
     const end = this.weekEnd;
-
-    const inRange = (iso) => {
-      if (!iso) return false;
-      const d = WeeklyModel.toTaiwanDateString(new Date(iso));
-      return d >= start && d <= end;
-    };
 
     const normalizeLines = (text) => {
       const raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -191,11 +201,21 @@ class WeeklyService {
       ].join('\n');
     };
 
+
+    const getSortKey = (r) => {
+      if (!r || typeof r !== 'object') return '';
+      if (basis === 'created') {
+        const cd = String(r.createdDate || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(cd)) return cd + 'T23:59:59';
+        return String(r.createdAt || r.updatedAt || '');
+      }
+      return String(r.updatedAt || r.createdAt || '');
+    };
     const rows = (repairs || [])
       .filter(r => !r.isDeleted)
       .filter(r => !uid || r.ownerUid === uid)
-      .filter(r => inRange(r.updatedAt || r.createdAt))
-      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+      .filter(r => { const d = getBasisDate(r); return d && d >= start && d <= end; })
+      .sort((a, b) => String(getSortKey(b)).localeCompare(String(getSortKey(a))));
 
     if (!rows.length) return '';
 

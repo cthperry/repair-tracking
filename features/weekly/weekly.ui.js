@@ -20,6 +20,9 @@ class WeeklyUI {
     const nextEnd = WeeklyModel.addDays(end, 7);
     const isPreview = this.view === 'preview';
 
+    const basis = (window.SettingsService?.settings?.weeklyThisWeekBasis === 'updated') ? 'updated' : 'created';
+    const basisLabel = (basis === 'updated') ? '更新日' : '建立日';
+
     container.innerHTML = `
       <div class="weekly-module">
         <div class="weekly-toolbar module-toolbar">
@@ -41,8 +44,12 @@ class WeeklyUI {
               <div class="weekly-card-header card-head">
                 <div>
                   <div class="weekly-card-title card-title">本週工作（只讀）</div>
-                  <div class="weekly-card-meta">來源：本週內更新的維修單（負責人：登入者 UID）</div>
+                  <div class="weekly-card-meta" id="thisweek-meta">來源：本週內${basisLabel}的維修單（負責人：登入者 UID）</div>
                 </div>
+                <select class="input" id="weekly-thisweek-basis" style="width:160px;" onchange="WeeklyUI.setThisWeekBasis(this.value)">
+                  <option value="created" ${basis !== 'updated' ? 'selected' : ''}>建立日（預設）</option>
+                  <option value="updated" ${basis === 'updated' ? 'selected' : ''}>更新日</option>
+                </select>
                 <button class="btn" onclick="WeeklyUI.toggleThisWeek()" id="btn-toggle-thisweek">展開</button>
               </div>
               <div class="weekly-card-body card-body" id="thisweek-body" style="display:none;">
@@ -103,6 +110,29 @@ class WeeklyUI {
     }
 
     this.renderPlans();
+  }
+
+  async setThisWeekBasis(value) {
+    const v = (value === 'updated') ? 'updated' : 'created';
+
+    try {
+      if (window.SettingsService && typeof window.SettingsService.update === 'function') {
+        await window.SettingsService.update({ weeklyThisWeekBasis: v });
+      }
+    } catch (e) {
+      console.error('WeeklyUI setThisWeekBasis failed:', e);
+    }
+
+    // 立即更新顯示文字（不必整頁重繪）
+    const meta = document.getElementById('thisweek-meta');
+    if (meta) {
+      meta.textContent = `來源：本週內${v === 'updated' ? '更新日' : '建立日'}的維修單（負責人：登入者 UID）`;
+    }
+
+    this.refresh();
+    if (this.view === 'preview') {
+      try { await this.refreshPreview(); } catch (_) {}
+    }
   }
 
   renderPlans() {
@@ -198,7 +228,8 @@ Object.assign(WeeklyUI, {
   updatePlan: (id, key, value) => window.weeklyUI && window.weeklyUI.updatePlan(id, key, value),
   toggleThisWeek: () => window.weeklyUI && window.weeklyUI.toggleThisWeek(),
   togglePreview: () => window.weeklyUI && window.weeklyUI.togglePreview(),
-  refreshPreview: () => window.weeklyUI && window.weeklyUI.refreshPreview()
+  refreshPreview: () => window.weeklyUI && window.weeklyUI.refreshPreview(),
+  setThisWeekBasis: (v) => window.weeklyUI && window.weeklyUI.setThisWeekBasis(v)
 });
 
 console.log('✅ WeeklyUI loaded');

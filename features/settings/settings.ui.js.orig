@@ -50,8 +50,10 @@ class SettingsUI {
     } catch (e) {
       console.warn('SettingsUI: CustomerService not ready, skip company list:', e);
     }
-    // 公司清單（用於釘選新增下拉）
-    this._companyList = (companies || []).filter(Boolean);
+
+    const companyOptions = (companies || [])
+      .map(c => `<option value="${this.escape(c)}"></option>`)
+      .join('');
 
     // local UI state (avoid repeatedly parsing DOM)
     this._pinnedCompanies = Array.isArray(settings.pinnedCompanies) ? [...settings.pinnedCompanies] : [];
@@ -91,21 +93,6 @@ class SettingsUI {
     const mcModelsText = mcModels.join('\n');
     const mcIsCustom = !!(mcLine && this._machineCatalogCustom && Object.prototype.hasOwnProperty.call(this._machineCatalogCustom, mcLine));
     const mcIsDefault = !!(mcLine && baseCatalog && Object.prototype.hasOwnProperty.call(baseCatalog, mcLine));
-    // 設定頁 Tab（避免頁面過長）
-    const tabKey = `rt_settings_tab_${(window.currentUser && window.currentUser.uid) ? window.currentUser.uid : 'anon'}`;
-    const tabs = [
-      { key: 'general', label: '一般' },
-      { key: 'pinned', label: '釘選' },
-      { key: 'equipment', label: '設備' },
-      { key: 'templates', label: '模板/備份' },
-      ...(this.isAdmin() ? [{ key: 'admin', label: '權限' }] : [])
-    ];
-    let activeTab = 'general';
-    try { activeTab = localStorage.getItem(tabKey) || 'general'; } catch (_) { activeTab = 'general'; }
-    if (!tabs.some(t => t.key === activeTab)) activeTab = 'general';
-    this._settingsTabKey = tabKey;
-    this._activeTab = activeTab;
-
     container.innerHTML = `
       <div class="settings-module">
         <div class="settings-toolbar module-toolbar">
@@ -120,180 +107,138 @@ class SettingsUI {
           </div>
         </div>
 
-        <div class="settings-tabbar chip-row" id="settings-tabbar">
-          ${tabs.map(t => `<button class="chip ${activeTab===t.key?'active':''}" type="button" data-tab="${t.key}">${t.label}</button>`).join('')}
+        ${this.isAdmin() ? this.renderUserAdminCard() : ''}
+
+        ${this.renderRepairTemplatesCard()}
+        ${this.renderBackupCard()}
+
+        ${this.renderMaintenanceSettingsCard(maintSettings)}
+
+        ${this.renderMaintenanceSettingsCard(maintSettings)}
+
+        <div class="settings-card card">
+          <div class="settings-card-header card-head">
+            <div>
+              <div class="settings-card-title card-title">週報寄送收件人</div>
+              <div class="settings-card-meta muted">可編輯；預設內建名單（以 ; 分隔）</div>
+            </div>
+          </div>
+          <div class="settings-card-body card-body">
+            <textarea class="input" rows="4" id="settings-weekly-recipients" placeholder="Name<email>; ...">${this.escape(settings.weeklyRecipients || '')}</textarea>
+          </div>
         </div>
 
-        <div class="settings-tab-pane ${activeTab==='general'?'active':''}" data-tab="general">
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">週報寄送收件人</div>
-                <div class="settings-card-meta muted">可編輯；預設內建名單（以 ; 分隔）</div>
-              </div>
-            </div>
-            <div class="settings-card-body card-body">
-              <textarea class="input" rows="4" id="settings-weekly-recipients" placeholder="Name<email>; ...">${this.escape(settings.weeklyRecipients || '')}</textarea>
+        <div class="settings-card card">
+          <div class="settings-card-header card-head">
+            <div>
+              <div class="settings-card-title card-title">設備產品線 / 機型清單</div>
+              <div class="settings-card-meta muted">用於「新增維修單」的產品線 → 設備名稱快速選擇（可自訂）</div>
             </div>
           </div>
+          <div class="settings-card-body card-body">
+            <div class="mc-top">
+              <div class="chip-row mc-lines" id="mc-lines"></div>
 
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">週報本週工作依據</div>
-                <div class="settings-card-meta muted">建立日：只抓本週內建立的維修單；更新日：只抓本週內有更新的維修單</div>
+              <div class="mc-add">
+                <input class="input" id="mc-add-line" placeholder="新增產品線（例如：MAR/MAP）" />
+                <button class="btn" type="button" id="mc-add-line-btn">新增</button>
               </div>
             </div>
-            <div class="settings-card-body card-body">
-              <div class="settings-row">
-                <label class="settings-label">依據欄位</label>
-                <select class="input" id="settings-weekly-basis">
-                  <option value="created" ${settings.weeklyThisWeekBasis !== 'updated' ? 'selected' : ''}>建立日（預設）</option>
-                  <option value="updated" ${settings.weeklyThisWeekBasis === 'updated' ? 'selected' : ''}>更新日</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
-
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">簽名檔</div>
-                <div class="settings-card-meta muted">會附加在 mailto 內容末端</div>
-              </div>
-            </div>
-            <div class="settings-card-body card-body">
-              <textarea class="input" rows="5" id="settings-signature" placeholder="例如：\nBest Regards,\nPerry">${this.escape(settings.signature || '')}</textarea>
-            </div>
-          </div>
-
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">顯示偏好</div>
-                <div class="settings-card-meta muted">列表密度、簡易模式（可在此切換）</div>
-              </div>
-            </div>
-            <div class="settings-card-body card-body">
-              <div class="settings-row settings-row-top">
-                <label class="settings-label">簡易模式</label>
-                <div class="settings-col">
-                  <label class="form-checkbox">
-                    <input type="checkbox" id="settings-simple-mode" ${settings.simpleMode ? 'checked' : ''} />
-                    <span>啟用精簡介面（隱藏進階模組）</span>
-                  </label>
-                  <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 指南 / 設定」，全域搜尋也會只搜尋保留模組。</div>
+            <div class="mc-editor">
+              <div class="mc-editor-head">
+                <div class="mc-title">目前產品線：<span id="mc-active-line">${this.escape(mcLine || '-')}</span></div>
+                <div class="mc-actions">
+                  <button class="btn ghost" type="button" id="mc-reset-line-btn" ${(!mcLine || !mcIsCustom || !mcIsDefault) ? 'disabled' : ''}>恢復預設</button>
+                  <button class="btn ghost danger-outline" type="button" id="mc-delete-line-btn" ${(!mcLine || !mcIsCustom || mcIsDefault) ? 'disabled' : ''}>刪除產品線</button>
+                  <button class="btn ghost" type="button" id="mc-clear-all-btn" ${(!Object.keys(this._machineCatalogCustom || {}).length) ? 'disabled' : ''}>清除全部自訂</button>
                 </div>
               </div>
 
-              <div class="settings-row">
-                <label class="settings-label">列表密度</label>
-                <select class="input" id="settings-density">
-                  <option value="comfortable" ${settings.uiDensity === 'comfortable' ? 'selected' : ''}>舒適</option>
-                  <option value="compact" ${settings.uiDensity === 'compact' ? 'selected' : ''}>緊湊</option>
-                </select>
+              <textarea class="input" rows="10" id="mc-models" placeholder="每行一個機型（例如：FlexTRAK-S）">${this.escape(mcModelsText || '')}</textarea>
+              <div class="settings-hint" id="mc-hint">
+                ${mcLine ? `此產品線共 ${mcModels.length} 個機型。` : '尚未建立任何產品線。'}
               </div>
-              <div class="settings-hint" id="settings-status">尚未儲存</div>
             </div>
           </div>
         </div>
 
-        <div class="settings-tab-pane ${activeTab==='pinned'?'active':''}" data-tab="pinned">
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">常用公司（Top N 釘選）</div>
-                <div class="settings-card-meta muted">用於「新增維修單」快速選公司；以公司名稱為主</div>
-              </div>
+        <div class="settings-card card">
+          <div class="settings-card-header card-head">
+            <div>
+              <div class="settings-card-title card-title">簽名檔</div>
+              <div class="settings-card-meta muted">會附加在 mailto 內容末端</div>
             </div>
-            <div class="settings-card-body card-body">
-              <div class="settings-row">
-                <label class="settings-label">Top N</label>
-                <input class="input" type="number" id="settings-pinned-topn" min="1" max="12" step="1" value="${Number(settings.pinnedTopN || 8)}" />
-              </div>
+          </div>
+          <div class="settings-card-body card-body">
+            <textarea class="input" rows="5" id="settings-signature" placeholder="例如：\nBest Regards,\nPerry">${this.escape(settings.signature || '')}</textarea>
+          </div>
+        </div>
 
-              <div class="settings-row settings-row-top">
-                <label class="settings-label">釘選清單</label>
-                <div class="settings-col">
-                  <div class="settings-inline settings-inline-gap">
-                    <div class="input-with-dropdown" id="settings-pinned-dd">
-                      <input class="input" id="settings-pinned-add" placeholder="輸入公司名稱後新增" autocomplete="off" />
-                      <button class="input-dropdown-btn" type="button" id="settings-pinned-dd-btn" aria-label="展開公司清單" title="展開清單">▾</button>
-                    </div>
-                    <button class="btn" type="button" id="settings-pinned-add-btn">新增</button>
-                  </div>
+        <div class="settings-card card">
+          <div class="settings-card-header card-head">
+            <div>
+              <div class="settings-card-title card-title">常用公司（Top N 釘選）</div>
+              <div class="settings-card-meta muted">用於「新增維修單」快速選公司；以公司名稱為主</div>
+            </div>
+          </div>
+          <div class="settings-card-body card-body">
+            <div class="settings-row">
+              <label class="settings-label">Top N</label>
+              <input class="input" type="number" id="settings-pinned-topn" min="1" max="12" step="1" value="${Number(settings.pinnedTopN || 8)}" />
+            </div>
 
-                  <div class="pinned-list" id="settings-pinned-list"></div>
+            <div class="settings-row settings-row-top">
+              <label class="settings-label">釘選清單</label>
+              <div class="settings-col">
+                <div class="settings-inline settings-inline-gap">
+                  <input class="input" id="settings-pinned-add" list="settings-company-list" placeholder="輸入公司名稱後新增" />
+                  <datalist id="settings-company-list">${companyOptions}</datalist>
+                  <button class="btn" type="button" id="settings-pinned-add-btn">新增</button>
+                </div>
 
-                  <div class="settings-hint">
-                    提示：可用 ↑/↓ 調整順序；順序會影響「常用公司」顯示優先順序。
-                  </div>
+                <div class="pinned-list" id="settings-pinned-list"></div>
+
+                <div class="settings-hint">
+                  提示：可用 ↑/↓ 調整順序；順序會影響「常用公司」顯示優先順序。
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="settings-tab-pane ${activeTab==='equipment'?'active':''}" data-tab="equipment">
-          ${this.renderMaintenanceSettingsCard(maintSettings)}
-
-          <div class="settings-card card">
-            <div class="settings-card-header card-head">
-              <div>
-                <div class="settings-card-title card-title">設備產品線 / 機型清單</div>
-                <div class="settings-card-meta muted">用於「新增維修單」的產品線 → 設備名稱快速選擇（可自訂）</div>
-              </div>
-            </div>
-            <div class="settings-card-body card-body">
-              <div class="mc-top">
-                <div class="chip-row mc-lines" id="mc-lines"></div>
-
-                <div class="mc-add">
-                  <input class="input" id="mc-add-line" placeholder="新增產品線（例如：MAR/MAP）" />
-                  <button class="btn" type="button" id="mc-add-line-btn">新增</button>
-                </div>
-              </div>
-
-              <div class="mc-editor">
-                <div class="mc-editor-head">
-                  <div class="mc-title">目前產品線：<span id="mc-active-line">${this.escape(mcLine || '-')}</span></div>
-                  <div class="mc-actions">
-                    <button class="btn ghost" type="button" id="mc-reset-line-btn" ${(!mcLine || !mcIsCustom || !mcIsDefault) ? 'disabled' : ''}>恢復預設</button>
-                    <button class="btn ghost danger-outline" type="button" id="mc-delete-line-btn" ${(!mcLine || !mcIsCustom || mcIsDefault) ? 'disabled' : ''}>刪除產品線</button>
-                    <button class="btn ghost" type="button" id="mc-clear-all-btn" ${(!Object.keys(this._machineCatalogCustom || {}).length) ? 'disabled' : ''}>清除全部自訂</button>
-                  </div>
-                </div>
-
-                <textarea class="input" rows="10" id="mc-models" placeholder="每行一個機型（例如：FlexTRAK-S）">${this.escape(mcModelsText || '')}</textarea>
-                <div class="settings-hint" id="mc-hint">
-                  ${mcLine ? `此產品線共 ${mcModels.length} 個機型。` : '尚未建立任何產品線。'}
-                </div>
-              </div>
+        <div class="settings-card card">
+          <div class="settings-card-header card-head">
+            <div>
+              <div class="settings-card-title card-title">顯示偏好</div>
+              <div class="settings-card-meta muted">列表密度、簡易模式（可在此切換）</div>
             </div>
           </div>
-        </div>
+          <div class="settings-card-body card-body">
+            <div class="settings-row settings-row-top">
+              <label class="settings-label">簡易模式</label>
+              <div class="settings-col">
+                <label class="form-checkbox">
+                  <input type="checkbox" id="settings-simple-mode" ${settings.simpleMode ? 'checked' : ''} />
+                  <span>啟用精簡介面（隱藏進階模組）</span>
+                </label>
+                <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 指南 / 設定」，全域搜尋也會只搜尋保留模組。</div>
+              </div>
+            </div>
 
-        <div class="settings-tab-pane ${activeTab==='templates'?'active':''}" data-tab="templates">
-          ${this.renderRepairTemplatesCard()}
-          ${this.renderBackupCard()}
-        </div>
-
-        ${this.isAdmin() ? `<div class="settings-tab-pane ${activeTab==='admin'?'active':''}" data-tab="admin">${this.renderUserAdminCard()}</div>` : ''}
-
-        <div class="settings-savebar" id="settings-savebar">
-          <div class="savebar-left">
-            <span class="savebar-dot" aria-hidden="true"></span>
-            <span id="settings-savebar-status">尚未儲存</span>
-          </div>
-          <div class="savebar-right">
-            <button class="btn ghost" type="button" id="settings-savebar-top">回到頂部</button>
-            <button class="btn primary" type="button" id="settings-savebar-save">儲存</button>
+            <div class="settings-row">
+              <label class="settings-label">列表密度</label>
+              <select class="input" id="settings-density">
+                <option value="comfortable" ${settings.uiDensity === 'comfortable' ? 'selected' : ''}>舒適</option>
+                <option value="compact" ${settings.uiDensity === 'compact' ? 'selected' : ''}>緊湊</option>
+              </select>
+            </div>
+            <div class="settings-hint" id="settings-status">尚未儲存</div>
           </div>
         </div>
       </div>
     `;
-    this.bind();
+this.bind();
 
     // 權限管理初始化（admin only）
     if (this.isAdmin()) {
@@ -934,10 +879,6 @@ ${email}
     const den = document.getElementById('settings-density');
     const sm = document.getElementById('settings-simple-mode');
 
-    const tabbar = document.getElementById('settings-tabbar');
-    const savebarSave = document.getElementById('settings-savebar-save');
-    const savebarTop = document.getElementById('settings-savebar-top');
-
     const topN = document.getElementById('settings-pinned-topn');
     const addInput = document.getElementById('settings-pinned-add');
     const addBtn = document.getElementById('settings-pinned-add-btn');
@@ -945,20 +886,6 @@ ${email}
 
 
     const onChange = () => this.scheduleSave();
-
-    // Tabs
-    if (tabbar) {
-      tabbar.addEventListener('click', (e) => {
-        const btn = e.target?.closest?.('button[data-tab]');
-        if (!btn) return;
-        const tab = btn.getAttribute('data-tab');
-        this.setActiveTab(tab);
-      });
-    }
-
-    // 底部儲存列
-    if (savebarSave) savebarSave.addEventListener('click', () => SettingsUI.saveNow());
-    if (savebarTop) savebarTop.addEventListener('click', () => this.scrollToTop());
 
     if (rec) rec.addEventListener('input', onChange);
     if (sig) sig.addEventListener('input', onChange);
@@ -986,16 +913,12 @@ ${email}
         this.scheduleSave();
       }
       if (addInput) addInput.value = '';
-      this.closePinnedCompanyDropdown();
     };
 
     if (addBtn) addBtn.addEventListener('click', doAdd);
     if (addInput) addInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); doAdd(); }
     });
-
-    // pinned company dropdown（自訂）
-    this.bindPinnedCompanyDropdown();
 
     if (list) {
       list.addEventListener('click', (e) => {
@@ -1042,7 +965,8 @@ ${email}
 }
 
   scheduleSave() {
-    this.setSaveStatus('尚未儲存', true);
+    const status = document.getElementById('settings-status');
+    if (status) status.textContent = '尚未儲存';
 
     if (this._saveDebounce) clearTimeout(this._saveDebounce);
     this._saveDebounce = setTimeout(() => {
@@ -1053,13 +977,11 @@ ${email}
   async save() {
     const rec = document.getElementById('settings-weekly-recipients')?.value || '';
     const sig = document.getElementById('settings-signature')?.value || '';
-    const basis = document.getElementById('settings-weekly-basis')?.value || 'created';
     const den = document.getElementById('settings-density')?.value || 'comfortable';
     const simpleMode = !!document.getElementById('settings-simple-mode')?.checked;
 
     await window.SettingsService.update({
       weeklyRecipients: rec,
-      weeklyThisWeekBasis: (basis === 'updated') ? 'updated' : 'created',
       signature: sig,
       uiDensity: den,
       simpleMode: simpleMode,
@@ -1081,7 +1003,8 @@ ${email}
       }
     }
 
-    this.setSaveStatus('已儲存', false);
+    const status = document.getElementById('settings-status');
+    if (status) status.textContent = '已儲存';
   }
 
   async saveMaintenanceSettingsOnly() {
@@ -1125,188 +1048,6 @@ ${email}
       autoEmailIncludeNoRecord
     });
   }
-
-  setSaveStatus(text, dirty) {
-    const status = document.getElementById('settings-status');
-    if (status) status.textContent = text;
-    const sb = document.getElementById('settings-savebar-status');
-    if (sb) sb.textContent = text;
-    const bar = document.getElementById('settings-savebar');
-    if (bar) bar.classList.toggle('dirty', !!dirty);
-  }
-
-  scrollToTop(smooth = true) {
-    const sc = document.querySelector('.app-content') || document.querySelector('#app-content') || document.scrollingElement || document.documentElement;
-    try {
-      if (sc && sc.scrollTo) sc.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
-      else window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
-    } catch (_) {
-      try { window.scrollTo(0, 0); } catch (_) {}
-    }
-  }
-
-  setActiveTab(tab) {
-    if (!tab) return;
-    const tabbar = document.getElementById('settings-tabbar');
-    const panes = document.querySelectorAll('.settings-tab-pane');
-    panes.forEach(p => p.classList.toggle('active', p.getAttribute('data-tab') === tab));
-    if (tabbar) {
-      tabbar.querySelectorAll('button[data-tab]').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
-    }
-    this._activeTab = tab;
-    try { if (this._settingsTabKey) localStorage.setItem(this._settingsTabKey, tab); } catch (_) {}
-    this.scrollToTop(true);
-    this.closePinnedCompanyDropdown();
-  }
-
-  bindPinnedCompanyDropdown() {
-    const wrap = document.getElementById('settings-pinned-dd');
-    const input = document.getElementById('settings-pinned-add');
-    const btn = document.getElementById('settings-pinned-dd-btn');
-    if (!wrap || !input || !btn) return;
-
-    this._pinnedDdWrap = wrap;
-    this._pinnedDdInput = input;
-
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.togglePinnedCompanyDropdown();
-    });
-
-    input.addEventListener('input', () => {
-      if (this._pinnedDdOpen) this.renderPinnedCompanyDropdown();
-    });
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.openPinnedCompanyDropdown();
-      } else if (e.key === 'Escape') {
-        this.closePinnedCompanyDropdown();
-      }
-    });
-  }
-
-  togglePinnedCompanyDropdown(forceOpen) {
-    if (forceOpen === false) return this.closePinnedCompanyDropdown();
-    if (this._pinnedDdOpen) return this.closePinnedCompanyDropdown();
-    return this.openPinnedCompanyDropdown();
-  }
-
-  ensurePinnedCompanyDropdown() {
-    if (this._pinnedDdEl) return this._pinnedDdEl;
-    const el = document.createElement('div');
-    el.className = 'rt-company-dd';
-    el.id = 'settings-pinned-company-dd';
-    el.style.display = 'none';
-    document.body.appendChild(el);
-
-    el.addEventListener('click', (e) => {
-      const item = e.target?.closest?.('[data-company]');
-      if (!item) return;
-      const name = item.getAttribute('data-company') || '';
-      if (this._pinnedDdInput) this._pinnedDdInput.value = name;
-      this.closePinnedCompanyDropdown();
-      try { this._pinnedDdInput?.focus(); } catch (_) {}
-    });
-
-    this._pinnedDdEl = el;
-    return el;
-  }
-
-  openPinnedCompanyDropdown() {
-    const wrap = this._pinnedDdWrap || document.getElementById('settings-pinned-dd');
-    const input = this._pinnedDdInput || document.getElementById('settings-pinned-add');
-    if (!wrap || !input) return;
-
-    const el = this.ensurePinnedCompanyDropdown();
-    const rect = wrap.getBoundingClientRect();
-
-    el.style.position = 'fixed';
-    el.style.left = Math.max(12, rect.left) + 'px';
-    el.style.top = (rect.bottom + 6) + 'px';
-    el.style.width = Math.max(220, rect.width) + 'px';
-    el.style.maxHeight = '320px';
-    el.style.display = 'block';
-
-    this._pinnedDdOpen = true;
-    this.renderPinnedCompanyDropdown();
-
-    const onDown = (e) => {
-      const t = e.target;
-      if (wrap.contains(t)) return;
-      if (el.contains(t)) return;
-      this.closePinnedCompanyDropdown();
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') this.closePinnedCompanyDropdown();
-    };
-    // 注意：我們用 capture 監聽 scroll 來在「頁面/容器捲動」時收起下拉。
-    // 但若使用者正在捲動的是「下拉清單本身」，不應該關閉，否則看起來會像「清單不能滾動」。
-    const onScroll = (e) => {
-      const t = e?.target;
-      if (t && el.contains(t)) return; // 正在捲動下拉本身 → 允許滾動
-      this.closePinnedCompanyDropdown();
-    };
-
-    this._pinnedDdHandlers = { onDown, onKey, onScroll };
-    document.addEventListener('mousedown', onDown, true);
-    window.addEventListener('keydown', onKey, true);
-    // 用 document 捕捉各種 scroll container（.app-content 等）
-    document.addEventListener('scroll', onScroll, true);
-  }
-
-  closePinnedCompanyDropdown() {
-    const el = this._pinnedDdEl;
-    if (el) el.style.display = 'none';
-    this._pinnedDdOpen = false;
-
-    const h = this._pinnedDdHandlers;
-    if (h) {
-      try { document.removeEventListener('mousedown', h.onDown, true); } catch (_) {}
-      try { window.removeEventListener('keydown', h.onKey, true); } catch (_) {}
-      try { document.removeEventListener('scroll', h.onScroll, true); } catch (_) {}
-    }
-    this._pinnedDdHandlers = null;
-  }
-
-  renderPinnedCompanyDropdown() {
-    const el = this._pinnedDdEl || this.ensurePinnedCompanyDropdown();
-    const input = this._pinnedDdInput || document.getElementById('settings-pinned-add');
-    const q = (input?.value || '').toString().trim().toLowerCase();
-
-    const src = Array.isArray(this._companyList) ? this._companyList : [];
-    const list = src
-      .map(s => String(s || '').trim())
-      .filter(Boolean);
-
-    const scored = list
-      .map(name => {
-        const low = name.toLowerCase();
-        let score = 0;
-        if (!q) score = 1;
-        else if (low === q) score = 100;
-        else if (low.startsWith(q)) score = 60;
-        else if (low.includes(q)) score = 30;
-        return { name, score };
-      })
-      .filter(x => x.score > 0)
-      .sort((a,b) => b.score - a.score || a.name.localeCompare(b.name, 'zh-Hant'))
-      .slice(0, 40);
-
-    if (!scored.length) {
-      el.innerHTML = `<div class="rt-company-empty muted">無符合的公司</div>`;
-      return;
-    }
-
-    el.innerHTML = scored.map(x => {
-      const safeText = this.escape(x.name);
-      const safeAttr = this.escapeAttr(x.name);
-      return `<div class="rt-company-item" data-company="${safeAttr}">${safeText}</div>`;
-    }).join('');
-  }
-
 
 
   renderPinnedList() {
@@ -1410,25 +1151,13 @@ ${email}
       }
       const line = this._machineCatalogSelectedLine;
 
-      // render chips（預設線：可點右側「自訂/已自訂」快速切換）
+      // render chips
       linesEl.innerHTML = allLines.map(l => {
         const isActive = l === line;
         const isCustom = Object.prototype.hasOwnProperty.call(custom, l);
-        const isDefault = Object.prototype.hasOwnProperty.call(base, l);
         const label = this.escape(l);
-
-        // default line: show action badge
-        // custom-only line: still show badge but not clickable
-        const flagText = isDefault ? (isCustom ? '已自訂' : '自訂') : '自訂';
-        const flagTitle = isDefault ? (isCustom ? '點擊：恢復預設' : '點擊：開始自訂（複製預設清單）') : '使用者新增產品線';
-        const flagCls = isDefault ? 'mc-flag mc-flag-action' : 'mc-flag';
-
-        return `<button class="chip ${isActive ? 'active' : ''}" type="button" data-line="${label}" title="${isCustom ? '已自訂' : '預設'}">${label}<span class="${flagCls}" title="${flagTitle}">${flagText}</span></button>`;
+        return `<button class="chip ${isActive ? 'active' : ''}" type="button" data-line="${label}" title="${isCustom ? '已自訂' : '預設'}">${label}${isCustom ? '<span class="mc-flag">自訂</span>' : ''}</button>`;
       }).join('') || `<span class="muted">尚未建立</span>`;
-
-      const isCustom = !!(line && Object.prototype.hasOwnProperty.call(custom, line));
-      const isDefault = !!(line && Object.prototype.hasOwnProperty.call(base, line));
-      const readOnly = !!(line && isDefault && !isCustom);
 
       // editor
       activeEl.textContent = line || '-';
@@ -1436,23 +1165,10 @@ ${email}
       if (!modelsEl.dataset.userEditing) {
         modelsEl.value = models.join('\n');
       }
+      hintEl.textContent = line ? `此產品線共 ${models.length} 個機型。` : '尚未建立任何產品線。';
 
-      // 預設清單：唯讀；需點右側「自訂」才可編輯（避免誤改）
-      try {
-        if (modelsEl) {
-          modelsEl.readOnly = readOnly;
-          if (readOnly) modelsEl.classList.add('readonly');
-          else modelsEl.classList.remove('readonly');
-        }
-      } catch (_) {}
-
-      if (!line) {
-        hintEl.textContent = '尚未建立任何產品線。';
-      } else if (readOnly) {
-        hintEl.textContent = `此產品線共 ${models.length} 個機型（預設清單：唯讀）。點右側「自訂」開始編輯。`;
-      } else {
-        hintEl.textContent = `此產品線共 ${models.length} 個機型。`;
-      }
+      const isCustom = !!(line && Object.prototype.hasOwnProperty.call(custom, line));
+      const isDefault = !!(line && Object.prototype.hasOwnProperty.call(base, line));
 
       if (resetBtn) resetBtn.disabled = !(line && isCustom && isDefault);
       if (delBtn) delBtn.disabled = !(line && isCustom && !isDefault);
@@ -1465,47 +1181,9 @@ ${email}
       linesEl.addEventListener('click', (e) => {
         const btn = e.target?.closest?.('button[data-line]');
         if (!btn) return;
-        const clickedLine = (btn.getAttribute('data-line') || '').toString().trim();
-        if (!clickedLine) return;
-
-        const base = (this._machineCatalogBase && typeof this._machineCatalogBase === 'object') ? this._machineCatalogBase : {};
-        const custom = (this._machineCatalogCustom && typeof this._machineCatalogCustom === 'object') ? this._machineCatalogCustom : {};
-        const isDefault = Object.prototype.hasOwnProperty.call(base, clickedLine);
-        const isCustom = Object.prototype.hasOwnProperty.call(custom, clickedLine);
-
-        // 點右側「自訂/已自訂」：切換模式（預設 -> 複製成自訂；自訂 -> 恢復預設）
-        const clickedFlag = e.target?.closest?.('.mc-flag-action');
-        if (clickedFlag && isDefault) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          if (!this._machineCatalogCustom || typeof this._machineCatalogCustom !== 'object') this._machineCatalogCustom = {};
-
-          if (isCustom) {
-            // revert to default
-            delete this._machineCatalogCustom[clickedLine];
-          } else {
-            // start customizing: copy default list
-            const arr = Array.isArray(base?.[clickedLine]) ? base[clickedLine] : [];
-            this._machineCatalogCustom[clickedLine] = arr.map(v => String(v || '').trim()).filter(Boolean);
-          }
-
-          this._machineCatalogSelectedLine = clickedLine;
-          if (modelsEl) modelsEl.dataset.userEditing = '';
-          refresh();
-
-          // 若剛切到可編輯狀態，聚焦到 textarea
-          try {
-            const nowCustom = Object.prototype.hasOwnProperty.call(this._machineCatalogCustom || {}, clickedLine);
-            if (nowCustom && modelsEl) modelsEl.focus();
-          } catch (_) {}
-
-          this.scheduleSave();
-          return;
-        }
-
-        // 一般點擊：切換產品線
-        this._machineCatalogSelectedLine = clickedLine;
+        const line = (btn.getAttribute('data-line') || '').toString().trim();
+        if (!line) return;
+        this._machineCatalogSelectedLine = line;
         // 切換時避免覆蓋使用者正在輸入的內容
         if (modelsEl) modelsEl.dataset.userEditing = '';
         refresh();
@@ -1542,8 +1220,6 @@ ${email}
     if (modelsEl && !modelsEl.dataset.bound) {
       modelsEl.dataset.bound = '1';
       modelsEl.addEventListener('input', () => {
-        // 預設清單（唯讀）不允許編輯
-        if (modelsEl.readOnly) return;
         modelsEl.dataset.userEditing = '1';
         const line = this._machineCatalogSelectedLine;
         if (!line) return;

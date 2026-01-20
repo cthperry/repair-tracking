@@ -13,7 +13,89 @@
   gap: 12px;
 }
 
-.settings-toolbar{/* 樣式由 core/ui.css 的 .module-toolbar 提供 */}
+.settings-toolbar{
+  /* 使儲存/狀態在長頁面時仍可隨手操作 */
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--color-bg);
+  padding-top: 8px;
+}
+
+.settings-tabbar{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin: 4px 0 10px;
+}
+
+.settings-tabbar .chip{cursor:pointer;}
+
+.settings-tab-pane{display:none;}
+.settings-tab-pane.active{display:flex;flex-direction:column;gap:12px;}
+
+.settings-savebar{
+  position: sticky;
+  bottom: 12px;
+  z-index: 25;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid var(--color-border);
+  border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.72) 100%);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 14px 30px rgba(15, 42, 67, .12);
+}
+
+.settings-savebar.dirty{border-color: rgba(245,158,11,.45);}
+
+.savebar-left{display:flex;align-items:center;gap:8px;min-width:0;}
+.savebar-dot{width:8px;height:8px;border-radius:999px;background:rgba(148,163,184,.7);flex:0 0 auto;}
+.settings-savebar.dirty .savebar-dot{background:rgba(245,158,11,.95);}
+#settings-savebar-status{font-weight:700;}
+.savebar-right{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+
+/* 釘選新增：自訂下拉箭頭（與各處一致） */
+.settings-module .input-with-dropdown{position:relative;min-width:240px;flex:1;}
+.settings-module .input-with-dropdown .input{padding-right:44px;}
+.settings-module .input-dropdown-btn{
+  position:absolute;
+  right:8px;
+  top:50%;
+  transform:translateY(-50%);
+  width:32px;
+  height:32px;
+  border-radius:10px;
+  border:1px solid rgba(148,163,184,.35);
+  background: rgba(148,163,184,.08);
+  color: var(--color-text-secondary);
+  font-weight:800;
+}
+.settings-module .input-dropdown-btn:hover{background: rgba(148,163,184,.12);}
+
+/* 下拉清單（沿用維修單的公司下拉體驗） */
+.rt-company-dd{
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  border: 1px solid rgba(148,163,184,.35);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(15,42,67,.18);
+  overflow: auto;
+  padding: 6px;
+  z-index: 9999;
+}
+.rt-company-item{
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.rt-company-item:hover{background: rgba(59,130,246,.10);}
+.rt-company-empty{padding:10px 10px;}
+
 
 
 .settings-card{}
@@ -154,6 +236,21 @@
    ======================================== */
 .mc-top{display:flex;flex-direction:column;gap:10px;}
 .mc-lines{align-items:center;}
+.mc-lines .chip{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding-right:58px;
+}
+.mc-lines .chip .mc-flag{
+  position:absolute;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  margin-left:0;
+}
+
 .mc-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .mc-add .input{max-width:280px;}
 
@@ -173,6 +270,20 @@
   font-weight:800;
   color:var(--color-text-secondary);
   background: rgba(148,163,184,.08);
+}
+
+.mc-flag-action{
+  cursor:pointer;
+}
+.mc-flag-action:hover{
+  border-color: rgba(59,130,246,.35);
+  background: rgba(59,130,246,.10);
+  color: var(--color-text);
+}
+
+#mc-models.readonly{
+  background: rgba(148,163,184,.06);
+  color: var(--color-text-secondary);
 }
 
 
