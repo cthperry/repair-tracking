@@ -634,7 +634,7 @@ Object.assign(CustomerUI, {
     window.customerUI.searchDebounce = setTimeout(() => {
       window.customerUI.searchText = value;
       window.customerUI.updateList();
-    }, 120);
+    }, 300);
   },
 
   // P3：篩選面板（可摺疊 + 多條件）

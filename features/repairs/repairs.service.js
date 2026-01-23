@@ -363,17 +363,62 @@ class RepairService {
       return false;
     }
   }
-  
   /**
-   * 儲存到本地
+   * 儲存到本地（已做 debounce，避免大量同步 JSON.stringify 造成卡頓）
    */
   saveToLocalStorage() {
+    this._localDirty = true;
+
+    const delay = (AppConfig && AppConfig.system && AppConfig.system.performance && typeof AppConfig.system.performance.debounceDelay === 'number')
+      ? AppConfig.system.performance.debounceDelay
+      : 300;
+
+    // 只掛一次 flush hook（避免關頁/切背景時尚未落盤）
+    if (!this._localSaveHooked) {
+      this._localSaveHooked = true;
+      try {
+        window.addEventListener('beforeunload', () => {
+          try { this.flushLocalSave(); } catch (_) {}
+        }, { capture: true });
+      } catch (_) {}
+      try {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            try { this.flushLocalSave(); } catch (_) {}
+          }
+        }, { capture: true });
+      } catch (_) {}
+    }
+
+    try { if (this._localSaveTimer) clearTimeout(this._localSaveTimer); } catch (_) {}
+    this._localSaveTimer = setTimeout(() => {
+      this._localSaveTimer = null;
+      try { this._saveToLocalStorageNow(); } catch (_) {}
+    }, delay);
+  }
+
+  /**
+   * 立即 flush（用於 beforeunload / visibilitychange）
+   */
+  flushLocalSave() {
+    try {
+      if (this._localSaveTimer) {
+        clearTimeout(this._localSaveTimer);
+        this._localSaveTimer = null;
+      }
+    } catch (_) {}
+    try { this._saveToLocalStorageNow(); } catch (_) {}
+  }
+
+  _saveToLocalStorageNow() {
+    if (!this._localDirty) return;
+    this._localDirty = false;
     try {
       const prefix = AppConfig.system.storage.prefix;
       const scope = (window.getUserScopeKey ? window.getUserScopeKey() : (window.currentUser?.uid || 'unknown'));
       const key = prefix + 'repairs_' + scope;
       localStorage.setItem(key, JSON.stringify(this.repairs));
-      
+
       const historyKey = prefix + 'repair_history_' + scope;
       localStorage.setItem(historyKey, JSON.stringify(this.repairHistory));
 
@@ -388,7 +433,7 @@ class RepairService {
         }
       };
       this._saveMeta(meta);
-      
+
       this.lastSyncTime = Date.now();
     } catch (error) {
       console.error('Failed to save to localStorage:', error);

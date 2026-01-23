@@ -121,8 +121,12 @@ class GuideUI {
       if (noResult) noResult.style.display = (q && visible === 0) ? '' : 'none';
     };
 
+    let searchTimer = null;
     if (search) {
-      search.addEventListener('input', applyFilter);
+      search.addEventListener('input', () => {
+        try { if (searchTimer) clearTimeout(searchTimer); } catch (_) {}
+        searchTimer = setTimeout(applyFilter, 300);
+      });
     }
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {

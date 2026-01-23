@@ -322,7 +322,7 @@
         clearTimeout(_state._debounce);
         _state._debounce = setTimeout(() => {
           GlobalSearch.search(_state.input.value);
-        }, 120);
+        }, 200);
       });
 
       _state.input.addEventListener('keydown', (e) => {

@@ -44,6 +44,8 @@ class RepairUI {
     // 功能優化：列表關鍵字搜尋（記住上一次輸入）
     const kw = this.loadKeyword();
     if (kw) this.filters.keyword = kw;
+    // 關鍵字草稿（輸入不立即觸發搜尋；按「搜尋」才套用）
+    this._draftKeyword = (kw || '').toString();
 
     // 列表分頁（顯示更多）
     this.pageSize = this.getDefaultPageSize();
@@ -80,6 +82,13 @@ class RepairUI {
     this._formAC = null;
     this._companyDropdownAC = null;
     this._contactDropdownAC = null;
+
+    // 事件綁定控管（避免重複綁定造成資源耗用）
+    this._eventsBound = false;
+    this._unsubRepairChange = null;
+    this._shortcutNewRepairHandler = null;
+    this._settingsUpdatedHandler = null;
+    this._logoutCleanupBound = false;
 
   }
 
@@ -156,15 +165,13 @@ class RepairUI {
     if (p.sortOrder) this.sortOrder = (String(p.sortOrder) === 'asc') ? 'asc' : 'desc';
 
     // density
-    if (p.listDensity) {
-      this.listDensity = (p.listDensity === 'compact') ? 'compact' : 'standard';
-      this.saveListDensity(this.listDensity);
-    }
+    // 已由「設定 → 顯示偏好 → 列表密度」統一控管，不從 Saved View 套用
 
     // keyword preference（與 keyword bar 同步）
     try {
       const kw = (this.filters.keyword || '').toString().trim();
       this.saveKeyword(kw);
+      this._draftKeyword = kw;
     } catch (_) {}
 
     // 同步 UI
@@ -174,7 +181,7 @@ class RepairUI {
     // 同步 keyword bar（repairs-keyword）
     try {
       const kwEl = document.getElementById('repairs-keyword');
-      if (kwEl) kwEl.value = (this.filters.keyword || '').toString();
+      if (kwEl) kwEl.value = (this._draftKeyword || '').toString();
     } catch (_) {}
 
     if (!silent) {
@@ -610,22 +617,21 @@ class RepairUI {
   }
 
   loadListDensity() {
+    // 以「設定 → 顯示偏好 → 列表密度」為唯一來源（避免頁面再提供額外切換）
+    // MainApp 會把 settings.uiDensity 寫入 body.dataset.density：comfortable / compact
     try {
-      const key = this.getStorageKey('ui_repairs_density');
-      const v = localStorage.getItem(key);
-      return (v === 'compact' || v === 'standard') ? v : 'standard';
-    } catch (_) {
-      return 'standard';
-    }
+      const d = (document.body && document.body.dataset) ? (document.body.dataset.density || '') : '';
+      if (d === 'compact') return 'compact';
+      if (d === 'comfortable') return 'standard';
+    } catch (_) {}
+
+    // 兼容：若尚未套用 settings（例如尚未登入初始化），採用預設標準
+    return 'standard';
   }
 
-  saveListDensity(value) {
-    try {
-      const key = this.getStorageKey('ui_repairs_density');
-      localStorage.setItem(key, value);
-    } catch (_) {
-      // ignore
-    }
+  // 已移除列表上的「標準/緊湊」切換鈕；此函式保留以相容舊呼叫，但不再寫入本模組獨立偏好
+  saveListDensity(_value) {
+    // no-op
   }
 
   applyDensityClass(rootEl) {
@@ -633,6 +639,19 @@ class RepairUI {
     if (!el) return;
     el.classList.toggle('density-compact', this.listDensity === 'compact');
     el.classList.toggle('density-standard', this.listDensity !== 'compact');
+  }
+
+  _syncDensityFromGlobal(nextUiDensity) {
+    // nextUiDensity: 'comfortable' | 'compact'（來自 SettingsService）
+    let d = '';
+    try {
+      d = (nextUiDensity || (document.body && document.body.dataset ? document.body.dataset.density : '') || '').toString();
+    } catch (_) { d = ''; }
+
+    const desired = (d === 'compact') ? 'compact' : 'standard';
+    if (desired !== this.listDensity) {
+      this.listDensity = desired;
+    }
   }
 
   getSelectedStatus() {
@@ -747,8 +766,10 @@ class RepairUI {
 
     // keyword
     const keywordEl = document.getElementById('filter-keyword');
-    const kw = (f.keyword || '').toString();
-    if (keywordEl && keywordEl.value !== kw) keywordEl.value = kw;
+    const kwDraft = (this._draftKeyword !== undefined && this._draftKeyword !== null)
+      ? String(this._draftKeyword)
+      : (f.keyword || '').toString();
+    if (keywordEl && keywordEl.value !== kwDraft) keywordEl.value = kwDraft;
 
     // status（history scope 不渲染）
     const statusEl = document.getElementById('filter-status');
@@ -798,18 +819,24 @@ class RepairUI {
 
   renderKeywordSearch() {
     const f = this.getEffectiveFilters() || {};
-    const v = (f.keyword || '').toString();
+    const applied = (f.keyword || '').toString();
+    const v = (this._draftKeyword !== undefined && this._draftKeyword !== null)
+      ? String(this._draftKeyword)
+      : applied;
+    const canClear = !!(v.trim() || applied.trim());
     return `
       <div class="repairs-search" onclick="event.stopPropagation();">
         <input
           id="repairs-keyword"
           class="input repairs-keyword"
           type="search"
-          placeholder="關鍵字：客戶 / SN / 問題 / 單號"
+          placeholder="關鍵字：客戶 / SN / 問題 / 單號（輸入後按搜尋）"
           value="${(v || '').replace(/"/g, '&quot;')}"
-          oninput="RepairUI.handleKeywordInput(event)"
+          oninput="RepairUI.handleKeywordDraftInput(event)"
+          onkeydown="RepairUI.handleKeywordKeydown(event)"
         />
-        ${v ? `<button class="btn ghost sm" title="清除" onclick="RepairUI.clearKeyword()">✕</button>` : ''}
+        <button class="btn sm primary" title="搜尋" onclick="RepairUI.applyKeywordSearch()">搜尋</button>
+        <button id="repairs-keyword-clear" class="btn ghost sm" title="清除" onclick="RepairUI.clearKeyword()" ${canClear ? '' : 'disabled'}>✕</button>
       </div>
     `;
   }
@@ -928,13 +955,8 @@ class RepairUI {
   }
 
   renderDensityToggle() {
-    const mode = this.listDensity;
-    return `
-      <div class="density-toggle" aria-label="列表密度切換">
-        <button class="chip ${mode === 'standard' ? 'active' : ''}" style="--chip-color:var(--color-primary);" onclick="event.stopPropagation(); RepairUI.setListDensity('standard')">標準</button>
-        <button class="chip ${mode === 'compact' ? 'active' : ''}" style="--chip-color:var(--color-primary);" onclick="event.stopPropagation(); RepairUI.setListDensity('compact')">緊湊</button>
-      </div>
-    `;
+    // 已移除：列表密度改由「設定 → 顯示偏好 → 列表密度」控制
+    return '';
   }
   
   /**
@@ -946,6 +968,9 @@ class RepairUI {
       console.error('Container not found:', containerId);
       return;
     }
+
+    // 以全域設定同步列表密度（設定頁變更會即時套用）
+    try { this._syncDensityFromGlobal(); } catch (_) {}
 
     // P3-3：若使用者上次有選擇檢視，先套用（避免 scope/欄位 label 不一致）
     try { this._autoApplySavedViewIfNeeded(); } catch (_) {}
@@ -1019,7 +1044,6 @@ class RepairUI {
     // 初次渲染（增量列表 + 統計/計數）
     this.updateList();
     
-    console.log('✅ Repair UI rendered');
   }
   
   /**
@@ -1045,15 +1069,16 @@ class RepairUI {
             type="text"
             class="input"
             id="filter-keyword"
-            placeholder="搜尋單號、序號、客戶、設備..."
-            oninput="RepairUI.handleSearch(event)"
+            placeholder="搜尋單號、序號、客戶...（輸入後按搜尋）"
+            oninput="RepairUI.handleKeywordDraftInput(event)"
+            onkeydown="RepairUI.handleKeywordKeydown(event)"
           />
         </div>
         
         ${this.scope === 'history' ? '' : `
           <div class="filter-group">
             <label class="filter-label">狀態</label>
-            <select class="input" id="filter-status" onchange="RepairUI.applyFilters()">
+            <select class="input" id="filter-status">
               <option value="">全部</option>
               ${uniqueStatuses.map(s => `
                 <option value="${s.value}">${s.label}</option>
@@ -1064,7 +1089,7 @@ class RepairUI {
         
         <div class="filter-group">
           <label class="filter-label">優先級</label>
-          <select class="input" id="filter-priority" onchange="RepairUI.applyFilters()">
+          <select class="input" id="filter-priority">
             <option value="">全部</option>
             ${priorities.map(p => `
               <option value="${p.value}">${p.label}</option>
@@ -1076,7 +1101,7 @@ class RepairUI {
 
         <div class="filter-group">
           <label class="filter-label">負責人</label>
-          <select class="input" id="filter-owner" onchange="RepairUI.applyFilters()">
+          <select class="input" id="filter-owner">
             <option value="">全部</option>
             <option value="me">只看我的</option>
           </select>
@@ -1088,32 +1113,29 @@ class RepairUI {
               type="date"
               class="input"
               id="filter-date-from"
-              onchange="RepairUI.applyFilters()"
             />
             <span class="date-range-sep">至</span>
             <input
               type="date"
               class="input"
               id="filter-date-to"
-              onchange="RepairUI.applyFilters()"
             />
           </div>
         </div>
         
         <div class="filter-group">
           <label class="filter-label">需要零件</label>
-          <select class="input" id="filter-need-parts" onchange="RepairUI.applyFilters()">
+          <select class="input" id="filter-need-parts">
             <option value="">全部</option>
             <option value="true">是</option>
             <option value="false">否</option>
           </select>
         </div>
-        
-        <div class="filter-group" style="align-self: flex-end;">
-          <button class="btn" onclick="RepairUI.clearFilters()">
-            清除篩選
-          </button>
-        </div>
+      </div>
+
+      <div class="filters-actions">
+        <button class="btn primary" onclick="RepairUI.applyFilters()">🔍 搜尋</button>
+        <button class="btn" onclick="RepairUI.clearFilters()">🧹 清除篩選</button>
       </div>
     `;
   }
@@ -1175,16 +1197,23 @@ class RepairUI {
       <div class="repairs-list">
         <div class="repairs-list-header panel compact">
           <div class="repairs-list-left">
-            ${this.renderScopeTabs()}
-            ${this.scope === 'active' ? this.renderStatusChips() : `
-              <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
-              ${this.renderHistoryDatePresets()}
-            `}
+            <div class="repairs-left-block">
+              ${this.renderScopeTabs()}
+            </div>
+            <div class="repairs-left-block">
+              ${this.scope === 'active' ? this.renderStatusChips() : `
+                <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
+                ${this.renderHistoryDatePresets()}
+              `}
+            </div>
           </div>
 
           <div class="repairs-list-right">
-            ${this.renderKeywordSearch()}
-            <div class="repairs-list-sort">
+            <div class="repairs-right-block keyword-block">
+              ${this.renderKeywordSearch()}
+            </div>
+            <div class="repairs-right-block sort-block">
+              <div class="repairs-list-sort">
               <label class="muted">排序：</label>
               <select class="input" id="sort-by" onchange="RepairUI.handleSort()" style="width: 150px;">
                 <option value="updatedAt" ${this.sortBy === 'updatedAt' ? 'selected' : ''}>更新時間</option>
@@ -1198,7 +1227,7 @@ class RepairUI {
                 ${this.sortOrder === 'asc' ? '↑' : '↓'}
               </button>
             </div>
-            ${this.renderDensityToggle()}
+            </div>
           </div>
         </div>
         
@@ -1231,16 +1260,23 @@ class RepairUI {
       <div class="repairs-list">
         <div class="repairs-list-header panel compact">
           <div class="repairs-list-left">
-            ${this.renderScopeTabs()}
-            ${this.scope === 'active' ? this.renderStatusChips() : `
-              <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
-              ${this.renderHistoryDatePresets()}
-            `}
+            <div class="repairs-left-block">
+              ${this.renderScopeTabs()}
+            </div>
+            <div class="repairs-left-block">
+              ${this.scope === 'active' ? this.renderStatusChips() : `
+                <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
+                ${this.renderHistoryDatePresets()}
+              `}
+            </div>
           </div>
 
           <div class="repairs-list-right">
-            ${this.renderKeywordSearch()}
-            <div class="repairs-list-sort">
+            <div class="repairs-right-block keyword-block">
+              ${this.renderKeywordSearch()}
+            </div>
+            <div class="repairs-right-block sort-block">
+              <div class="repairs-list-sort">
               <label class="muted">排序：</label>
               <select class="input" id="sort-by" onchange="RepairUI.handleSort()" style="width: 150px;">
                 <option value="updatedAt" ${this.sortBy === 'updatedAt' ? 'selected' : ''}>更新時間</option>
@@ -1254,7 +1290,7 @@ class RepairUI {
                 ${this.sortOrder === 'asc' ? '↑' : '↓'}
               </button>
             </div>
-            ${this.renderDensityToggle()}
+            </div>
           </div>
         </div>
 
@@ -1600,27 +1636,84 @@ class RepairUI {
    * 綁定事件
    */
   bindEvents() {
-    // 監聽資料變更
-    window.RepairService.onChange((action, repair) => {
-      try {
-        console.log('Data changed:', action, repair?.id);
-        this.requestUpdateList();
-      } catch (err) {
-        if (window.ErrorHandler && typeof window.ErrorHandler.handle === 'function') {
-          window.ErrorHandler.handle(err, 'Repairs', 'MEDIUM', { action, repairId: repair?.id });
-        } else {
-          console.error(err);
-        }
+    // 綁定一次即可；避免重複 render 時累積 listener 造成 CPU/記憶體飆高
+    if (this._eventsBound) return;
+
+    // RepairService 在極早期（未登入/未 init）可能尚未就緒；此時不鎖死，讓下一次 render 再嘗試
+    if (!window.RepairService || typeof window.RepairService.onChange !== 'function') {
+      console.warn('RepairService not ready; skip bindEvents');
+      return;
+    }
+
+    this._eventsBound = true;
+
+    // 監聽資料變更（僅綁一次）
+    try {
+      if (this._unsubRepairChange) {
+        try { this._unsubRepairChange(); } catch (_) {}
+        this._unsubRepairChange = null;
       }
-    });
-    
-    // 監聽快捷鍵
-    window.addEventListener('shortcut:new-repair', (window.guard ? window.guard(() => {
-      this.openForm();
-    }, 'Repairs') : (() => { this.openForm(); })));
+      this._unsubRepairChange = window.RepairService.onChange((action, repair) => {
+        try {
+          this.requestUpdateList();
+        } catch (err) {
+          if (window.ErrorHandler && typeof window.ErrorHandler.handle === 'function') {
+            window.ErrorHandler.handle(err, 'Repairs', 'MEDIUM', { action, repairId: repair?.id });
+          } else {
+            console.error(err);
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('RepairUI.bindEvents onChange failed:', e);
+    }
+
+    // 監聽快捷鍵（僅綁一次）
+    if (!this._shortcutNewRepairHandler) {
+      this._shortcutNewRepairHandler = (window.guard
+        ? window.guard(() => { this.openForm(); }, 'Repairs')
+        : (() => { this.openForm(); }));
+      window.addEventListener('shortcut:new-repair', this._shortcutNewRepairHandler);
+    }
+
+    // 設定更新：即時套用列表密度（移除頁面切換鈕後，統一由設定控制）
+    if (!this._settingsUpdatedHandler) {
+      this._settingsUpdatedHandler = (ev) => {
+        try {
+          const den = ev?.detail?.uiDensity || '';
+          this._syncDensityFromGlobal(den);
+          this.applyDensityClass();
+          this.requestUpdateList();
+        } catch (_) {}
+      };
+      window.addEventListener('settings:updated', this._settingsUpdatedHandler);
+    }
+
+    // 登出時清理（避免跨帳號累積 listener）
+    if (!this._logoutCleanupBound) {
+      this._logoutCleanupBound = true;
+      window.addEventListener('auth:logout', () => {
+        try { this._unsubRepairChange && this._unsubRepairChange(); } catch (_) {}
+        this._unsubRepairChange = null;
+
+        try {
+          if (this._shortcutNewRepairHandler) window.removeEventListener('shortcut:new-repair', this._shortcutNewRepairHandler);
+        } catch (_) {}
+        this._shortcutNewRepairHandler = null;
+
+        try {
+          if (this._settingsUpdatedHandler) window.removeEventListener('settings:updated', this._settingsUpdatedHandler);
+        } catch (_) {}
+        this._settingsUpdatedHandler = null;
+
+        this._eventsBound = false;
+      });
+    }
+
     // P2-2：事件委派綁定（只綁一次）
     this.bindDelegatedClicks();
   }
+
 
 
   /**
@@ -2955,13 +3048,19 @@ ${hint}` : ''}
       }).join('');
     };
 
+    let searchTimer = null;
     if (searchEl) {
       searchEl.addEventListener('input', () => {
-        renderFiltered(searchEl.value);
+        try { if (searchTimer) clearTimeout(searchTimer); } catch (_) {}
+        searchTimer = setTimeout(() => {
+          renderFiltered(searchEl.value);
+        }, 300);
       });
     }
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
+        try { if (searchTimer) clearTimeout(searchTimer); } catch (_) {}
+        searchTimer = null;
         if (searchEl) searchEl.value = '';
         renderFiltered('');
       });
@@ -3123,6 +3222,8 @@ ${hint}` : ''}
    */
   static handleSearch(event) {
     const instance = window.repairUI;
+    // 中文/日文等輸入法組字期間（IME composing）不觸發搜尋
+    if (event && event.isComposing) return;
     const keyword = event.target.value.trim();
     
     // 清除之前的計時器
@@ -3148,7 +3249,9 @@ ${hint}` : ''}
     // 收集篩選條件
     const filters = {};
     
-    const keyword = document.getElementById('filter-keyword')?.value.trim();
+    const keywordRaw = (document.getElementById('filter-keyword')?.value || '').toString();
+    const keyword = keywordRaw.trim();
+    instance._draftKeyword = keywordRaw;
     if (keyword) filters.keyword = keyword;
     
     const status = document.getElementById('filter-status')?.value;
@@ -3176,6 +3279,17 @@ ${hint}` : ''}
     if (needParts) filters.needParts = needParts === 'true';
     
     instance.filters = filters;
+
+    // keyword 偏好保存 + 同步上方關鍵字輸入框
+    try { instance.saveKeyword(keyword); } catch (_) {}
+    try {
+      const topKw = document.getElementById('repairs-keyword');
+      if (topKw && topKw.value !== keywordRaw) topKw.value = keywordRaw;
+      const clearBtn = document.getElementById('repairs-keyword-clear');
+      if (clearBtn) clearBtn.disabled = !(keywordRaw.trim() || keyword.trim());
+    } catch (_) {}
+
+    instance.visibleCount = instance.pageSize;
     instance.updateList();
   }
 
@@ -3231,10 +3345,10 @@ ${hint}` : ''}
    * 列表密度切換：標準 / 緊湊
    */
   static setListDensity(mode) {
+    // 已移除列表上的密度切換鈕；此方法保留（相容舊程式/除錯），但不再寫入獨立偏好
     const instance = window.repairUI;
     const m = (mode === 'compact') ? 'compact' : 'standard';
     instance.listDensity = m;
-    instance.saveListDensity(m);
     instance.applyDensityClass();
     instance.updateList();
   }
@@ -3261,8 +3375,17 @@ ${hint}` : ''}
 
     // 清除篩選條件
     instance.filters = {};
-    // 保留 scope 由 getEffectiveFilters 注入，但 keyword 偏好需要同步清除
+    // keyword 草稿/偏好同步清除
+    instance._draftKeyword = '';
     try { instance.saveKeyword(''); } catch (_) {}
+    try {
+      const topKw = document.getElementById('repairs-keyword');
+      if (topKw) topKw.value = '';
+      const clearBtn = document.getElementById('repairs-keyword-clear');
+      if (clearBtn) clearBtn.disabled = true;
+    } catch (_) {}
+
+    instance.visibleCount = instance.pageSize;
     instance.updateList();
   }
 
@@ -3270,36 +3393,84 @@ ${hint}` : ''}
   // 關鍵字搜尋（列表）
   // ========================================
 
-  static handleKeywordInput(event) {
+  // 使用者輸入：只更新「草稿」，不立即觸發搜尋
+  static handleKeywordDraftInput(event) {
     const instance = window.repairUI;
+    if (!instance) return;
     const el = event?.target;
     const v = (el?.value || '').toString();
+    instance._draftKeyword = v;
 
-    // debounce：避免每個按鍵都觸發重算/重渲染
-    if (instance._kwDebounce) {
-      try { clearTimeout(instance._kwDebounce); } catch (_) {}
+    // 同步篩選面板 keyword（若存在）
+    try {
+      const kwEl = document.getElementById('filter-keyword');
+      if (kwEl && kwEl !== el && kwEl.value !== v) kwEl.value = v;
+    } catch (_) {}
+
+    // 更新清除按鈕狀態（避免需要重新 render）
+    try {
+      const applied = (instance.filters && instance.filters.keyword) ? String(instance.filters.keyword) : '';
+      const clearBtn = document.getElementById('repairs-keyword-clear');
+      if (clearBtn) clearBtn.disabled = !(v.trim() || applied.trim());
+    } catch (_) {}
+  }
+
+  // Enter 直接套用搜尋
+  static handleKeywordKeydown(event) {
+    if (!event) return;
+    if (event.key === 'Enter') {
+      try { event.preventDefault(); } catch (_) {}
+      try { RepairUI.applyKeywordSearch(); } catch (_) {}
     }
+  }
 
-    instance._kwDebounce = setTimeout(() => {
-      const kw = v.trim();
-      instance.filters = instance.filters || {};
-      if (kw) instance.filters.keyword = kw;
-      else delete instance.filters.keyword;
-      instance.saveKeyword(kw);
+  // 套用關鍵字（按鈕/Enter）
+  static applyKeywordSearch() {
+    const instance = window.repairUI;
+    if (!instance) return;
+    const el = document.getElementById('repairs-keyword');
+    const raw = (el ? el.value : (instance._draftKeyword || '')).toString();
+    const kw = raw.trim();
 
-      // 關鍵字變更時回到第一頁
-      instance.visibleCount = instance.pageSize;
-      instance.updateList();
-    }, 180);
+    instance._draftKeyword = raw;
+    instance.filters = instance.filters || {};
+    if (kw) instance.filters.keyword = kw;
+    else delete instance.filters.keyword;
+
+    try { instance.saveKeyword(kw); } catch (_) {}
+
+    // 同步篩選面板輸入
+    try {
+      const kwEl = document.getElementById('filter-keyword');
+      if (kwEl && kwEl.value !== raw) kwEl.value = raw;
+    } catch (_) {}
+
+    // 更新清除按鈕狀態
+    try {
+      const clearBtn = document.getElementById('repairs-keyword-clear');
+      if (clearBtn) clearBtn.disabled = !(raw.trim() || kw);
+    } catch (_) {}
+
+    // 關鍵字套用時回到第一頁
+    instance.visibleCount = instance.pageSize;
+    instance.updateList();
   }
 
   static clearKeyword() {
     const instance = window.repairUI;
+    if (!instance) return;
     instance.filters = instance.filters || {};
     delete instance.filters.keyword;
+    instance._draftKeyword = '';
     try { instance.saveKeyword(''); } catch (_) {}
+
     const el = document.getElementById('repairs-keyword');
     if (el) el.value = '';
+    const kwEl = document.getElementById('filter-keyword');
+    if (kwEl) kwEl.value = '';
+    const clearBtn = document.getElementById('repairs-keyword-clear');
+    if (clearBtn) clearBtn.disabled = true;
+
     instance.visibleCount = instance.pageSize;
     instance.updateList();
   }
@@ -4549,7 +4720,6 @@ const repairUI = new RepairUI();
 window.repairUI = repairUI;
 window.RepairUI = RepairUI;
 
-console.log('✅ RepairUI loaded');
 
 // === V161.105: Template Manage (inline onclick fallback) ===
 RepairUI.templateManage = function () {

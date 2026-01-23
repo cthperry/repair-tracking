@@ -48,6 +48,21 @@
   font-weight: 800;
 }
 
+/* 篩選面板操作列（搜尋/清除）：避免每個欄位都立即觸發重算 */
+.filters-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px){
+  .filters-actions .btn{width:100%;}
+  .filters-actions{justify-content:stretch;}
+}
+
 /* 日期範圍：避免兩個 date input 在窄欄位溢出 */
 .filter-date-range{
   /* 讓日期範圍佔滿一整列，避免在窄欄位（例如 5~6 欄並排）時溢出 */
@@ -104,25 +119,57 @@
   gap: 16px;
 }
 
-.repairs-list-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
 
+.repairs-list-header{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px){
+  .repairs-list-header{grid-template-columns: 1fr;}
+}
 
 .repairs-list-left{
   display:flex;
-  align-items:center;
-  gap: 8px;
-  flex: 1;
-  min-width: 240px;
+  flex-direction: column;
+  gap: 10px;
+  align-items:flex-start;
+  min-width:240px;
 }
 
+/* 右側工具列：搜尋 + 排序同列排列（寬度不足時自動換行） */
 .repairs-list-right{
   display:flex;
-  align-items:center;
-  gap: 10px;
+  flex-direction: row;
   flex-wrap: wrap;
+  gap: 10px;
+  align-items:center;
   justify-content:flex-end;
 }
 
+.repairs-right-block.keyword-block{flex: 1 1 420px; justify-content:flex-end;}
+.repairs-right-block.sort-block{flex: 0 0 auto; justify-content:flex-end;}
+.repairs-right-block.keyword-block,
+.repairs-right-block.sort-block{flex-wrap: nowrap;}
+
+@media (max-width: 900px){
+  .repairs-list-right{
+    flex-direction: column;
+    align-items:stretch;
+    justify-content:flex-start;
+  }
+  .repairs-right-block.keyword-block{flex: 1 1 auto; justify-content:stretch;}
+}
+
+.repairs-left-block,
+.repairs-right-block{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items:center;
+}
 .repairs-list-sort {
   display: flex;
   align-items: center;
@@ -130,8 +177,10 @@
 }
 
 /* 列表關鍵字搜尋 */
-.repairs-search{display:flex;align-items:center;gap:6px;}
-.repairs-keyword{min-width:220px;}
+.repairs-search{display:flex;align-items:stretch;gap:6px;max-width:620px;width:100%;}
+.repairs-keyword{min-width:240px; flex: 1 1 280px;}
+.repairs-search .btn{white-space:nowrap; min-width:56px; justify-content:center;}
+.repairs-search #repairs-keyword-clear{min-width:44px;}
 
 @media (max-width: 640px){
   .repairs-search{width:100%;}
@@ -139,11 +188,9 @@
 }
 
 /* ========================================
-   狀態 Chips + 列表密度切換
+   狀態 Chips
    ======================================== */
 .status-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-.density-toggle{display:flex;gap:6px;align-items:center;}
-
 .repairs-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

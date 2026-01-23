@@ -1027,7 +1027,7 @@ Object.assign(QuotesUI, {
     window.quotesUI.searchDebounce = setTimeout(() => {
       window.quotesUI.searchText = value;
       window.quotesUI.update();
-    }, 120);
+    }, 300);
   },
 
   onMoneyFocus(event) {

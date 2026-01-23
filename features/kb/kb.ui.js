@@ -132,7 +132,7 @@ class KBUI {
     this.searchDebounce = setTimeout(() => {
       this.searchText = v;
       this.updateList();
-    }, 120);
+    }, 300);
   }
 
   toggleTag(tag){

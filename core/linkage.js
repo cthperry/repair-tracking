@@ -95,18 +95,34 @@ class LinkageHelper {
   static getForRepair(repairId) {
     const rid = (repairId || '').toString().trim();
 
+    // 重要效能修正：
+    // 以前每張維修卡片都會對 quotes/orders 全量陣列做 filter（O(N*M)），
+    // 當維修單/報價/訂單數量一多，列表渲染會明顯卡頓。
+    // QuoteService / OrderService 已內建依 repairId 的索引（getForRepair），
+    // 這裡改用索引，避免全量掃描。
+
     const repairPartsSvc = (typeof window._svc === 'function') ? window._svc('RepairPartsService') : null;
     const parts = (repairPartsSvc && typeof repairPartsSvc.getForRepair === 'function')
       ? repairPartsSvc.getForRepair(rid)
       : [];
 
     const quoteSvc = (typeof window._svc === 'function') ? window._svc('QuoteService') : null;
-    const quotesAll = (quoteSvc && typeof quoteSvc.getAll === 'function') ? quoteSvc.getAll() : [];
-    const quotes = quotesAll.filter(q => (q.repairId || '') === rid);
+    let quotes = [];
+    if (quoteSvc && typeof quoteSvc.getForRepair === 'function') {
+      quotes = quoteSvc.getForRepair(rid) || [];
+    } else {
+      const quotesAll = (quoteSvc && typeof quoteSvc.getAll === 'function') ? quoteSvc.getAll() : [];
+      quotes = (quotesAll || []).filter(q => (q && (q.repairId || '') === rid));
+    }
 
     const orderSvc = (typeof window._svc === 'function') ? window._svc('OrderService') : null;
-    const ordersAll = (orderSvc && typeof orderSvc.getAll === 'function') ? orderSvc.getAll() : [];
-    const orders = ordersAll.filter(o => (o.repairId || '') === rid);
+    let orders = [];
+    if (orderSvc && typeof orderSvc.getForRepair === 'function') {
+      orders = orderSvc.getForRepair(rid) || [];
+    } else {
+      const ordersAll = (orderSvc && typeof orderSvc.getAll === 'function') ? orderSvc.getAll() : [];
+      orders = (ordersAll || []).filter(o => (o && (o.repairId || '') === rid));
+    }
 
     const partSummary = this.summarizeRepairParts(parts);
     const quoteSummary = this.summarizeStatus(quotes, this.quoteOrder(), 'status');
@@ -122,24 +138,56 @@ class LinkageHelper {
     const list = (repairs || []).filter(r => r && !r.isDeleted);
     const ids = list.map(r => r.id).filter(Boolean);
 
-    // 最新維修單（用 updatedAt/createdAt 作排序）
-    const latest = [...list].sort((a, b) => {
-      const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
-      const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
-      return tb - ta;
-    })[0] || null;
+    // 最新維修單：改線性掃描（避免複製 + sort）
+    let latest = null;
+    let latestT = -1;
+    for (const r of list) {
+      const t = new Date(r.updatedAt || r.createdAt || 0).getTime();
+      if (Number.isFinite(t) && t > latestT) {
+        latestT = t;
+        latest = r;
+      }
+    }
 
     const repairPartsSvc = (typeof window._svc === 'function') ? window._svc('RepairPartsService') : null;
-    const partsAll = (repairPartsSvc && typeof repairPartsSvc.getAll === 'function') ? repairPartsSvc.getAll() : [];
-    const parts = partsAll.filter(p => ids.includes(p.repairId));
+    // RepairPartsService 有 byRepair 索引：用 getForRepair 收斂到「此序號」需要的資料
+    let parts = [];
+    if (repairPartsSvc && typeof repairPartsSvc.getForRepair === 'function') {
+      for (const rid of ids) {
+        const arr = repairPartsSvc.getForRepair(rid) || [];
+        if (arr && arr.length) parts.push(...arr);
+      }
+    } else {
+      const idSet = new Set(ids);
+      const partsAll = (repairPartsSvc && typeof repairPartsSvc.getAll === 'function') ? repairPartsSvc.getAll() : [];
+      parts = (partsAll || []).filter(p => p && idSet.has(p.repairId));
+    }
 
     const quoteSvc = (typeof window._svc === 'function') ? window._svc('QuoteService') : null;
-    const quotesAll = (quoteSvc && typeof quoteSvc.getAll === 'function') ? quoteSvc.getAll() : [];
-    const quotes = quotesAll.filter(q => ids.includes(q.repairId));
+    let quotes = [];
+    if (quoteSvc && typeof quoteSvc.getForRepair === 'function') {
+      for (const rid of ids) {
+        const arr = quoteSvc.getForRepair(rid) || [];
+        if (arr && arr.length) quotes.push(...arr);
+      }
+    } else {
+      const idSet = new Set(ids);
+      const quotesAll = (quoteSvc && typeof quoteSvc.getAll === 'function') ? quoteSvc.getAll() : [];
+      quotes = (quotesAll || []).filter(q => q && idSet.has(q.repairId));
+    }
 
     const orderSvc = (typeof window._svc === 'function') ? window._svc('OrderService') : null;
-    const ordersAll = (orderSvc && typeof orderSvc.getAll === 'function') ? orderSvc.getAll() : [];
-    const orders = ordersAll.filter(o => ids.includes(o.repairId));
+    let orders = [];
+    if (orderSvc && typeof orderSvc.getForRepair === 'function') {
+      for (const rid of ids) {
+        const arr = orderSvc.getForRepair(rid) || [];
+        if (arr && arr.length) orders.push(...arr);
+      }
+    } else {
+      const idSet = new Set(ids);
+      const ordersAll = (orderSvc && typeof orderSvc.getAll === 'function') ? orderSvc.getAll() : [];
+      orders = (ordersAll || []).filter(o => o && idSet.has(o.repairId));
+    }
 
     const partSummary = this.summarizeRepairParts(parts);
     const quoteSummary = this.summarizeStatus(quotes, this.quoteOrder(), 'status');

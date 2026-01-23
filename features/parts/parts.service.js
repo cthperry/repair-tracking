@@ -13,6 +13,11 @@ class PartService {
     this.db = null;
     this.ref = null;
     this.parts = [];
+
+    // PartService localStorage debounce
+    this._localDirty = false;
+    this._localSaveTimer = null;
+    this._localSaveHooked = false;
   }
 
   _key() {
@@ -42,7 +47,6 @@ class PartService {
     this.isInitialized = true;
     console.log('✅ PartService initialized');
   }
-
   async load() {
     // Firebase 優先
     if (this.ref) {
@@ -62,9 +66,15 @@ class PartService {
     // localStorage
     try {
       const raw = localStorage.getItem(this._key());
-      if (raw) {
-        const arr = JSON.parse(raw);
-        this.parts = (arr || []).map(PartModel.normalize).filter(Boolean);
+      if (!raw) {
+        this.parts = [];
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        this.parts = (parsed || []).map(PartModel.normalize).filter(Boolean);
+      } else if (parsed && typeof parsed === 'object') {
+        this.parts = Object.values(parsed).map(PartModel.normalize).filter(Boolean);
       } else {
         this.parts = [];
       }
@@ -74,6 +84,40 @@ class PartService {
   }
 
   _saveLocal() {
+    this._localDirty = true;
+    const delay = (AppConfig?.system?.performance?.debounceDelay ?? 300);
+
+    if (!this._localSaveHooked) {
+      this._localSaveHooked = true;
+      try {
+        window.addEventListener('beforeunload', () => {
+          try { this._flushLocalSave(); } catch (_) {}
+        }, { capture: true });
+      } catch (_) {}
+      try {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            try { this._flushLocalSave(); } catch (_) {}
+          }
+        }, { capture: true });
+      } catch (_) {}
+    }
+
+    try { if (this._localSaveTimer) clearTimeout(this._localSaveTimer); } catch (_) {}
+    this._localSaveTimer = setTimeout(() => {
+      this._localSaveTimer = null;
+      try { this._saveLocalNow(); } catch (_) {}
+    }, delay);
+  }
+
+  _flushLocalSave() {
+    try { if (this._localSaveTimer) { clearTimeout(this._localSaveTimer); this._localSaveTimer = null; } } catch (_) {}
+    try { this._saveLocalNow(); } catch (_) {}
+  }
+
+  _saveLocalNow() {
+    if (!this._localDirty) return;
+    this._localDirty = false;
     try {
       localStorage.setItem(this._key(), JSON.stringify(this.parts || []));
     } catch (e) {
@@ -88,6 +132,11 @@ class PartService {
     this.db = null;
     this.ref = null;
     this.parts = [];
+
+    // PartService localStorage debounce
+    this._localDirty = false;
+    this._localSaveTimer = null;
+    this._localSaveHooked = false;
   }
 
   async _persist() {
@@ -152,12 +201,26 @@ class RepairPartsService {
 
     // { [repairId]: RepairPart[] }
     this.byRepair = {};
+
+    // RepairPartsService getAllItems cache
+    this._itemsRev = 0;
+    this._cacheAllItems = null;
+
+    // RepairPartsService localStorage debounce
+    this._localDirty = false;
+    this._localSaveTimer = null;
+    this._localSaveHooked = false;
   }
 
   _key() {
     const prefix = AppConfig?.system?.storage?.prefix || 'repair_tracking_';
     const scope = (window.getUserScopeKey ? window.getUserScopeKey() : (window.currentUser?.uid || 'unknown'));
     return `${prefix}repair_parts_${scope}`;
+  }
+
+  _touchItems() {
+    this._itemsRev = (this._itemsRev || 0) + 1;
+    this._cacheAllItems = null;
   }
 
   async init() {
@@ -189,6 +252,15 @@ class RepairPartsService {
     this.db = null;
     this.ref = null;
     this.byRepair = {};
+
+    // RepairPartsService getAllItems cache
+    this._itemsRev = 0;
+    this._cacheAllItems = null;
+
+    // RepairPartsService localStorage debounce
+    this._localDirty = false;
+    this._localSaveTimer = null;
+    this._localSaveHooked = false;
   }
 
   async loadAll() {
@@ -278,6 +350,7 @@ class RepairPartsService {
         if (data && typeof data === 'object') {
           const out = normalizeToByRepair(data);
           this.byRepair = out;
+          this._touchItems();
           this._saveLocal();
 
           // 若偵測到舊扁平結構，做一次性自動遷移（覆寫成新結構，避免之後更新/刪除失效）
@@ -317,16 +390,53 @@ class RepairPartsService {
       const raw = localStorage.getItem(this._key());
       if (!raw) {
         this.byRepair = {};
+        this._touchItems();
         return;
       }
       const data = JSON.parse(raw);
       this.byRepair = normalizeToByRepair(data);
+      this._touchItems();
     } catch (e) {
       this.byRepair = {};
+      this._touchItems();
     }
   }
 
   _saveLocal() {
+    this._localDirty = true;
+    const delay = (AppConfig?.system?.performance?.debounceDelay ?? 300);
+
+    if (!this._localSaveHooked) {
+      this._localSaveHooked = true;
+      try {
+        window.addEventListener('beforeunload', () => {
+          try { this._flushLocalSave(); } catch (_) {}
+        }, { capture: true });
+      } catch (_) {}
+      try {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            try { this._flushLocalSave(); } catch (_) {}
+          }
+        }, { capture: true });
+      } catch (_) {}
+    }
+
+    try { if (this._localSaveTimer) clearTimeout(this._localSaveTimer); } catch (_) {}
+    this._localSaveTimer = setTimeout(() => {
+      this._localSaveTimer = null;
+      try { this._saveLocalNow(); } catch (_) {}
+    }, delay);
+  }
+
+  _flushLocalSave() {
+    try { if (this._localSaveTimer) { clearTimeout(this._localSaveTimer); this._localSaveTimer = null; } } catch (_) {}
+    try { this._saveLocalNow(); } catch (_) {}
+  }
+
+  _saveLocalNow() {
+    if (!this._localDirty) return;
+    this._localDirty = false;
     try {
       localStorage.setItem(this._key(), JSON.stringify(this.byRepair || {}));
     } catch (e) {
@@ -367,19 +477,25 @@ class RepairPartsService {
   listForRepair(repairId) {
     return this.getForRepair(repairId);
   }
-
   getAllItems() {
+    const rev = this._itemsRev || 0;
+    if (this._cacheAllItems && this._cacheAllItems.rev === rev) return this._cacheAllItems.arr;
+
     const out = [];
     Object.keys(this.byRepair || {}).forEach(rid => {
       (this.byRepair[rid] || []).forEach(it => {
         if (it && !it.isDeleted) out.push(it);
       });
     });
+
     // 依 updatedAt desc
-    return out.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    out.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+
+    this._cacheAllItems = { rev, arr: out };
+    return out;
   }
 
-  // 相容：提供 getAll() 介面給 LinkageHelper / 其他模組使用
+  // 相容：提供 getAll() 介面給 LinkageHelper / 其他模組使用給 LinkageHelper / 其他模組使用
   getAll() {
     return this.getAllItems();
   }
@@ -407,6 +523,7 @@ class RepairPartsService {
     });
 
     this.byRepair[rid] = [normalized, ...(this.byRepair[rid] || [])];
+    this._touchItems();
     await this._persistRepair(rid);
     return normalized;
   }
@@ -428,6 +545,7 @@ class RepairPartsService {
     });
     arr[idx] = updated;
     this.byRepair[rid] = arr;
+    this._touchItems();
     await this._persistRepair(rid);
     return updated;
   }
@@ -455,6 +573,7 @@ class RepairPartsService {
       return RepairPartModel.normalize(rid, { ...x, isDeleted: true, updatedAt: now });
     });
 
+    this._touchItems();
     await this._persistRepair(rid);
   }
 }

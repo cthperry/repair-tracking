@@ -30,6 +30,13 @@ class OrderService {
     this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 天（保留欄位）
     this._cacheSaveTimer = null;
 
+    // getAll 快取（避免重複 filter/sort）
+    this._rev = 0;
+    this._cacheAll = null;
+
+    // 關頁/切背景時 flush 本機快取
+    this._localFlushHooked = false;
+
     // Realtime Stream
     this._listenersReady = false;
     this._streamRef = null;
@@ -174,12 +181,30 @@ class OrderService {
     }
   }
 
+  _ensureLocalFlushHook() {
+    if (this._localFlushHooked) return;
+    this._localFlushHooked = true;
+    try {
+      window.addEventListener('beforeunload', () => {
+        try { this._saveLocalNow(); } catch (_) {}
+      }, { capture: true });
+    } catch (_) {}
+    try {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          try { this._saveLocalNow(); } catch (_) {}
+        }
+      }, { capture: true });
+    } catch (_) {}
+  }
+
   _scheduleCacheSave(delayMs = 1500) {
     if (!this.cacheEnabled) return;
+    this._ensureLocalFlushHook();
     if (this._cacheSaveTimer) clearTimeout(this._cacheSaveTimer);
     this._cacheSaveTimer = setTimeout(() => {
       this._cacheSaveTimer = null;
-      this.saveToLocalStorage();
+      this._saveLocalNow();
     }, Math.max(250, delayMs));
   }
 
@@ -193,7 +218,7 @@ class OrderService {
   }
 
   saveToLocalStorage() {
-    this._saveLocal();
+    this._saveLocalNow();
   }
 
   async loadFromFirebase() {
@@ -322,8 +347,12 @@ class OrderService {
     this._streamRef = null;
     this._streamHandlers = null;
   }
-
   _saveLocal() {
+    // 相容舊呼叫：保留立即寫入
+    this._saveLocalNow();
+  }
+
+  _saveLocalNow() {
     try {
       localStorage.setItem(this._key(), JSON.stringify(this.orders || []));
 
@@ -352,6 +381,8 @@ _notifyChanged() {
 
 _markIndexDirty() {
   this._indexDirty = true;
+  this._cacheAll = null;
+  this._rev = (this._rev || 0) + 1;
 }
 
 _ensureIndex() {
@@ -416,13 +447,17 @@ getSummaryForRepair(repairId) {
       console.warn('OrderService write Firebase failed:', e);
     }
   }
-
   getAll() {
-    // remove() 採軟刪除（isDeleted=true），列表需排除已刪除項目。
-    return (this.orders || [])
+    const rev = this._rev || 0;
+    if (this._cacheAll && this._cacheAll.rev === rev) return this._cacheAll.arr;
+
+    const arr = (this.orders || [])
       .filter(o => o && !o.isDeleted)
       .slice()
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+
+    this._cacheAll = { rev, arr };
+    return arr;
   }
 
   get(id) {
@@ -521,7 +556,7 @@ getSummaryForRepair(repairId) {
     });
 
     this.orders = [order, ...(this.orders || [])];
-    this._saveLocal();
+    this._scheduleCacheSave(250);
     await this._writeFirebaseOrder(order);
     this._notifyChanged();
 
@@ -582,7 +617,7 @@ async upsert(order) {
     const idx = (this.orders || []).findIndex(o => o.id === normalized.id);
     if (idx >= 0) this.orders[idx] = normalized;
     else this.orders = [normalized, ...(this.orders || [])];
-    this._saveLocal();
+    this._scheduleCacheSave(250);
     await this._writeFirebaseOrder(normalized);
     this._notifyChanged();
     return normalized;
@@ -596,14 +631,14 @@ async upsert(order) {
 
     const removed = this.orders[idx];
     this.orders.splice(idx, 1);
-    this._saveLocal();
+    this._scheduleCacheSave(250);
 
     if (this.ref) {
       try {
         await this.ref.child(oid).remove();
       } catch (e) {
         this.orders.splice(idx, 0, removed);
-        this._saveLocal();
+        this._scheduleCacheSave(250);
         throw e;
       }
     }
@@ -665,7 +700,7 @@ async upsert(order) {
     }
 
     if (updatedCount) {
-      this._saveLocal();
+      this._scheduleCacheSave(250);
       this._notifyChanged();
       try { window.dispatchEvent(new CustomEvent('data:changed', { detail: { module: 'orders' } })); } catch (_) {}
     }

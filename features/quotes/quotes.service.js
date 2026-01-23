@@ -40,6 +40,13 @@ class QuoteService {
     this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 天
     this._cacheSaveTimer = null;
 
+    // getAll 快取（避免重複 filter/sort）
+    this._rev = 0;
+    this._cacheAll = null;
+
+    // 關頁/切背景時 flush 本機快取
+    this._localFlushHooked = false;
+
     // Realtime Stream
     this._listenersReady = false;
     this._streamRef = null;
@@ -197,12 +204,29 @@ class QuoteService {
     }
   }
 
+  _ensureLocalFlushHook() {
+    if (this._localFlushHooked) return;
+    this._localFlushHooked = true;
+    try {
+      window.addEventListener('beforeunload', () => {
+        try { this._saveLocalNow(); } catch (_) {}
+      }, { capture: true });
+    } catch (_) {}
+    try {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          try { this._saveLocalNow(); } catch (_) {}
+        }
+      }, { capture: true });
+    } catch (_) {}
+  }
   _scheduleCacheSave(delayMs = 1500) {
     if (!this.cacheEnabled) return;
+    this._ensureLocalFlushHook();
     if (this._cacheSaveTimer) clearTimeout(this._cacheSaveTimer);
     this._cacheSaveTimer = setTimeout(() => {
       this._cacheSaveTimer = null;
-      this.saveToLocalStorage();
+      this._saveLocalNow();
     }, Math.max(250, delayMs));
   }
 
@@ -216,7 +240,7 @@ class QuoteService {
   }
 
   saveToLocalStorage() {
-    this._saveLocal();
+    this._saveLocalNow();
   }
 
   async loadFromFirebase() {
@@ -348,8 +372,12 @@ class QuoteService {
     this._streamRef = null;
     this._streamHandlers = null;
   }
-
   _saveLocal() {
+    // 相容舊呼叫：保留立即寫入
+    this._saveLocalNow();
+  }
+
+  _saveLocalNow() {
     try {
       localStorage.setItem(this._key(), JSON.stringify(this.quotes || []));
 
@@ -367,6 +395,7 @@ class QuoteService {
       console.warn('QuoteService saveLocal failed:', e);
     }
   }
+
 _notifyChanged() {
     this._markIndexDirty();
     // 通知其他 UI（例如：維修卡片 chips / 機台歷史頁）更新
@@ -378,6 +407,8 @@ _notifyChanged() {
 
 _markIndexDirty() {
   this._indexDirty = true;
+  this._cacheAll = null;
+  this._rev = (this._rev || 0) + 1;
 }
 
 _ensureIndex() {
@@ -630,14 +661,19 @@ getSummaryForRepair(repairId) {
 
     return entry;
   }
-
   getAll() {
     // 注意：remove() 目前採用軟刪除（isDeleted=true）。
     // UI / 搜尋 / 計數需排除已刪除項目，避免出現「按刪除但看起來沒刪」的誤解。
-    return (this.quotes || [])
+    const rev = this._rev || 0;
+    if (this._cacheAll && this._cacheAll.rev === rev) return this._cacheAll.arr;
+
+    const arr = (this.quotes || [])
       .filter(q => q && !q.isDeleted)
       .slice()
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+
+    this._cacheAll = { rev, arr };
+    return arr;
   }
 
   get(id) {
@@ -731,7 +767,7 @@ getSummaryForRepair(repairId) {
     });
 
     this.quotes = [quote, ...(this.quotes || [])];
-    this._saveLocal();
+    this._scheduleCacheSave(250);
     await this._writeFirebaseQuote(quote);
     // 版本控制：建立紀錄
     try {
@@ -814,7 +850,7 @@ getSummaryForRepair(repairId) {
     const action = prev ? 'UPDATE' : 'CREATE';
     const diff = this._diffQuote(prev, normalized);
 
-    this._saveLocal();
+    this._scheduleCacheSave(250);
     await this._writeFirebaseQuote(normalized);
 
     // 版本控制：寫入歷史
@@ -842,8 +878,10 @@ getSummaryForRepair(repairId) {
     const removed = this.quotes[idx];
 
     // 先移除本機快取，確保 UI 立即消失
+    // 注意：getAll() 有快取（_cacheAll / _rev），必須先 _notifyChanged() 才能讓列表即時刷新。
     this.quotes.splice(idx, 1);
-    this._saveLocal();
+    this._notifyChanged();
+    this._scheduleCacheSave(250);
 
     // 同步 Firebase：使用 child(id).remove()，避免整包 set 覆寫且更符合「刪除」語意
     if (this.ref) {
@@ -852,15 +890,13 @@ getSummaryForRepair(repairId) {
       } catch (e) {
         // 回滾本機狀態
         this.quotes.splice(idx, 0, removed);
-        this._saveLocal();
+        this._notifyChanged();
+        this._scheduleCacheSave(250);
         throw e;
       }
     }
 
-    // 通知其他 UI 更新（例如：維修卡片 chips / 機台歷史頁）
-    try {
-      window.dispatchEvent(new CustomEvent('data:changed', { detail: { module: 'quotes' } }));
-    } catch (_) {}
+    // 本方法一開始已呼叫 _notifyChanged()，故不需要重複 dispatch data:changed。
 
     // 連動 repairParts：若該維修單用料仍停留在「已報價」且未產生訂單，則回復為「需求提出」並清除 quoteId
     try {
@@ -951,7 +987,7 @@ getSummaryForRepair(repairId) {
     }
 
     if (updatedCount) {
-      this._saveLocal();
+      this._scheduleCacheSave(250);
       this._notifyChanged();
       try { window.dispatchEvent(new CustomEvent('data:changed', { detail: { module: 'quotes' } })); } catch (_) {}
     }

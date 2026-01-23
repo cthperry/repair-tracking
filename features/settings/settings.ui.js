@@ -661,7 +661,11 @@ class SettingsUI {
 
     if (filterInput) {
       filterInput.addEventListener('input', () => {
-        try { this.renderUserAdminTbody(); } catch (_) {}
+        try { if (this._uaFilterTimer) clearTimeout(this._uaFilterTimer); } catch (_) {}
+        this._uaFilterTimer = setTimeout(() => {
+          this._uaFilterTimer = null;
+          try { this.renderUserAdminTbody(); } catch (_) {}
+        }, 300);
       });
     }
 

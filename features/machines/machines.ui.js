@@ -646,7 +646,11 @@ class MachinesUI {
 
   onQueryChange(value) {
     this.query = (value || '').toString();
-    this.renderSerialList();
+    try { if (this._queryTimer) clearTimeout(this._queryTimer); } catch (_) {}
+    this._queryTimer = setTimeout(() => {
+      this._queryTimer = null;
+      this.renderSerialList();
+    }, 300);
   }
 
   selectSerial(serial) {

@@ -1214,7 +1214,7 @@ Object.assign(PartsUI, {
     window.partsUI.searchDebounce = setTimeout(() => {
       window.partsUI.searchText = value;
       window.partsUI.update();
-    }, 120);
+    }, 300);
   },
 
   setStatusFilter(event) {

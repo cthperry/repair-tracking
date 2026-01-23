@@ -1019,7 +1019,7 @@ Object.assign(OrdersUI, {
     window.ordersUI.searchDebounce = setTimeout(() => {
       window.ordersUI.searchText = value;
       window.ordersUI.update();
-    }, 120);
+    }, 300);
   },
 
   setStatusFilter(event) {

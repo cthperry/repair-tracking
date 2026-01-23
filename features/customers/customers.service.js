@@ -18,6 +18,15 @@ class CustomerService {
     this._boundUid = '';
     this._boundAuthMode = '';
     this._initPromise = null;
+
+    // 快取/版本（避免 getAll 每次 sort）
+    this._rev = 0;
+    this._cacheAll = null;
+
+    // localStorage debounce
+    this._localDirty = false;
+    this._localSaveTimer = null;
+    this._localSaveHooked = false;
   }
 
   // ================================
@@ -25,6 +34,11 @@ class CustomerService {
   // ================================
   _norm(v) {
     return (v || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  _touch() {
+    this._rev = (this._rev || 0) + 1;
+    this._cacheAll = null;
   }
 
 
@@ -122,9 +136,13 @@ this.customersRef.on('child_added', (snapshot) => {
   const idx = this.customers.findIndex(c => c.id === item.id);
   if (idx === -1) {
     this.customers.push(item);
+    this._touch();
+    this.saveToLocalStorage();
     this.notifyListeners('added', item);
   } else {
     this.customers[idx] = item;
+    this._touch();
+    this.saveToLocalStorage();
     this.notifyListeners('updated', item);
   }
 });
@@ -138,6 +156,8 @@ this.customersRef.on('child_changed', (snapshot) => {
   if (item.isDeleted) {
     if (idx !== -1) {
       this.customers.splice(idx, 1);
+      this._touch();
+      this.saveToLocalStorage();
       this.notifyListeners('deleted', item);
     }
     return;
@@ -148,6 +168,9 @@ this.customersRef.on('child_changed', (snapshot) => {
   } else {
     this.customers.push(item);
   }
+
+  this._touch();
+  this.saveToLocalStorage();
   this.notifyListeners('updated', item);
 
 });
@@ -157,6 +180,8 @@ this.customersRef.on('child_changed', (snapshot) => {
       const idx = this.customers.findIndex(c => c.id === item.id);
       if (idx !== -1) {
         this.customers.splice(idx, 1);
+        this._touch();
+        this.saveToLocalStorage();
         this.notifyListeners('removed', item);
       }
     });
@@ -185,6 +210,7 @@ this.customersRef.on('child_changed', (snapshot) => {
     if (data) {
       this.customers = Object.values(data).filter(c => !c.isDeleted);
       console.log(`  ✓ Loaded ${this.customers.length} customers from Firebase`);
+      this._touch();
     } else {
       this.customers = [];
     }
@@ -199,13 +225,54 @@ this.customersRef.on('child_changed', (snapshot) => {
       this.customers = data ? JSON.parse(data) : [];
       this.customers = (this.customers || []).filter(c => !c.isDeleted);
       console.log(`  ✓ Loaded ${this.customers.length} customers from localStorage`);
+      this._touch();
     } catch (error) {
       console.error('Failed to load customers from localStorage:', error);
       this.customers = [];
     }
   }
-
   saveToLocalStorage() {
+    this._localDirty = true;
+
+    const delay = (AppConfig && AppConfig.system && AppConfig.system.performance && typeof AppConfig.system.performance.debounceDelay === 'number')
+      ? AppConfig.system.performance.debounceDelay
+      : 300;
+
+    if (!this._localSaveHooked) {
+      this._localSaveHooked = true;
+      try {
+        window.addEventListener('beforeunload', () => {
+          try { this.flushLocalSave(); } catch (_) {}
+        }, { capture: true });
+      } catch (_) {}
+      try {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            try { this.flushLocalSave(); } catch (_) {}
+          }
+        }, { capture: true });
+      } catch (_) {}
+    }
+
+    try { if (this._localSaveTimer) clearTimeout(this._localSaveTimer); } catch (_) {}
+    this._localSaveTimer = setTimeout(() => {
+      try { this._saveToLocalStorageNow(); } catch (_) {}
+    }, delay);
+  }
+
+  flushLocalSave() {
+    try {
+      if (this._localSaveTimer) {
+        clearTimeout(this._localSaveTimer);
+        this._localSaveTimer = null;
+      }
+    } catch (_) {}
+    try { this._saveToLocalStorageNow(); } catch (_) {}
+  }
+
+  _saveToLocalStorageNow() {
+    if (!this._localDirty) return;
+    this._localDirty = false;
     try {
       const prefix = AppConfig.system.storage.prefix;
       const scope = (window.getUserScopeKey ? window.getUserScopeKey() : (window.currentUser?.uid || 'unknown'));
@@ -257,9 +324,12 @@ this.customersRef.on('child_changed', (snapshot) => {
       totalRepairCount
     };
   }
-
   getAll() {
-    return [...this.customers].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    const rev = this._rev || 0;
+    if (this._cacheAll && this._cacheAll.rev === rev) return this._cacheAll.arr;
+    const arr = (this.customers || []).slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    this._cacheAll = { rev, arr };
+    return arr;
   }
 
   get(id) {
@@ -376,8 +446,9 @@ this.customersRef.on('child_changed', (snapshot) => {
 
     if (!this.customers.find(c => c.id === customer.id)) {
       this.customers.unshift(customer);
+      this._touch();
+      this.saveToLocalStorage();
     }
-    this.saveToLocalStorage();
     this.notifyListeners('created', customer);
     return customer;
   }
@@ -399,7 +470,10 @@ this.customersRef.on('child_changed', (snapshot) => {
     }
 
     const idx = this.customers.findIndex(c => c.id === id);
-    if (idx !== -1) this.customers[idx] = updated;
+    if (idx !== -1) {
+      this.customers[idx] = updated;
+      this._touch();
+    }
 
     // 若公司名稱變更：同步更名到「維修單 / 報價 / 訂單」以及同公司其他聯絡人
     try {
@@ -528,9 +602,12 @@ this.customersRef.on('child_changed', (snapshot) => {
     }
 
     const idx = this.customers.findIndex(c => c.id === id);
-    if (idx !== -1) this.customers.splice(idx, 1);
+    if (idx !== -1) {
+      this.customers.splice(idx, 1);
+      this._touch();
+      this.saveToLocalStorage();
+    }
 
-    this.saveToLocalStorage();
     this.notifyListeners('deleted', deleted);
     return true;
   }

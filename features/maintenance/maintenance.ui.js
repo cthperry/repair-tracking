@@ -500,11 +500,17 @@
 
     _setEquipSearch(ev){
       this.searchEquip = toStr(ev?.target?.value);
-      this._renderBody();
+      try { if (this._equipSearchTimer) clearTimeout(this._equipSearchTimer); } catch (_) {}
+      this._equipSearchTimer = setTimeout(() => {
+        this._equipSearchTimer = null;
+        this._renderBody();
+      }, 300);
     }
 
     clearEquipSearch(){
       this.searchEquip = '';
+      try { if (this._equipSearchTimer) clearTimeout(this._equipSearchTimer); } catch (_) {}
+      this._equipSearchTimer = null;
       this._renderBody();
     }
 
@@ -589,13 +595,22 @@
     _setRecEq(ev){ this.filterEquipmentId = toStr(ev?.target?.value); this._renderBody(); }
     _setRecFrom(ev){ this.filterFrom = toStr(ev?.target?.value); this._renderBody(); }
     _setRecTo(ev){ this.filterTo = toStr(ev?.target?.value); this._renderBody(); }
-    _setRecSearch(ev){ this.searchRecord = toStr(ev?.target?.value); this._renderBody(); }
+    _setRecSearch(ev){
+      this.searchRecord = toStr(ev?.target?.value);
+      try { if (this._recSearchTimer) clearTimeout(this._recSearchTimer); } catch (_) {}
+      this._recSearchTimer = setTimeout(() => {
+        this._recSearchTimer = null;
+        this._renderBody();
+      }, 300);
+    }
 
     clearRecordFilters(){
       this.searchRecord = '';
       this.filterFrom = '';
       this.filterTo = '';
       this.filterEquipmentId = '';
+      try { if (this._recSearchTimer) clearTimeout(this._recSearchTimer); } catch (_) {}
+      this._recSearchTimer = null;
       this._renderBody();
     }
 
