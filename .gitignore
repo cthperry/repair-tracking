@@ -1,3 +1,7 @@
 # 生成的壓縮檔文件
 *.tar.gz
 *.zip
+
+# Dependencies
+node_modules/
+functions/node_modules/
