@@ -3966,6 +3966,17 @@ static openDetail(repairId) {
           console.warn('RepairUI: worklog section load failed', e);
         }
       }, 0);
+
+      // 延後載入：活動時間軸（Timeline）
+      setTimeout(() => {
+        try {
+          if (window.ActivityTimeline && typeof window.ActivityTimeline.renderInto === 'function') {
+            window.ActivityTimeline.renderInto('repair-activity-timeline', repairId, { max: 30 });
+          }
+        } catch (e) {
+          console.warn('RepairUI: timeline render failed', e);
+        }
+      }, 0);
     }
   }
   

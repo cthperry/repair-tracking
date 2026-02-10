@@ -669,6 +669,14 @@ Object.assign(RepairUI.prototype, {
             </section>
           `}
           
+          <!-- 🕒 活動時間軸（Timeline） -->
+          <section class="detail-block" id="repair-activity-timeline-block">
+            <div class="detail-title">🕒 活動時間軸</div>
+            <div class="detail-body">
+              <div id="repair-activity-timeline" data-repair-id="${repair.id}"><div class="muted">載入中...</div></div>
+            </div>
+          </section>
+          
           <!-- 其他資訊 -->
           <div class="detail-section">
             <h4 class="detail-section-title">其他資訊</h4>

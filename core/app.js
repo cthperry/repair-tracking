@@ -94,6 +94,14 @@ class MainApp {
       // 綁定 Header / 通知面板行為
       try { this.bindGlobalHeaderActions(); } catch (_) {}
 
+      // Phase 3：Quick Create（FAB）
+      try {
+        if (window.ModuleLoader && typeof window.ModuleLoader.ensure === 'function') await window.ModuleLoader.ensure('phase3');
+        if (window.QuickCreate && typeof window.QuickCreate.init === 'function') window.QuickCreate.init();
+      } catch (e) {
+        console.warn('QuickCreate init failed:', e);
+      }
+
 
 
 

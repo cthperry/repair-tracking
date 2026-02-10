@@ -1,0 +1,260 @@
+/**
+ * Analytics UI（資料分析面板 - UI 層）
+ *
+ * 使用純 CSS bar chart + SVG 圓餅圖，不依賴外部 chart library。
+ */
+(function () {
+  'use strict';
+
+  const esc = (s) => {
+    const t = (s === null || s === undefined) ? '' : String(s);
+    return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+
+  // ─── KPI Cards ───
+  function _renderKPIs(data) {
+    const cards = [
+      { label: '全部維修單', value: data.totalAll, icon: '📋' },
+      { label: '進行中', value: data.totalActive, icon: '🔧', accent: data.totalActive > 0 },
+      { label: '已完成', value: data.totalCompleted, icon: '✅' },
+      { label: '平均處理天數', value: data.overallAvgDays + ' 天', icon: '⏱️' }
+    ];
+
+    return `
+      <div class="ana-kpi-grid">
+        ${cards.map(c => `
+          <div class="ana-kpi ${c.accent ? 'ana-kpi-accent' : ''}">
+            <div class="ana-kpi-icon">${c.icon}</div>
+            <div class="ana-kpi-val">${c.value}</div>
+            <div class="ana-kpi-label">${esc(c.label)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ─── Bar Chart (CSS-based) ───
+  function _renderBarChart(title, data, options = {}) {
+    if (!data.length) return '';
+    const maxVal = Math.max(...data.map(d => Math.max(d.created || 0, d.completed || 0, d.avg || 0, d.count || 0, 1)));
+    const showDual = data[0].created !== undefined;
+    const showAvg = data[0].avg !== undefined;
+    const showCount = data[0].count !== undefined;
+
+    const bars = data.map(d => {
+      if (showDual) {
+        const h1 = Math.round((d.created / maxVal) * 100);
+        const h2 = Math.round((d.completed / maxVal) * 100);
+        return `
+          <div class="ana-bar-col">
+            <div class="ana-bar-pair">
+              <div class="ana-bar ana-bar-1" style="height:${h1}%" title="建立：${d.created}"><span class="ana-bar-val">${d.created || ''}</span></div>
+              <div class="ana-bar ana-bar-2" style="height:${h2}%" title="完成：${d.completed}"><span class="ana-bar-val">${d.completed || ''}</span></div>
+            </div>
+            <div class="ana-bar-label">${esc(d.label)}</div>
+          </div>
+        `;
+      } else if (showAvg) {
+        const h = Math.round((d.avg / maxVal) * 100);
+        return `
+          <div class="ana-bar-col">
+            <div class="ana-bar-pair">
+              <div class="ana-bar ana-bar-3" style="height:${h}%" title="${d.avg} 天"><span class="ana-bar-val">${d.avg || ''}</span></div>
+            </div>
+            <div class="ana-bar-label">${esc(d.label)}</div>
+          </div>
+        `;
+      } else if (showCount) {
+        const h = Math.round((d.count / maxVal) * 100);
+        return `
+          <div class="ana-bar-col ana-bar-h">
+            <div class="ana-bar-h-bar" style="width:${h}%"></div>
+            <span class="ana-bar-h-name">${esc(d.name)}</span>
+            <span class="ana-bar-h-val">${d.count}</span>
+          </div>
+        `;
+      }
+      return '';
+    }).join('');
+
+    const legend = showDual
+      ? '<div class="ana-legend"><span class="ana-leg-dot ana-leg-1"></span>建立 <span class="ana-leg-dot ana-leg-2"></span>完成</div>'
+      : '';
+
+    const isHorizontal = data[0].count !== undefined;
+
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">${esc(title)}</div>
+        ${legend}
+        <div class="ana-bar-chart ${isHorizontal ? 'ana-bar-horizontal' : ''}">
+          ${bars}
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── SVG Pie Chart ───
+  function _renderPieChart(title, statusCount) {
+    const entries = Object.entries(statusCount).filter(([, v]) => v > 0);
+    if (!entries.length) return '';
+
+    const total = entries.reduce((s, [, v]) => s + v, 0);
+    const colors = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981', '#ec4899', '#06b6d4', '#84cc16'];
+    let angle = 0;
+    const paths = [];
+    const legendItems = [];
+
+    entries.forEach(([label, count], i) => {
+      const pct = count / total;
+      const color = colors[i % colors.length];
+      const startAngle = angle;
+      const endAngle = angle + pct * 360;
+
+      // SVG arc
+      const r = 80;
+      const cx = 100, cy = 100;
+      const startRad = (startAngle - 90) * Math.PI / 180;
+      const endRad = (endAngle - 90) * Math.PI / 180;
+      const x1 = cx + r * Math.cos(startRad);
+      const y1 = cy + r * Math.sin(startRad);
+      const x2 = cx + r * Math.cos(endRad);
+      const y2 = cy + r * Math.sin(endRad);
+      const large = pct > 0.5 ? 1 : 0;
+
+      if (pct >= 0.999) {
+        // Full circle
+        paths.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" />`);
+      } else {
+        paths.push(`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${color}" />`);
+      }
+
+      legendItems.push(`
+        <div class="ana-pie-legend-item">
+          <span class="ana-pie-dot" style="background:${color}"></span>
+          <span class="ana-pie-label">${esc(label)}</span>
+          <span class="ana-pie-count">${count} (${Math.round(pct * 100)}%)</span>
+        </div>
+      `);
+
+      angle = endAngle;
+    });
+
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">${esc(title)}</div>
+        <div class="ana-pie-wrap">
+          <svg viewBox="0 0 200 200" class="ana-pie-svg">
+            ${paths.join('')}
+            <circle cx="100" cy="100" r="45" fill="var(--color-panel, #fff)" />
+            <text x="100" y="96" text-anchor="middle" font-size="20" font-weight="800" fill="var(--color-text, #1e293b)">${total}</text>
+            <text x="100" y="113" text-anchor="middle" font-size="10" fill="var(--color-text-muted, #64748b)">進行中</text>
+          </svg>
+          <div class="ana-pie-legend">${legendItems.join('')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Maintenance Card ───
+  function _renderMaintenance(stats) {
+    if (!stats) return '';
+    const compliance = stats.total ? Math.round((stats.onTime / stats.total) * 100) : 0;
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">🛠️ 保養合規率</div>
+        <div class="ana-maint-grid">
+          <div class="ana-maint-ring">
+            <svg viewBox="0 0 120 120" class="ana-ring-svg">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-border, #e2e8f0)" stroke-width="10" />
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="10"
+                stroke-dasharray="${Math.round(compliance * 3.14)} 314"
+                stroke-linecap="round" transform="rotate(-90 60 60)" />
+              <text x="60" y="56" text-anchor="middle" font-size="22" font-weight="800" fill="var(--color-text)">${compliance}%</text>
+              <text x="60" y="72" text-anchor="middle" font-size="10" fill="var(--color-text-muted)">合規率</text>
+            </svg>
+          </div>
+          <div class="ana-maint-stats">
+            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#10b981"></span>正常 <b>${stats.onTime}</b></div>
+            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#f59e0b"></span>即將到期 <b>${stats.dueSoon}</b></div>
+            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#ef4444"></span>逾期 <b>${stats.overdue}</b></div>
+            <div class="ana-maint-row muted">共 ${stats.total} 台設備</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── Horizontal Ranking ───
+  function _renderRanking(title, items, icon) {
+    if (!items.length) return '';
+    const maxVal = items[0].count || 1;
+    const bars = items.map((d, i) => {
+      const w = Math.round((d.count / maxVal) * 100);
+      return `
+        <div class="ana-rank-row">
+          <span class="ana-rank-idx">${i + 1}</span>
+          <span class="ana-rank-name" title="${esc(d.name)}">${esc(d.name.length > 18 ? d.name.slice(0, 18) + '…' : d.name)}</span>
+          <div class="ana-rank-bar-wrap">
+            <div class="ana-rank-bar" style="width:${w}%"></div>
+          </div>
+          <span class="ana-rank-val">${d.count}</span>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">${icon} ${esc(title)}</div>
+        <div class="ana-ranking">${bars}</div>
+      </div>
+    `;
+  }
+
+  // ─── Period Selector ───
+  function _renderPeriodSelector() {
+    return `
+      <div class="ana-period-bar">
+        <span class="ana-period-label">分析期間</span>
+        <button class="btn ghost ana-period-btn ana-period-active" data-months="6">6 個月</button>
+        <button class="btn ghost ana-period-btn" data-months="12" disabled title="未來版本">12 個月</button>
+      </div>
+    `;
+  }
+
+  // ─── Main Render ───
+  function render(data) {
+    return `
+      <div class="analytics-root" id="analytics-root">
+        <div class="ana-header">
+          <h2 class="ana-title">📊 資料分析</h2>
+          <div class="ana-subtitle">近 6 個月維修數據總覽</div>
+        </div>
+
+        ${_renderKPIs(data)}
+
+        <div class="ana-grid-2">
+          ${_renderBarChart('維修趨勢（月別）', data.trend)}
+          ${_renderPieChart('進行中狀態分佈', data.statusCount)}
+        </div>
+
+        <div class="ana-grid-2">
+          ${_renderBarChart('平均處理天數', data.avgTrend)}
+          ${_renderMaintenance(data.maintenanceStats)}
+        </div>
+
+        <div class="ana-grid-2">
+          ${_renderRanking('客戶 Top 10（維修單數）', data.topCustomers, '👥')}
+          ${_renderRanking('設備 Top 10（維修單數）', data.topMachines, '🖥️')}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindEvents(container) {
+    // Future: period selector, export, etc.
+  }
+
+  window.AnalyticsUI = { render, bindEvents };
+  try { console.log('✅ AnalyticsUI loaded'); } catch (_) {}
+})();

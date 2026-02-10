@@ -18,6 +18,7 @@ class _AppRouter {
    */
   static ROUTE_CONFIG = {
     dashboard:   { icon: "🏠", title: "儀表板", navLabel: "儀表板", tabLabel: "首頁", subtitle: "總覽／待辦／通知", controller: "DashboardController", moduleName: "儀表板模組" },
+    analytics:   { icon: '📈', title: '分析', navLabel: '分析', tabLabel: '分析', subtitle: '趨勢／統計／Top10', controller: 'AnalyticsController', moduleName: '分析模組' },
     repairs:     { icon: '📋', title: '維修管理', navLabel: '維修管理', tabLabel: '維修', subtitle: '維修單建立／進度追蹤／歷史紀錄', controller: 'RepairController', moduleName: '維修模組' },
     machines:    { icon: '🖥️', title: '機台歷史', navLabel: '機台歷史', tabLabel: '機台', subtitle: '依序號快速查詢維修歷史', controller: 'MachinesController', moduleName: '機台歷史模組' },
     maintenance: { icon: '🛠️', title: '機台保養', navLabel: '機台保養', tabLabel: '保養', subtitle: '設備管理／保養紀錄／提醒／報表', controller: 'MaintenanceController', moduleName: '機台保養模組' },

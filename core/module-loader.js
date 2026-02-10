@@ -92,8 +92,8 @@
       scripts: ["features/dashboard/dashboard.ui.js", "features/dashboard/dashboard.controller.js"]
     },
     repairs: {
-      styles: ['features/repairs/repairs.css', 'features/worklogs/worklog.css'],
-      scripts: ['features/worklogs/worklog.ui.js', 'features/repairs/repairs.ui.js', 'features/repairs/repairs.ui-forms.js', 'features/repairs/repairs.controller.js']
+      styles: ['features/repairs/repairs.css', 'features/worklogs/worklog.css', 'features/timeline/activity-timeline.css'],
+      scripts: ['features/timeline/activity-timeline.js', 'features/worklogs/worklog.ui.js', 'features/repairs/repairs.ui.js', 'features/repairs/repairs.ui-forms.js', 'features/repairs/repairs.controller.js']
     },
     machines: {
       styles: ['features/machines/machines.css'],
@@ -122,6 +122,14 @@
     kb: {
       styles: ['features/kb/kb.css'],
       scripts: ['features/kb/kb.ui.js', 'features/kb/kb.controller.js']
+    },
+    analytics: {
+      styles: ['features/analytics/analytics.css'],
+      scripts: ['features/analytics/analytics.ui.js', 'features/analytics/analytics.controller.js']
+    },
+    phase3: {
+      styles: ['features/quick-create/quick-create.css'],
+      scripts: ['features/quick-create/quick-create.js']
     },
     weekly: {
       styles: ['features/weekly/weekly.css'],
