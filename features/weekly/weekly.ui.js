@@ -10,6 +10,10 @@ class WeeklyUI {
   constructor() {
     this.containerId = 'weekly-container';
     this.view = 'edit'; // edit | preview
+
+    // delegation guards
+    this._delegationBound = false;
+    this._lastInputTimer = null;
   }
 
   render(containerId = 'weekly-container') {
@@ -106,6 +110,118 @@ class WeeklyUI {
       // 預覽模式立即產生一次預覽內容
       this.refreshPreview();
     }
+  }
+
+  _bindDelegation(container) {
+    // WeeklyUI 每次 render 會重寫 innerHTML，因此事件必須掛在 container（事件委派）
+    if (this._delegationBound) return;
+    if (!container) return;
+    this._delegationBound = true;
+
+    const getActionEl = (evt) => {
+      const t = evt?.target;
+      if (!t || typeof t.closest !== 'function') return null;
+      return t.closest('[data-action]');
+    };
+
+    // click actions
+    container.addEventListener('click', async (evt) => {
+      const el = getActionEl(evt);
+      if (!el) return;
+      const action = el.getAttribute('data-action');
+      if (!action) return;
+
+      try {
+        switch (action) {
+          case 'weekly-toggle-preview': {
+            this.view = (this.view === 'preview') ? 'edit' : 'preview';
+            this.render(this.containerId);
+            break;
+          }
+          case 'weekly-refresh-preview': {
+            await this.refreshPreview();
+            break;
+          }
+          case 'weekly-send': {
+            const svc = window._svc('WeeklyService');
+            if (!svc || typeof svc.getEmail !== 'function') throw new Error('WeeklyService not ready');
+            const email = await svc.getEmail();
+            // 使用 mailto（前端純靜態）
+            const to = encodeURIComponent(String(email.to || ''));
+            const subject = encodeURIComponent(String(email.subject || ''));
+            const body = encodeURIComponent(String(email.body || ''));
+            window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+            break;
+          }
+          case 'weekly-toggle-thisweek': {
+            const body = document.getElementById('thisweek-body');
+            const btn = document.getElementById('btn-toggle-thisweek');
+            if (body) {
+              const isOpen = body.style.display !== 'none';
+              body.style.display = isOpen ? 'none' : '';
+              if (btn) btn.textContent = isOpen ? '展開' : '收合';
+            }
+            break;
+          }
+          case 'weekly-add-plan': {
+            const svc = window._svc('WeeklyService');
+            if (!svc || typeof svc.addPlanTop !== 'function') throw new Error('WeeklyService not ready');
+            await svc.addPlanTop();
+            this.renderPlans();
+            if (this.view === 'preview') await this.refreshPreview();
+            break;
+          }
+          case 'weekly-plan-delete': {
+            const id = el.getAttribute('data-plan-id');
+            const svc = window._svc('WeeklyService');
+            if (!svc || typeof svc.deletePlan !== 'function') throw new Error('WeeklyService not ready');
+            await svc.deletePlan(id);
+            this.renderPlans();
+            if (this.view === 'preview') await this.refreshPreview();
+            break;
+          }
+          default:
+            // ignore
+            break;
+        }
+      } catch (e) {
+        console.error('WeeklyUI action failed:', action, e);
+        // 盡量不要 throw 讓 router crash
+      }
+    });
+
+    // change: basis selector
+    container.addEventListener('change', async (evt) => {
+      const t = evt?.target;
+      if (!t) return;
+      if (t && t.id === 'weekly-thisweek-basis') {
+        await this.setThisWeekBasis(t.value);
+      }
+    });
+
+    // input/textarea: plan update（用輕量 debounce，避免每字 persist）
+    const onPlanInput = (evt) => {
+      const t = evt?.target;
+      if (!t || typeof t.getAttribute !== 'function') return;
+      const action = t.getAttribute('data-action');
+      if (action !== 'weekly-plan-update') return;
+      const id = t.getAttribute('data-plan-id');
+      const key = t.getAttribute('data-key');
+      const value = t.value;
+
+      if (this._lastInputTimer) clearTimeout(this._lastInputTimer);
+      this._lastInputTimer = setTimeout(async () => {
+        try {
+          const svc = window._svc('WeeklyService');
+          if (!svc || typeof svc.updatePlan !== 'function') return;
+          await svc.updatePlan(id, { [key]: value });
+          if (this.view === 'preview') await this.refreshPreview();
+        } catch (e) {
+          console.error('WeeklyUI plan update failed:', e);
+        }
+      }, 250);
+    };
+    container.addEventListener('input', onPlanInput);
   }
 
   refresh() {
