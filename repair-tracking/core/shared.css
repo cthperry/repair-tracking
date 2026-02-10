@@ -1,0 +1,260 @@
+/**
+ * Shared Base Styles and Components
+ * @file core/shared.css
+ * @description 共享的基礎樣式、重置樣式和通用組件（按鈕、輸入框等）
+ */
+
+/* ========================================
+   Reset & Base Styles
+   ======================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  font-size: 14px;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--color-text);
+  overflow-x: hidden;
+}
+
+/* ========================================
+   Buttons
+   ======================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+}
+
+.btn:hover {
+  background: var(--color-panel-alt);
+}
+
+.btn:active {
+  transform: none;
+}
+
+.btn:focus {
+  outline: none;
+  box-shadow: var(--ring);
+  border-color: var(--module-accent);
+}
+
+.btn.primary {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.btn.primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn.danger {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: #fff;
+}
+
+.btn.danger:hover {
+  filter: brightness(0.95);
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn.ghost:hover {
+  background: var(--color-background);
+}
+
+/* ========================================
+   Form Inputs
+   ======================================== */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--module-accent);
+  box-shadow: var(--ring);
+}
+
+textarea.input {
+  resize: vertical;
+}
+
+select.input {
+  background: var(--color-surface);
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+.muted {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.right {
+  margin-left: auto;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+.spacer {
+  height: 10px;
+}
+
+/* ========================================
+   Message States
+   ======================================== */
+.msg-loading {
+  padding: 24px;
+  color: #64748b;
+}
+
+.msg-error {
+  padding: 24px;
+  color: #b91c1c;
+}
+
+.msg-info {
+  padding: 24px;
+}
+
+/* ========================================
+   Brand & User Components
+   ======================================== */
+.brand {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--color-text);
+  letter-spacing: 0.2px;
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--module-accent-soft);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  color: var(--module-accent-ink);
+  font-weight: 900;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--module-accent-soft);
+  color: var(--module-accent-ink);
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.user-name {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--color-text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========================================
+   Header Components
+   ======================================== */
+.header-left,
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.header-title {
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* === Phase 4 Fix: Sidebar User Pill Layout (avoid line breaks after ui.css) === */
+.sidebar-header .user-pill{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-header .user-avatar{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-header .user-name{
+  display: inline-block;
+  white-space: nowrap;
+}

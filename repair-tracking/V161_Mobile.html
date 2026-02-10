@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>維修追蹤系統 - Mobile</title>
+
+  <!-- Shared CSS Variables -->
+  <link rel="stylesheet" href="core/variables.css">
+  <!-- Shared Base Styles & Components -->
+  <link rel="stylesheet" href="core/shared.css">
+  
+  <!-- Core UI Components (buttons, inputs, cards, stats, etc.) -->
+  <link rel="stylesheet" href="core/ui.css">
+
+  <style>
+    /* Mobile specific background gradient */
+    body{
+      background:
+        radial-gradient(900px 460px at 0% 0%, var(--module-accent-soft), transparent 58%),
+        radial-gradient(760px 420px at 100% 0%, rgba(14, 165, 233, 0.06), transparent 62%),
+        linear-gradient(180deg, var(--color-background) 0%, var(--color-surface-muted) 100%);
+      background-attachment: fixed;
+    }
+
+    /* Buttons, inputs, utilities, and message states now in core/shared.css */
+
+    .app{min-height:100vh;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--color-border);background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);position:sticky;top:0;z-index:10}
+    /* Brand and header components now in core/shared.css */
+    #main-content{flex:1;overflow-y:auto;padding-bottom:84px}
+    /* Bottom Tab Bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:6px;padding:8px 10px;background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);border-top:1px solid var(--color-border);z-index:20;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab-item{flex:0 0 auto;min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;border-radius:12px;color:var(--color-text-secondary);cursor:pointer;border:1px solid transparent;user-select:none}
+.tab-item.active{background:var(--module-accent-soft);border-color:var(--module-accent-soft);color:var(--module-accent-ink)}
+.tab-icon{font-size:18px;line-height:1}
+.tab-label{font-size:12px;line-height:1}
+
+    /* Message states and header utilities now in core/shared.css */
+  </style>
+</head>
+<body>
+  <!-- Firebase SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+
+  <!-- Core -->
+  <script src="core/config.js"></script>
+  
+  <script src="core/utils/strings.js"></script>
+  <script src="core/utils/time.js"></script>
+  <script src="core/utils/dom.js"></script>
+<script src="core/utils.js"></script>
+  <script src="core/registry.js"></script>
+  <script src="core/app-state.js"></script>
+  <script src="core/theme.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/saved-views.js"></script>
+  <script src="core/form-validate.js"></script>
+  <script src="core/listPaging.js"></script>
+  <script src="core/error-handler.js"></script>
+  <script src="core/constants.js"></script>
+  <script src="core/router.js"></script>
+  <script src="core/app.js"></script>
+  <script src="core/bootstrap.js"></script>
+  <script src="core/auth.js"></script>
+  <script src="core/user-admin.js"></script>
+  <script src="core/linkage.js"></script>
+  <script src="core/module-loader.js"></script>
+
+  <!-- Customers (must load before repairs forms auto-complete) -->
+  <script src="features/customers/customers.model.js"></script>
+  <script src="features/customers/customers.service.js"></script>
+
+  <!-- Repairs -->
+  <script src="features/repairs/repairs.model.js"></script>
+  <script src="features/repairs/repairs.service.js"></script>
+
+  <!-- Machines -->
+
+  <!-- Settings -->
+  <script src="features/settings/settings.model.js"></script>
+  <script src="features/settings/settings.service.js"></script>
+  <!-- Repair Templates (V161.105) -->
+  <script src="features/templates/repairTemplates.model.js"></script>
+  <script src="features/templates/repairTemplates.service.js"></script>
+
+  <!-- Weekly -->
+  <script src="features/weekly/weekly.model.js"></script>
+  <script src="features/weekly/weekly.service.js"></script>
+
+  <!-- ========================================
+       零件管理模組
+       ======================================== -->
+  <script src="features/parts/parts.model.js"></script>
+  <script src="features/parts/parts.service.js"></script>
+
+  <!-- ========================================
+       報價管理模組
+       ======================================== -->
+  <script src="features/quotes/quotes.model.js"></script>
+  <script src="features/quotes/quotes.service.js"></script>
+
+  <!-- ========================================
+       訂單/採購追蹤模組
+       ======================================== -->
+  <script src="features/orders/orders.model.js"></script>
+  <script src="features/orders/orders.service.js"></script>
+
+  <!-- ========================================
+       使用者操作指南
+       ======================================== -->
+
+  <!-- ========================================
+       知識庫（KB-1）
+       ======================================== -->
+  <script src="features/kb/kb.model.js"></script>
+  <script src="features/kb/kb.service.js"></script>
+
+  <!-- ========================================
+       機台保養管理（MNT-1）
+       ======================================== -->
+  <script src="features/maintenance/maintenance.model.js"></script>
+  <script src="features/maintenance/maintenance.service.js"></script>
+
+  <div id="app-container"></div>
+
+    <script>
+    /**
+     * Mobile 版本主應用程式初始化
+     * @note 使用 core/app.js 中的 initializeApp() 統一初始化邏輯
+     * @note Mobile 需要覆寫 header ID 常數
+     */
+    initializeApp(MobileApp, {
+      constantOverrides: {
+        HEADER_TITLE_ID: 'mobile-header-title',
+        HEADER_SUBTITLE_ID: 'mobile-header-subtitle'
+      }
+    });
+  </script>
+</body>
+</html>

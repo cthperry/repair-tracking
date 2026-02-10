@@ -1,0 +1,37 @@
+/* 機台保養管理（Maintenance）- module styles */
+
+/* Dashboard due status accent */
+.maint-due-row{border:1px solid var(--color-border);border-radius:16px;padding:12px 14px;background:var(--color-surface);}
+.maint-due-row.overdue{border-color:rgba(220,38,38,.35);box-shadow:0 0 0 4px rgba(220,38,38,.07) inset;}
+.maint-due-row.duesoon{border-color:rgba(217,119,6,.35);box-shadow:0 0 0 4px rgba(217,119,6,.06) inset;}
+
+.maint-kpi-grid{display:grid;grid-template-columns:repeat(5, minmax(160px,1fr));gap:12px;}
+@media (max-width: 980px){
+  .maint-kpi-grid{grid-template-columns:repeat(2, minmax(160px,1fr));}
+}
+
+.maint-kpi{padding:12px 14px;border-radius:18px;border:1px solid var(--color-border);background:linear-gradient(180deg, rgba(148,163,184,.08), rgba(148,163,184,.02));}
+.maint-kpi .n{font-size:28px;font-weight:900;line-height:1.1;}
+.maint-kpi .l{color:var(--color-text-secondary);margin-top:4px;}
+
+/* 表單群組 */
+.maint-form-grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px;}
+@media (max-width: 860px){
+  .maint-form-grid{grid-template-columns:1fr;}
+}
+
+.maint-subtitle{font-weight:900;margin:14px 0 6px;}
+
+
+/* 列表狀態 */
+.card.row-overdue{border-color:rgba(220,38,38,.35);box-shadow:0 0 0 4px rgba(220,38,38,.06) inset;}
+.card.row-soon3{border-color:rgba(217,119,6,.35);box-shadow:0 0 0 4px rgba(217,119,6,.05) inset;}
+.card.row-soon7{border-color:rgba(14,165,233,.30);box-shadow:0 0 0 4px rgba(14,165,233,.05) inset;}
+.card.row-soon1{border-color:rgba(217,119,6,.35);box-shadow:0 0 0 4px rgba(217,119,6,.05) inset;}
+.card.row-soon2{border-color:rgba(14,165,233,.30);box-shadow:0 0 0 4px rgba(14,165,233,.05) inset;}
+.card.row-norecord{border-color:rgba(100,116,139,.25);box-shadow:0 0 0 4px rgba(100,116,139,.04) inset;}
+
+/* 動態行（檢查清單/零件） */
+.maint-row{display:flex;gap:8px;align-items:center;}
+.maint-row .input{flex:1;min-width:0;}
+.maint-row .btn{flex:0 0 auto;}

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>維修追蹤系統 - Desktop</title>
+
+  <!-- ========================================
+       ${AppConfig.getFullVersion()}
+       這是一個全新的模組化架構
+       核心理念：穩定性、可維護性、效能
+       ======================================== -->
+
+  <!-- Shared CSS Variables -->
+  <link rel="stylesheet" href="core/variables.css">
+  <!-- Shared Base Styles & Components -->
+  <link rel="stylesheet" href="core/shared.css">
+  <!-- Core UI Components (buttons, inputs, cards, stats, etc.) -->
+  <link rel="stylesheet" href="core/ui.css">
+
+  <style>
+    /* Desktop specific background gradient */
+    body {
+      background:
+        radial-gradient(1200px 600px at 0% 0%, var(--module-accent-soft), transparent 55%),
+        radial-gradient(900px 520px at 100% 0%, rgba(14, 165, 233, 0.06), transparent 60%),
+        linear-gradient(180deg, var(--color-background) 0%, var(--color-surface-muted) 100%);
+      background-attachment: fixed;
+    }
+
+    /* ========================================
+       Loading Screen (由 Bootstrap 渲染)
+       ======================================== */
+    /* Bootstrap 會動態插入載入畫面 */
+    
+    /* ========================================
+       Login Screen (由 Auth 渲染)
+       ======================================== */
+    /* Auth 會動態插入登入表單 */
+    
+    /* ========================================
+       Main App Layout (登入後顯示)
+       ======================================== */
+    .app {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+    
+    aside {
+      width: 248px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,253,0.92) 100%);
+      border-right: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 12px 12px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(10px);
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(247,249,253,0.90) 100%);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Header, brand, and user components now in core/shared.css */
+
+    .sidebar-header{padding: 10px 10px 0 10px;}
+    .sidebar-title{font-weight:900;font-size:14px;color:var(--color-text);}
+    .sidebar-sub{margin-top:4px;}
+
+    .sidebar-nav{padding: 0 10px; flex: 1; overflow-y: auto;}
+
+    .sidebar-footer{padding: 0 10px 10px 10px;}
+
+    /* Buttons, inputs, and utility classes now in core/shared.css */
+
+    /* ========================================
+       Navigation
+       ======================================== */
+    .nav-title{color:var(--color-text-secondary);font-size:12px;margin-bottom:8px;}
+    .nav-item{padding:10px 10px;border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--color-text-secondary);border:1px solid transparent;user-select:none;}
+    .nav-item:hover{background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.18);color:var(--color-text);}
+    .nav-item.active{background:var(--module-accent-soft);box-shadow: inset 3px 0 0 var(--module-accent);border-radius:10px;color:var(--module-accent-ink);}
+    .nav-item.disabled{cursor:not-allowed;opacity:.5;}
+    .nav-item.disabled:hover{background:transparent;border-color:transparent;color:var(--color-text-secondary);}
+
+    /* Message states and spacer now in core/shared.css */
+
+    .main-content{flex:1;overflow-y:auto;}
+  </style>
+</head>
+<body>
+  <!-- ========================================
+       所有 UI 都由 JavaScript 動態渲染
+       這裡只保留最基本的容器
+       ======================================== -->
+  
+  <!-- Firebase SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  
+  <!-- ========================================
+       核心模組載入順序（關鍵！）
+       1. Config (配置)
+       2. ErrorHandler (錯誤處理)
+       3. Bootstrap (系統啟動)
+       4. Auth (認證)
+       ======================================== -->
+  
+  <!-- Step 1: 載入配置 -->
+  <script src="core/config.js"></script>
+
+  
+  <script src="core/utils/strings.js"></script>
+  <script src="core/utils/time.js"></script>
+  <script src="core/utils/dom.js"></script>
+<!-- Step 1.2: 共用工具（日期/服務初始化等） -->
+  <script src="core/utils.js"></script>
+  <script src="core/registry.js"></script>
+  <script src="core/app-state.js"></script>
+
+  <!-- Step 1.5: 主題/配色（模組 Accent） -->
+  <script src="core/theme.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/saved-views.js"></script>
+  <script src="core/form-validate.js"></script>
+  <script src="core/listPaging.js"></script>
+  
+  <!-- Step 2: 載入錯誤處理器 -->
+  <script src="core/error-handler.js"></script>
+
+  <!-- Step 2.5: 載入應用程式核心 -->
+  <script src="core/constants.js"></script>
+  <script src="core/router.js"></script>
+  <script src="core/app.js"></script>
+
+  <!-- Step 3: 載入啟動器 -->
+  <script src="core/bootstrap.js"></script>
+  
+  <!-- Step 4: 載入認證系統 -->
+  <script src="core/auth.js"></script>
+  <script src="core/user-admin.js"></script>
+  <script src="core/linkage.js"></script>
+  <script src="core/module-loader.js"></script>
+  
+    <script src="features/notifications/notification-center.js"></script>
+<!-- ========================================
+       客戶管理模組（登入後載入）
+       ======================================== -->
+  <script src="features/customers/customers.model.js"></script>
+  <script src="features/customers/customers.service.js"></script>
+
+<!-- ========================================
+       維修管理模組（登入後載入）
+       ======================================== -->
+  <script src="features/repairs/repairs.model.js"></script>
+  <script src="features/repairs/repairs.service.js"></script>
+  <!-- Work Logs (預載 model/service；UI 由 ModuleLoader 延後載入) -->
+  <script src="features/worklogs/worklog.model.js"></script>
+  <script src="features/worklogs/worklog.service.js"></script>
+
+  <!-- ========================================
+       機台歷史模組（登入後載入）
+       ======================================== -->
+
+  <!-- ========================================
+       設定模組
+       ======================================== -->
+  <script src="features/settings/settings.model.js"></script>
+  <script src="features/settings/settings.service.js"></script>
+  <!-- Repair Templates (V161.105) -->
+  <script src="features/templates/repairTemplates.model.js"></script>
+  <script src="features/templates/repairTemplates.service.js"></script>
+
+  <!-- ========================================
+       使用者操作指南
+       ======================================== -->
+
+
+  
+  
+  
+  <!-- ========================================
+       知識庫（KB-1）
+       ======================================== -->
+  <script src="features/kb/kb.model.js"></script>
+  <script src="features/kb/kb.service.js"></script>
+
+  <!-- ========================================
+       機台保養管理（MNT-1）
+       ======================================== -->
+  <script src="features/maintenance/maintenance.model.js"></script>
+  <script src="features/maintenance/maintenance.service.js"></script>
+
+<!-- ========================================
+       週報模組
+       ======================================== -->
+  <script src="features/weekly/weekly.model.js"></script>
+  <script src="features/weekly/weekly.service.js"></script>
+
+  <!-- ========================================
+       零件管理模組
+       ======================================== -->
+  <script src="features/parts/parts.model.js"></script>
+  <script src="features/parts/parts.service.js"></script>
+
+  <!-- ========================================
+       報價管理模組
+       ======================================== -->
+  <script src="features/quotes/quotes.model.js"></script>
+  <script src="features/quotes/quotes.service.js"></script>
+
+  <!-- ========================================
+       訂單/採購追蹤模組
+       ======================================== -->
+  <script src="features/orders/orders.model.js"></script>
+  <script src="features/orders/orders.service.js"></script>
+  
+  <!-- ========================================
+       主應用程式（登入後才載入）
+       ======================================== -->
+  <script>
+    /**
+     * Desktop 版本主應用程式初始化
+     * @note 使用 core/app.js 中的 initializeApp() 統一初始化邏輯
+     */
+    initializeApp(DesktopApp);
+  </script>
+</body>
+</html>

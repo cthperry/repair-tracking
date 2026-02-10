@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,"/>
+  <title>維修追蹤系統</title>
+  <!--
+    入口頁（根目錄）
+    目的：讓「手機」預設進入 V161_Mobile.html，而非誤開 Desktop 左側選單版。
+    例外：
+      - 強制 Desktop：/?force=desktop
+      - 強制 Mobile：/?force=mobile
+    若未指定 force，導向至 Index_V161.html（內含「自動選擇/手動選擇」入口）。
+  -->
+  <script>
+    (function () {
+      try {
+        var sp = new URLSearchParams(location.search || '');
+        var force = (sp.get('force') || '').toLowerCase();
+        if (force === 'desktop') {
+          location.replace('V161_Desktop.html' + location.search + location.hash);
+          return;
+        }
+        if (force === 'mobile') {
+          location.replace('V161_Mobile.html' + location.search + location.hash);
+          return;
+        }
+        // 統一走 Index_V161.html：可收藏、且內建自動判斷與手動入口
+        location.replace('Index_V161.html' + location.search + location.hash);
+      } catch (e) {
+        // 極端狀況 fallback
+        location.href = 'Index_V161.html';
+      }
+    })();
+  </script>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=Index_V161.html">
+  </noscript>
+</head>
+<body></body>
+</html>
