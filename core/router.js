@@ -233,6 +233,16 @@ class _AppRouter {
       route = _AppRouter.getDefaultRoute();
     }
 
+    // 簡易模式：阻擋導向到被隱藏的模組（含 Sidebar 點擊/深連結）
+    try {
+      if (window.UIMode && typeof window.UIMode.isRouteAllowed === 'function') {
+        if (!window.UIMode.isRouteAllowed(route)) {
+          try { window.UI?.toast?.('簡易模式下此功能已隱藏，已返回「維修管理」。', { type: 'warning' }); } catch (_) {}
+          route = 'repairs';
+        }
+      }
+    } catch (_) {}
+
     // Skip if already on this route
     if (this.current === route) {
       console.debug('Already on route:', route);

@@ -160,10 +160,12 @@ class MainApp {
    */
   async applyUIPreferences() {
     let density = APP_CONSTANTS.DEFAULT_DENSITY;
+    let settings = null;
     try {
       const ss = _AppRouter.getService('SettingsService');
       if (ss?.getSettings) {
         const s = await ss.getSettings();
+        settings = s || null;
         density = s?.uiDensity || 'comfortable';
       }
     } catch (e) {
@@ -171,11 +173,19 @@ class MainApp {
     }
     this.setDensity(density);
 
+    // Phase 4：簡易模式（UIMode）套用（不影響 Phase 1–3 硬規則）
+    try {
+      if (window.UIMode && typeof window.UIMode.apply === 'function') {
+        window.UIMode.apply(settings || {});
+      }
+    } catch (_) {}
+
     // 即時更新（設定儲存後立即生效）
     if (!this._prefBound) {
       this._prefBound = true;
       window.addEventListener('settings:updated', (ev) => {
         this.setDensity(ev?.detail?.uiDensity);
+        try { window.UIMode?.apply?.(ev?.detail || {}); } catch (_) {}
       });
     }
   }

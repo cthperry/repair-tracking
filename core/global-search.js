@@ -42,7 +42,10 @@
   const _routeOrderSimple = ['repairs', 'customers'];
 
   function _isSimpleMode() {
-    try { return (document.body && document.body.dataset && document.body.dataset.mode === 'simple'); } catch (_) { return false; }
+    try {
+      const d = document.body && document.body.dataset ? document.body.dataset : {};
+      return (d.uiMode === 'simple' || d.mode === 'simple');
+    } catch (_) { return false; }
   }
 
   function _getRouteOrder() {

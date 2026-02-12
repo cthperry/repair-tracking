@@ -16,7 +16,8 @@
   };
 
   const FULL_ROUTES = ['dashboard', 'repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'kb', 'weekly', 'guide', 'settings'];
-  const SIMPLE_ROUTES = ['dashboard', 'repairs', 'customers', 'weekly', 'settings'];
+  // 與設定頁提示一致：簡易模式仍保留「指南」
+  const SIMPLE_ROUTES = ['dashboard', 'repairs', 'customers', 'weekly', 'guide', 'settings'];
 
   let _mode = MODES.STANDARD;
   let _origGlobalSearchOpen = null;
@@ -51,7 +52,21 @@
 
   function _applyBodyAttr() {
     try {
+      // 相容：部分舊邏輯使用 data-mode 判斷（例如 GlobalSearch）
       document.body.dataset.uiMode = _mode;
+      document.body.dataset.mode = _mode;
+    } catch (_) {}
+  }
+
+  function _applyNavVisibility() {
+    try {
+      const allow = new Set(getAllowedRoutes());
+      document.querySelectorAll('[data-route]').forEach(el => {
+        const r = String(el.getAttribute('data-route') || '').trim();
+        if (!r) return;
+        // 隱藏不允許的模組（同時支援 Sidebar 與 Mobile Tab）
+        el.classList.toggle('hidden', !allow.has(r));
+      });
     } catch (_) {}
   }
 
@@ -93,10 +108,13 @@
   }
 
   function apply(settings) {
-    const next = (settings && typeof settings.uiMode === 'string') ? settings.uiMode : null;
-    _mode = (next === MODES.SIMPLE) ? MODES.SIMPLE : MODES.STANDARD;
+    // 設定資料源：Phase 1–3 既有為 simpleMode:boolean；同時相容 uiMode:string
+    const nextStr = (settings && typeof settings.uiMode === 'string') ? settings.uiMode : null;
+    const nextBool = !!(settings && settings.simpleMode);
+    _mode = (nextStr === MODES.SIMPLE || nextBool) ? MODES.SIMPLE : MODES.STANDARD;
     _applyBodyAttr();
     _applyGlobalSearchPolicy();
+    _applyNavVisibility();
     _redirectIfDisallowed();
   }
 

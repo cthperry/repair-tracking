@@ -186,7 +186,7 @@ class SettingsUI {
                     <input type="checkbox" id="settings-simple-mode" ${settings.simpleMode ? 'checked' : ''} />
                     <span>啟用精簡介面（隱藏進階模組）</span>
                   </label>
-                  <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 指南 / 設定」，全域搜尋也會只搜尋保留模組。</div>
+                  <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 指南 / 設定」，並停用全域搜尋（Ctrl+K）。</div>
                 </div>
               </div>
 
