@@ -513,6 +513,7 @@ _computeChangedFields(before, after) {
     'machine','serialNumber','issue','content',
     'status','progress','priority',
     'needParts','partsOrdered','partsArrived','partsReplaced',
+    'billing.chargeable','billing.orderStatus','billing.notOrdered.reasonCode','billing.notOrdered.note',
     'notes','tags','attachments'
   ];
 
@@ -520,9 +521,23 @@ _computeChangedFields(before, after) {
   const b = before || {};
   const a = after || {};
 
+  const getByPath = (obj, path) => {
+    if (!path) return undefined;
+    if (path.indexOf('.') === -1) return obj ? obj[path] : undefined;
+    const parts = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length; i++) {
+      if (!cur || typeof cur !== 'object') return undefined;
+      cur = cur[parts[i]];
+    }
+    return cur;
+  };
+
   for (const field of fields) {
-    if (!this._isEqualValue(b[field], a[field])) {
-      changed.push({ field, from: b[field], to: a[field] });
+    const bv = getByPath(b, field);
+    const av = getByPath(a, field);
+    if (!this._isEqualValue(bv, av)) {
+      changed.push({ field, from: bv, to: av });
     }
   }
 

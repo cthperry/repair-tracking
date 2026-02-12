@@ -11,6 +11,107 @@
 
 class RepairModel {
   /**
+   * 正規化 billing（收費/下單狀態）
+   * - chargeable: true | false | null
+   * - orderStatus: 'ordered' | 'not_ordered' | null
+   * - notOrdered: { reasonCode: 'price'|'budget'|'internal'|'other'|null, note: string|null }
+   * - decidedAt/decidedBy: 當 chargeable 或 orderStatus 變動時寫入
+   */
+  static normalizeBilling(repair, before = null) {
+    const r = (repair && typeof repair === 'object') ? repair : {};
+    const b0 = (r.billing && typeof r.billing === 'object') ? r.billing : {};
+    const b1 = (before && before.billing && typeof before.billing === 'object') ? before.billing : {};
+
+    const toTri = (v) => {
+      if (v === true || v === false || v === null) return v;
+      const s = (v === undefined || v === null) ? '' : String(v).trim().toLowerCase();
+      if (s === 'true' || s === '1' || s === 'yes' || s === 'y') return true;
+      if (s === 'false' || s === '0' || s === 'no' || s === 'n') return false;
+      if (s === 'null' || s === '' || s === 'undecided') return null;
+      return null;
+    };
+
+    const chargeable = toTri(b0.chargeable);
+
+    let orderStatus = (b0.orderStatus === null || b0.orderStatus === undefined) ? null : String(b0.orderStatus);
+    if (orderStatus) {
+      const s = orderStatus.toLowerCase();
+      if (s === 'ordered') orderStatus = 'ordered';
+      else if (s === 'not_ordered' || s === 'notordered' || s === 'not-ordered') orderStatus = 'not_ordered';
+      else orderStatus = null;
+    }
+
+    // backward compatibility: 舊欄位 billing.notOrderedReason
+    const legacyReason = (b0.notOrderedReason === null || b0.notOrderedReason === undefined) ? null : String(b0.notOrderedReason);
+
+    const n0 = (b0.notOrdered && typeof b0.notOrdered === 'object') ? b0.notOrdered : null;
+    let reasonCode = (n0?.reasonCode ?? legacyReason);
+    reasonCode = (reasonCode === null || reasonCode === undefined) ? null : String(reasonCode);
+    if (reasonCode) {
+      const s = reasonCode.toLowerCase();
+      if (s === 'price' || s === 'budget' || s === 'internal' || s === 'other') reasonCode = s;
+      else reasonCode = 'other';
+    }
+
+    let note = (n0?.note === null || n0?.note === undefined) ? null : String(n0.note);
+    if (note) {
+      note = note.trim();
+      if (note.length > 300) note = note.slice(0, 300);
+    } else {
+      note = null;
+    }
+
+    // 依 chargeable 決定可用欄位
+    if (chargeable !== true) {
+      orderStatus = null;
+      reasonCode = null;
+      note = null;
+    } else {
+      // chargeable === true
+      if (orderStatus === 'ordered') {
+        reasonCode = null;
+        note = null;
+      } else if (orderStatus === 'not_ordered') {
+        // keep reason/note (nullable)
+      } else {
+        orderStatus = null;
+        reasonCode = null;
+        note = null;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const u = (window.AppState?.getCurrentUser?.() || window.currentUser || null);
+    const by = {
+      uid: (u?.uid || ''),
+      name: (u?.displayName || ''),
+      email: (u?.email || '')
+    };
+
+    const prevChargeable = toTri(b1.chargeable);
+    const prevOrderStatus = (b1.orderStatus || null);
+
+    const decisionChanged = (chargeable !== prevChargeable) || (orderStatus !== prevOrderStatus);
+
+    const decidedAt = decisionChanged ? now : (b0.decidedAt || b1.decidedAt || '');
+    const decidedBy = decisionChanged ? by : (b0.decidedBy || b1.decidedBy || null);
+
+    return {
+      ...r,
+      billing: {
+        chargeable,
+        orderStatus,
+        notOrdered: {
+          reasonCode,
+          note
+        },
+        decidedAt,
+        decidedBy
+      }
+    };
+  }
+
+  /**
    * 建立新的維修單物件
    */
   static create(data = {}) {
@@ -18,7 +119,7 @@ class RepairModel {
     const taiwanDate = this.getTaiwanDateString(new Date());
     const u = (window.AppState?.getCurrentUser?.() || window.currentUser || null);
 
-    return {
+    const base = {
       // 基本資訊
       id: data.id || this.generateRepairId(),
       repairNo: data.repairNo || data.id || '',
@@ -68,6 +169,25 @@ class RepairModel {
       version: data.version || 1,
       isDeleted: (typeof data.isDeleted === 'boolean') ? data.isDeleted : false
     };
+
+    // 收費/下單狀態（最小侵入）：用 billing 物件承載
+    const withBilling = this.normalizeBilling({
+      ...base,
+      billing: (data.billing && typeof data.billing === 'object') ? data.billing : {
+        // 預設「需收費」：減少一線人員填單步驟（仍可手動改為不需收費/未決定）
+        chargeable: (data.chargeable !== undefined) ? data.chargeable : true,
+        orderStatus: (data.orderStatus !== undefined) ? data.orderStatus : null,
+        // 新版欄位：notOrdered.reasonCode + notOrdered.note
+        notOrdered: {
+          reasonCode: (data.notOrderedReason !== undefined) ? data.notOrderedReason : null,
+          note: (data.notOrderedNote !== undefined) ? data.notOrderedNote : null
+        },
+        decidedAt: data.decidedAt || '',
+        decidedBy: data.decidedBy || null
+      }
+    }, null);
+
+    return withBilling;
   }
   
   /**
@@ -162,12 +282,17 @@ class RepairModel {
    * 更新維修單（部分更新）
    */
   static update(existing, updates) {
-    return {
+    const next = {
       ...existing,
       ...updates,
+      // billing 深合併：避免 update({billing:{...}}) 覆蓋掉 decidedBy 等欄位
+      billing: (updates && typeof updates.billing === 'object')
+        ? { ...(existing && existing.billing ? existing.billing : {}), ...updates.billing }
+        : (existing && existing.billing ? existing.billing : undefined),
       updatedAt: new Date().toISOString(),
       version: (existing.version || 1) + 1
     };
+    return this.normalizeBilling(next, existing);
   }
   
   /**

@@ -566,6 +566,21 @@ getSummaryForRepair(repairId) {
       console.warn('OrderService createFromQuote: update repairParts failed:', e);
     }
 
+    // 同步維修單：標記「需收費」且「已下單」
+    try {
+      if (order.repairId && window._svc('RepairService') && typeof window._svc('RepairService').update === 'function') {
+        await window._svc('RepairService').update(order.repairId, {
+          billing: {
+            chargeable: true,
+            orderStatus: 'ordered',
+            notOrdered: { reasonCode: null, note: null }
+          }
+        }, { silent: true });
+      }
+    } catch (e) {
+      console.warn('OrderService createFromQuote: update repair billing failed:', e);
+    }
+
     return order;
   }
 

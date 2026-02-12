@@ -61,6 +61,47 @@
   .ana-grid-2 { grid-template-columns: 1fr; }
 }
 
+/* ─── Billing / Conversion ─── */
+.ana-billing-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+.ana-billing-kpi {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 14px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.02));
+}
+.ana-billing-kpi-val {
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--color-text, #1e293b);
+  line-height: 1.1;
+}
+.ana-billing-kpi-label {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+}
+.ana-billing-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  padding: 8px 0;
+}
+.ana-billing-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+@media (max-width: 768px) {
+  .ana-billing-grid { grid-template-columns: 1fr; }
+  .ana-billing-list { grid-template-columns: 1fr; }
+}
+
 /* ─── Chart Card ─── */
 .ana-chart-card {
   padding: 18px;

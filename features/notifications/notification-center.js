@@ -226,6 +226,72 @@
     return out;
   }
 
+  // 需收費但尚未下單（提醒追蹤）
+  function _genChargeableNotOrdered() {
+    var svc = _svc('RepairService');
+    if (!svc || typeof svc.getAll !== 'function') return [];
+
+    var all = (svc.getAll() || []).filter(function (r) { return r && !r.isDeleted; });
+    var out = [];
+
+    for (var i = 0; i < all.length; i++) {
+      var r = all[i];
+      var b = (r.billing && typeof r.billing === 'object') ? r.billing : {};
+      if (b.chargeable !== true) continue;
+
+      // 明確已下單 → 不提醒
+      if (b.orderStatus === 'ordered') continue;
+
+      // 明確「未下單」且已填原因 → 視為結案資訊，不再推提醒（避免干擾）
+      var reasonCode = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.reasonCode || '') : '';
+      var reasonNote = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.note || '') : '';
+      if (b.orderStatus === 'not_ordered' && !!reasonCode) continue;
+
+      // 以 decidedAt 優先；否則退回 updatedAt/createdAt
+      var since = b.decidedAt || r.updatedAt || r.createdAt || r.createdDate;
+      var days = _daysSince(since);
+      if (!isFinite(days)) continue;
+
+      // 門檻：
+      // - orderStatus 為空（未決）→ 7 天開始提醒
+      // - orderStatus=not_ordered 但未填原因 → 3 天開始提醒（催填原因）
+      var threshold = (b.orderStatus === 'not_ordered') ? 3 : 7;
+      if (days < threshold) continue;
+
+      var sev = 'medium';
+      if (days >= 21) sev = 'high';
+      else if (days >= 14) sev = 'high';
+
+      var baseText = '維修單 ' + (r.repairNo || r.id) + '（' + (r.customer || '') + '）已標記需收費 ' + days + ' 天';
+      var extra = '';
+
+      if (b.orderStatus === 'not_ordered') {
+        extra = '，但未填「未下單原因」';
+      } else {
+        extra = '，尚未下單/未決定';
+      }
+
+      // 若有備註（但沒 reasonCode）仍提示
+      if (!reasonCode && reasonNote) {
+        extra += '（已有備註）';
+      }
+
+      out.push({
+        id: 'billing-not-ordered-' + r.id,
+        type: 'billing-not-ordered',
+        severity: sev,
+        icon: '💰',
+        text: baseText + extra,
+        createdAt: (r.updatedAt || r.createdAt || new Date().toISOString()),
+        timeLabel: _timeLabel(since),
+        route: 'repairs',
+        targetId: r.id
+      });
+    }
+
+    return out;
+  }
+
   // === Core API ===
 
   function refresh() {
@@ -237,6 +303,7 @@
     try { all = all.concat(_genOrderWaiting()); } catch (_) {}
     try { all = all.concat(_genMaintenanceDue()); } catch (_) {}
     try { all = all.concat(_genPartsNeeded()); } catch (_) {}
+    try { all = all.concat(_genChargeableNotOrdered()); } catch (_) {}
 
     // 標記已讀
     for (var i = 0; i < all.length; i++) {

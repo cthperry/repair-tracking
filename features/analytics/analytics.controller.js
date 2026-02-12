@@ -180,6 +180,39 @@ class AnalyticsController {
       ? Math.round(completedRepairs.reduce((s, r) => s + this._daysBetween(r.createdAt, r.completedAt), 0) / completedRepairs.length * 10) / 10
       : 0;
 
+    // 6.5) 收費/下單統計
+    const billingStats = {
+      chargeable: 0,
+      free: 0,
+      undecided: 0,
+      ordered: 0,
+      notOrdered: 0,
+      unknownOrder: 0,
+      reasonCount: { price: 0, budget: 0, internal: 0, other: 0, unknown: 0 }
+    };
+    for (const r of repairs) {
+      const b = (r.billing && typeof r.billing === 'object') ? r.billing : {};
+      if (b.chargeable === true) {
+        billingStats.chargeable++;
+        if (b.orderStatus === 'ordered') billingStats.ordered++;
+        else if (b.orderStatus === 'not_ordered') {
+          billingStats.notOrdered++;
+          const key = (((b.notOrdered && typeof b.notOrdered === 'object') ? b.notOrdered.reasonCode : b.notOrderedReason) || 'unknown').toString().toLowerCase();
+          if (billingStats.reasonCount[key] !== undefined) billingStats.reasonCount[key]++;
+          else billingStats.reasonCount.other++;
+        } else {
+          billingStats.unknownOrder++;
+        }
+      } else if (b.chargeable === false) {
+        billingStats.free++;
+      } else {
+        billingStats.undecided++;
+      }
+    }
+    billingStats.conversionRate = (billingStats.chargeable > 0)
+      ? Math.round((billingStats.ordered / billingStats.chargeable) * 100)
+      : 0;
+
     // 7) 保養合規率（若可用）
     let maintenanceStats = null;
     try {
@@ -208,6 +241,7 @@ class AnalyticsController {
       totalCompleted,
       totalAll,
       overallAvgDays,
+      billingStats,
       maintenanceStats
     };
   }

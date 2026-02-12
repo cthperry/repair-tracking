@@ -2443,8 +2443,17 @@ ${hint}` : ''}
         }
       };
 
-      this._companyDropdownScrollHandler = () => {
-        try { this._closeCompanyDropdown(true); } catch (_) {}
+      // 注意：scroll 事件在 capture 階段會吃到「下拉本身的滾動」，
+      // 若一律關閉會造成「清單無法滾動」（一滑就被關閉）。
+      // 因此只有「頁面/外部」滾動才關閉；清單內部滾動要忽略。
+      this._companyDropdownScrollHandler = (ev) => {
+        try {
+          const t = ev && ev.target ? ev.target : null;
+          if (t && this._companyDropdownEl && this._companyDropdownEl.contains(t)) return;
+          this._closeCompanyDropdown(true);
+        } catch (_) {
+          try { this._closeCompanyDropdown(true); } catch (_) {}
+        }
       };
       onDD(window, 'scroll', this._companyDropdownScrollHandler, { capture: true, passive: true });
       onDD(window, 'resize', this._companyDropdownScrollHandler, { capture: true, passive: true });
@@ -2630,8 +2639,16 @@ ${hint}` : ''}
       };
 
       // 任何滾動/縮放時關閉（下拉選單使用 position:fixed，避免表單捲動後選單位置不對而像「卡住」）
-      this._contactDropdownScrollHandler = () => {
-        try { this._closeContactDropdown(true); } catch (_) {}
+      // 同上：scroll capture 會抓到下拉本身的 scroll，若不判斷 target
+      // 會導致聯絡人清單無法滾動。
+      this._contactDropdownScrollHandler = (ev) => {
+        try {
+          const t = ev && ev.target ? ev.target : null;
+          if (t && this._contactDropdownEl && this._contactDropdownEl.contains(t)) return;
+          this._closeContactDropdown(true);
+        } catch (_) {
+          try { this._closeContactDropdown(true); } catch (_) {}
+        }
       };
       onDDContact(window, 'scroll', this._contactDropdownScrollHandler, { capture: true, passive: true });
       onDDContact(window, 'resize', this._contactDropdownScrollHandler, { capture: true, passive: true });

@@ -273,7 +273,28 @@ class WeeklyService {
 
       const st = `   完成狀態：${status || '進行中'} (${prog}%)`;
 
-      return [head, issueLine, workBlock, st].join('\n');
+      // 收費/下單狀態（若未設定則顯示「未決定」）
+      const b = (r.billing && typeof r.billing === 'object') ? r.billing : {};
+      let billingLine = '';
+      if (b.chargeable === true) {
+        if (b.orderStatus === 'ordered') billingLine = '   收費：需收費（已下單）';
+        else if (b.orderStatus === 'not_ordered') {
+          const reasonMap = { price: '價格過高', budget: '客戶預算不足', internal: '客戶內部流程/延後', other: '其他' };
+          const code = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.reasonCode || '') : (b.notOrderedReason || '');
+          const note = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.note || '') : '';
+          const rLabel = reasonMap[(code || '').toString().toLowerCase()] || '';
+          const tail = [rLabel, (note || '').trim()].filter(Boolean).join('｜');
+          billingLine = '   收費：需收費（未下單' + (tail ? '：' + tail : '') + '）';
+        } else {
+          billingLine = '   收費：需收費（下單狀態未確認）';
+        }
+      } else if (b.chargeable === false) {
+        billingLine = '   收費：不需收費';
+      } else {
+        billingLine = '   收費：未決定';
+      }
+
+      return [head, issueLine, workBlock, st, billingLine].join('\n');
     });
 
     return lines.join('\n\n');

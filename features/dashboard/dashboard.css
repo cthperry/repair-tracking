@@ -271,3 +271,14 @@
   .dash-kpi-card { padding: 12px 8px; }
   .dash-quick-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
 }
+
+
+/* Phase 4: KPI 卡片（無路由） */
+.dash-kpi-card.no-route{
+  cursor: default;
+  opacity: 0.95;
+}
+.dash-kpi-card.no-route:hover{
+  transform: none;
+  box-shadow: none;
+}

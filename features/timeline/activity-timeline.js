@@ -279,6 +279,10 @@
     machine: '設備', serialNumber: '序號', issue: '問題描述', content: '處理內容',
     status: '狀態', progress: '進度', priority: '優先級',
     needParts: '需零件', partsOrdered: '已下單', partsArrived: '已到貨', partsReplaced: '已更換',
+    'billing.chargeable': '是否收費',
+    'billing.orderStatus': '客戶是否下單',
+    'billing.notOrdered.reasonCode': '未下單原因',
+    'billing.notOrdered.note': '未下單備註',
     notes: '備註', tags: '標籤'
   };
 

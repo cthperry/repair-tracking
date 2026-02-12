@@ -130,10 +130,15 @@
     return { total: 0, overdue: 0, dueSoon: 0, compliance: 0, urgentList: [] };
   }
 
-  function getThisWeekRepairCount() {
-    var svc = _svc('RepairService');
-    if (!svc || typeof svc.getAll !== 'function') return { created: 0, completed: 0 };
-    var all = (svc.getAll() || []).filter(function (r) { return r && !r.isDeleted; });
+
+  function getThisWeekKPI() {
+    var rs = _svc('RepairService');
+    var qs = _svc('QuoteService');
+    var os = _svc('OrderService');
+
+    var repairs = (rs && typeof rs.getAll === 'function') ? (rs.getAll() || []).filter(function (r) { return r && !r.isDeleted; }) : [];
+    var quotes = (qs && typeof qs.getAll === 'function') ? (qs.getAll() || []).filter(function (q) { return q && !q.isDeleted; }) : [];
+    var orders = (os && typeof os.getAll === 'function') ? (os.getAll() || []).filter(function (o) { return o && !o.isDeleted; }) : [];
 
     var now = new Date();
     var day = now.getDay() || 7; // Mon=1
@@ -143,16 +148,52 @@
     var weekStart = monday.getTime();
 
     var created = 0, completed = 0;
-    for (var i = 0; i < all.length; i++) {
-      var r = all[i];
+    var mttrSum = 0, mttrCnt = 0;
+
+    for (var i = 0; i < repairs.length; i++) {
+      var r = repairs[i];
       var cTime = new Date(r.createdAt || 0).getTime();
       if (cTime >= weekStart) created++;
+
       if (r.status === '已完成' && r.completedAt) {
         var compTime = new Date(r.completedAt).getTime();
-        if (compTime >= weekStart) completed++;
+        if (compTime >= weekStart) {
+          completed++;
+          if (cTime > 0 && compTime > 0 && compTime >= cTime) {
+            mttrSum += (compTime - cTime) / 86400000;
+            mttrCnt++;
+          }
+        }
       }
     }
-    return { created: created, completed: completed };
+
+    // 報價 → 訂單轉單率（以本週建立的「非草稿報價」作為分母、以本週建立的訂單作為分子）
+    var quotesSubmitted = 0;
+    for (var j = 0; j < quotes.length; j++) {
+      var q = quotes[j];
+      if (q.status === '草稿') continue;
+      var qt = new Date(q.createdAt || 0).getTime();
+      if (qt >= weekStart) quotesSubmitted++;
+    }
+
+    var ordersCreated = 0;
+    for (var k = 0; k < orders.length; k++) {
+      var o = orders[k];
+      var ot = new Date(o.createdAt || 0).getTime();
+      if (ot >= weekStart) ordersCreated++;
+    }
+
+    var mttr = mttrCnt > 0 ? Math.round((mttrSum / mttrCnt) * 10) / 10 : 0;
+    var conversion = quotesSubmitted > 0 ? Math.round((ordersCreated / quotesSubmitted) * 100) : 0;
+
+    return {
+      created: created,
+      completed: completed,
+      mttr: mttr,
+      conversion: conversion,
+      quotesSubmitted: quotesSubmitted,
+      ordersCreated: ordersCreated
+    };
   }
 
   // === Render ===
@@ -165,6 +206,9 @@
       { label: '待到貨訂單', value: orders.ordered, color: '#d97706', route: 'orders' },
       { label: '保養逾期', value: maint.overdue, color: '#ef4444', route: 'maintenance' },
       { label: '保養即將到期', value: maint.dueSoon, color: '#f59e0b', route: 'maintenance' }
+    ,
+      { label: 'MTTR', value: (week && week.mttr) ? (week.mttr + ' 天') : '—', color: '#0ea5e9' },
+      { label: '轉單率', value: (week && week.quotesSubmitted) ? (week.conversion + '%') : '—', color: '#10b981' }
     ];
 
     var html = '<div class="dash-kpi-grid">';
@@ -181,7 +225,10 @@
     // 本週摘要列
     html += '<div class="dash-week-summary">';
     html += '<span>📅 本週：新建 <strong>' + week.created + '</strong> 張、完成 <strong>' + week.completed + '</strong> 張';
-    html += '　·　平均處理天數 <strong>' + repairs.avgAge + '</strong> 天</span>';
+    html += '　·　平均處理天數 <strong>' + repairs.avgAge + '</strong> 天';
+    if (week && week.mttr) html += '　·　本週 MTTR <strong>' + week.mttr + '</strong> 天';
+    if (week && week.quotesSubmitted) html += '　·　本週轉單率 <strong>' + week.conversion + '%</strong>' + '（' + week.ordersCreated + '/' + week.quotesSubmitted + '）';
+    html += '</span>';
     html += '</div>';
 
     return html;
@@ -332,7 +379,7 @@
     var quotes = getQuoteStats();
     var orders = getOrderStats();
     var maint = getMaintenanceStats();
-    var week = getThisWeekRepairCount();
+    var week = getThisWeekKPI();
 
     var html = '<div class="dash-container">';
 
@@ -382,25 +429,70 @@
 
           case 'dash-new-repair':
             self._gotoAndDo('repairs', function () {
-              try { if (window.repairUI) window.repairUI.openForm(); } catch (_) {}
+              // Repairs UI 採 static API（RepairUI.openForm / RepairUI.openDetail）
+              if (!window.RepairUI || typeof window.RepairUI.openForm !== 'function') {
+                throw new Error('RepairUI not ready');
+              }
+              window.RepairUI.openForm(null);
             });
             break;
-
           case 'dash-open-repair':
-            self._gotoAndDo('repairs', function () {
-              try { if (window.repairUI) window.repairUI.openDetail(id); } catch (_) {}
-            });
+            (function (repairId) {
+              self._gotoAndDoAsync('repairs', async function () {
+                if (!repairId) throw new Error('missing repair id');
+
+                // 1) 先確保 RepairService 已初始化並完成載入（避免第一次點只跳到列表）
+                if (!window.AppRegistry || typeof window.AppRegistry.ensureReady !== 'function') {
+                  throw new Error('AppRegistry not ready');
+                }
+                await window.AppRegistry.ensureReady(['RepairService']);
+
+                var rs = null;
+                try { rs = (typeof window._svc === 'function') ? window._svc('RepairService') : null; } catch (_) { rs = null; }
+                if (!rs) throw new Error('RepairService not ready');
+
+                // 若該筆資料仍未進入快取，嘗試觸發一次 loadData（不做 controller 分散 init，只補強資料就緒）
+                if (typeof rs.get === 'function' && !rs.get(repairId) && typeof rs.loadData === 'function') {
+                  await rs.loadData();
+                }
+                if (typeof rs.get === 'function' && !rs.get(repairId)) {
+                  throw new Error('Repair data not loaded yet');
+                }
+
+                // 2) 確保 Repairs UI 已可用後再開啟詳情
+                if (!window.RepairUI || typeof window.RepairUI.openDetail !== 'function') {
+                  throw new Error('RepairUI not ready');
+                }
+
+                // 3) 修正：第一次導頁後 DOM 尚未渲染完成（modal 節點不存在）會導致 openDetail 無效
+                var modal = document.getElementById('repair-modal');
+                var content = document.getElementById('repair-modal-content');
+                if (!modal || !content) {
+                  throw new Error('Repair detail modal not ready');
+                }
+
+                window.RepairUI.openDetail(repairId);
+              }, 6000, 90).catch(function (e) { console.error('dash-open-repair failed', e); });
+            })(id);
             break;
 
           case 'dash-open-quote':
             self._gotoAndDo('quotes', function () {
-              try { if (window.quotesUI) window.quotesUI.openDetail(id); } catch (_) {}
+              if (!id) throw new Error('missing quote id');
+              if (!window.quotesUI || typeof window.quotesUI.openDetail !== 'function') {
+                throw new Error('quotesUI not ready');
+              }
+              window.quotesUI.openDetail(id);
             });
             break;
 
           case 'dash-open-order':
             self._gotoAndDo('orders', function () {
-              try { if (window.ordersUI) window.ordersUI.openDetail(id); } catch (_) {}
+              if (!id) throw new Error('missing order id');
+              if (!window.ordersUI || typeof window.ordersUI.openDetail !== 'function') {
+                throw new Error('ordersUI not ready');
+              }
+              window.ordersUI.openDetail(id);
             });
             break;
 
@@ -419,8 +511,66 @@
   DashboardUI.prototype._gotoAndDo = function (route, fn) {
     if (!window.AppRouter) return;
     window.AppRouter.navigate(route);
-    // 給模組一點時間載入再執行
-    setTimeout(fn, 350);
+    // 給模組時間載入：改成等待條件成立（避免慢機器/手機上 350ms 不夠）
+    this._waitFor(fn, 2200, 80);
+  };
+
+
+  // async 版本：可等待 service/data 就緒（用於第一次點擊就能開詳情）
+  DashboardUI.prototype._gotoAndDoAsync = function (route, fnAsync, timeoutMs, intervalMs) {
+    if (!window.AppRouter) return Promise.reject(new Error('AppRouter not ready'));
+    window.AppRouter.navigate(route);
+    return this._waitForAsync(fnAsync, timeoutMs || 5000, intervalMs || 80);
+  };
+
+  DashboardUI.prototype._waitForAsync = function (fnAsync, timeoutMs, intervalMs) {
+    var start = Date.now();
+    var timeout = Math.max(500, timeoutMs || 5000);
+    var interval = Math.max(50, intervalMs || 80);
+
+    return new Promise(function (resolve, reject) {
+      var lastErr = null;
+      var tick = function () {
+        Promise.resolve()
+          .then(fnAsync)
+          .then(function () { resolve(); })
+          .catch(function (e) {
+            lastErr = e;
+            if (Date.now() - start >= timeout) {
+              reject(lastErr || new Error('timeout'));
+              return;
+            }
+            setTimeout(tick, interval);
+          });
+      };
+
+      setTimeout(tick, interval);
+    });
+  };
+
+/**
+   * 等待條件成立後執行動作。
+   * - 避免固定延遲在慢機器/手機上不夠
+   * - 也避免無限等待
+   */
+  DashboardUI.prototype._waitFor = function (fn, timeoutMs, intervalMs) {
+    var start = Date.now();
+    var timeout = Math.max(300, timeoutMs || 2000);
+    var interval = Math.max(50, intervalMs || 80);
+
+    var tick = function () {
+      try {
+        fn();
+        return;
+      } catch (e) {
+        // 若模組尚未載入（例如 window.repairUI 尚未建立），就等下一輪
+      }
+
+      if (Date.now() - start >= timeout) return;
+      setTimeout(tick, interval);
+    };
+
+    setTimeout(tick, interval);
   };
 
   // === Export ===

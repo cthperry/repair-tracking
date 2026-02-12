@@ -67,6 +67,13 @@ Object.assign(RepairUI.prototype, {
       : new Date().toISOString().slice(0, 10);
     const createdDateValue = escapeAttr((repair.createdDate || todayStr) || todayStr);
 
+    // 收費/下單狀態（billing）
+    const billing = (repair && typeof repair === 'object' && repair.billing && typeof repair.billing === 'object') ? repair.billing : {};
+    const chargeableVal = (billing.chargeable === true) ? 'true' : (billing.chargeable === false ? 'false' : 'null');
+    const orderStatusVal = (billing.orderStatus === 'ordered') ? 'ordered' : (billing.orderStatus === 'not_ordered' ? 'not_ordered' : 'null');
+    const notOrderedReasonVal = ((billing.notOrdered && typeof billing.notOrdered === 'object') ? (billing.notOrdered.reasonCode || '') : (billing.notOrderedReason || '')).toString();
+    const notOrderedNoteVal = ((billing.notOrdered && typeof billing.notOrdered === 'object') ? (billing.notOrdered.note || '') : '').toString();
+
     // 設備產品線 / 機型清單（選擇產品線後，設備名稱提供對應機型）
     const machineCatalog = (window.AppConfig && typeof window.AppConfig.getMachineCatalog === 'function')
       ? window.AppConfig.getMachineCatalog()
@@ -435,6 +442,51 @@ Object.assign(RepairUI.prototype, {
               </div>
             </div>
           </div>
+
+          <!-- 收費 / 下單 -->
+          <div class="form-section">
+            <h4 class="form-section-title">收費 / 下單</h4>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">維修後是否需要收費</label>
+                <div class="radio-row">
+                  <label class="form-radio"><input type="radio" name="billing_chargeable" value="null" ${chargeableVal === 'null' ? 'checked' : ''} data-action="repairs.handleBillingChargeableChange" /> 尚未決定</label>
+                  <label class="form-radio"><input type="radio" name="billing_chargeable" value="false" ${chargeableVal === 'false' ? 'checked' : ''} data-action="repairs.handleBillingChargeableChange" /> 不需收費</label>
+                  <label class="form-radio"><input type="radio" name="billing_chargeable" value="true" ${chargeableVal === 'true' ? 'checked' : ''} data-action="repairs.handleBillingChargeableChange" /> 需收費</label>
+                </div>
+                <div class="help">用於追蹤維修後是否需向客戶收費（不等同於零件需求）。</div>
+              </div>
+
+              <div class="form-group" id="billing-order-wrap" style="${chargeableVal === 'true' ? '' : 'display:none;'}">
+                <label class="form-label">客戶是否已下單</label>
+                <div class="radio-row">
+                  <label class="form-radio"><input type="radio" name="billing_orderStatus" value="null" ${orderStatusVal === 'null' ? 'checked' : ''} data-action="repairs.handleBillingOrderStatusChange" /> 尚未確認</label>
+                  <label class="form-radio"><input type="radio" name="billing_orderStatus" value="ordered" ${orderStatusVal === 'ordered' ? 'checked' : ''} data-action="repairs.handleBillingOrderStatusChange" /> 已下單</label>
+                  <label class="form-radio"><input type="radio" name="billing_orderStatus" value="not_ordered" ${orderStatusVal === 'not_ordered' ? 'checked' : ''} data-action="repairs.handleBillingOrderStatusChange" /> 未下單</label>
+                </div>
+
+                <div id="billing-reason-wrap" style="${(chargeableVal === 'true' && orderStatusVal === 'not_ordered') ? '' : 'display:none;'}; margin-top:8px;">
+                  <label class="form-label">未下單原因</label>
+                  <select name="billing_notOrderedReasonCode" class="input">
+                    <option value="" ${!notOrderedReasonVal ? 'selected' : ''}>（未填）</option>
+                    <option value="price" ${notOrderedReasonVal === 'price' ? 'selected' : ''}>價格過高</option>
+                    <option value="budget" ${notOrderedReasonVal === 'budget' ? 'selected' : ''}>客戶預算不足</option>
+                    <option value="internal" ${notOrderedReasonVal === 'internal' ? 'selected' : ''}>客戶內部流程/延後</option>
+                    <option value="other" ${notOrderedReasonVal === 'other' ? 'selected' : ''}>其他</option>
+                  </select>
+                  <textarea
+                    name="billing_notOrderedNote"
+                    class="input"
+                    rows="2"
+                    maxlength="300"
+                    placeholder="補充說明（可填）"
+                    style="margin-top:8px;"
+                  >${escapeHtml(notOrderedNoteVal || '')}</textarea>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <!-- 備註 -->
           <div class="form-section">
@@ -528,6 +580,23 @@ Object.assign(RepairUI.prototype, {
     const safeContent = escapeHtml(repair.content || '').replace(/\n/g, '<br>');
     const safeNotes = escapeHtml(repair.notes || '').replace(/\n/g, '<br>');
     const safeCreatedDate = escapeHtml((repair.createdDate || '').toString());
+
+    // 收費/下單狀態顯示
+    const b = (repair.billing && typeof repair.billing === 'object') ? repair.billing : {};
+    const chargeableLabel = (b.chargeable === true) ? '需收費' : (b.chargeable === false ? '不需收費' : '尚未決定');
+    const orderLabel = (b.chargeable === true)
+      ? ((b.orderStatus === 'ordered') ? '已下單' : (b.orderStatus === 'not_ordered' ? '未下單' : '尚未確認'))
+      : '';
+    const reasonMap = { price: '價格過高', budget: '客戶預算不足', internal: '客戶內部流程/延後', other: '其他' };
+    const reasonCode = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.reasonCode || '') : (b.notOrderedReason || '');
+    const reasonNote = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.note || '') : '';
+    const reasonLabel = (b.chargeable === true && b.orderStatus === 'not_ordered')
+      ? (reasonMap[(reasonCode || '').toString().toLowerCase()] || '')
+      : '';
+    const safeChargeableLabel = escapeHtml(chargeableLabel);
+    const safeOrderLabel = escapeHtml(orderLabel);
+    const safeReasonLabel = escapeHtml(reasonLabel);
+    const safeReasonNote = escapeHtml(reasonNote);
 
     return `
       <div class="modal-dialog modal-wide">
@@ -635,6 +704,18 @@ Object.assign(RepairUI.prototype, {
               ` : ''}
             </div>
           </div>
+
+          <!-- 💰 收費 / 下單狀態 -->
+          <section class="detail-block" id="repair-billing-mini">
+            <div class="detail-title">💰 收費 / 下單狀態</div>
+            <div class="detail-body">
+              <div class="mini-summary">
+                <div class="mini-row"><span class="muted">收費：</span><b>${safeChargeableLabel}</b></div>
+                ${b.chargeable === true ? `<div class="mini-row" style="margin-top:6px;"><span class="muted">下單：</span><b>${safeOrderLabel}</b>${safeReasonLabel ? ` <span class="muted">（${safeReasonLabel}${safeReasonNote ? `｜${safeReasonNote}` : ''}）</span>` : (safeReasonNote ? ` <span class="muted">（${safeReasonNote}）</span>` : '')}</div>` : ''}
+              </div>
+              <div class="help" style="margin-top:8px;">此欄位用於追蹤「維修後是否需要收費」與「客戶是否下單」，可在「編輯」內調整。</div>
+            </div>
+          </section>
 
           <!-- 🛠 保養 / 結案連動（MNT-4） -->
           <section class="detail-block" id="repair-maintenance-mini">
@@ -833,6 +914,10 @@ Object.assign(RepairUI.prototype, {
     partsOrdered: '已下單',
     partsArrived: '已到貨',
     partsReplaced: '已更換',
+    'billing.chargeable': '是否收費',
+    'billing.orderStatus': '客戶是否下單',
+    'billing.notOrdered.reasonCode': '未下單原因',
+    'billing.notOrdered.note': '未下單備註',
     notes: '備註',
     tags: '標籤',
     attachments: '附件'
@@ -977,6 +1062,34 @@ Object.assign(RepairUI.prototype, {
       data.partsArrived = boolVal('partsArrived');
       data.partsReplaced = boolVal('partsReplaced');
 
+      // 收費/下單（billing）— 以 billing 物件寫回（避免新增頂層欄位）
+      const pickRadio = (name) => form.querySelector(`input[name="${name}"]:checked`)?.value;
+      const chargeable = pickRadio('billing_chargeable');
+      const orderStatus = pickRadio('billing_orderStatus');
+      const reasonCode = (data.billing_notOrderedReasonCode || '').toString();
+      const note = (data.billing_notOrderedNote || '').toString();
+
+      // 移除表單 helper 欄位，改寫入 data.billing
+      delete data.billing_chargeable;
+      delete data.billing_orderStatus;
+      delete data.billing_notOrderedReasonCode;
+      delete data.billing_notOrderedNote;
+
+      if (chargeable !== undefined) {
+        const os = (orderStatus === 'ordered') ? 'ordered' : (orderStatus === 'not_ordered' ? 'not_ordered' : null);
+        const cleanNote = (note || '').trim().slice(0, 300);
+        data.billing = {
+          chargeable: (chargeable === 'true') ? true : (chargeable === 'false' ? false : null),
+          orderStatus: os,
+          notOrdered: (chargeable === 'true' && os === 'not_ordered')
+            ? {
+                reasonCode: (reasonCode || '').trim() || null,
+                note: cleanNote || null
+              }
+            : { reasonCode: null, note: null }
+        };
+      }
+
       // 數值
       const p = Number(data.progress || 0);
       data.progress = Number.isFinite(p) ? p : 0;
@@ -1100,6 +1213,39 @@ Object.assign(RepairUI.prototype, {
       // 不再強制把進度鎖到 50%，讓使用者可自行調整（包含可標記為 100%）
     } catch (e) {
       console.warn('handleNeedPartsChange failed:', e);
+    }
+  },
+
+  /**
+   * 收費：切換是否需收費（需收費才顯示「客戶是否下單」）
+   */
+  handleBillingChargeableChange(event) {
+    try {
+      const v = (event?.target?.value || '').toString();
+      const show = v === 'true';
+      const wrap = document.getElementById('billing-order-wrap');
+      if (wrap) wrap.style.display = show ? '' : 'none';
+
+      if (!show) {
+        // 清空 orderStatus + reason 顯示
+        const reasonWrap = document.getElementById('billing-reason-wrap');
+        if (reasonWrap) reasonWrap.style.display = 'none';
+      }
+    } catch (e) {
+      console.warn('handleBillingChargeableChange failed:', e);
+    }
+  },
+
+  /**
+   * 下單狀態：未下單才顯示原因
+   */
+  handleBillingOrderStatusChange(event) {
+    try {
+      const v = (event?.target?.value || '').toString();
+      const reasonWrap = document.getElementById('billing-reason-wrap');
+      if (reasonWrap) reasonWrap.style.display = (v === 'not_ordered') ? '' : 'none';
+    } catch (e) {
+      console.warn('handleBillingOrderStatusChange failed:', e);
     }
   },
 
@@ -1403,6 +1549,14 @@ Object.assign(RepairUI, {
   handleNeedPartsChange: (event) => {
     try { if (typeof window.repairUI?.handleNeedPartsChange === 'function') return window.repairUI.handleNeedPartsChange(event); }
     catch (e) { console.warn('handleNeedPartsChange failed:', e); }
+  },
+  handleBillingChargeableChange: (event) => {
+    try { if (typeof window.repairUI?.handleBillingChargeableChange === 'function') return window.repairUI.handleBillingChargeableChange(event); }
+    catch (e) { console.warn('handleBillingChargeableChange failed:', e); }
+  },
+  handleBillingOrderStatusChange: (event) => {
+    try { if (typeof window.repairUI?.handleBillingOrderStatusChange === 'function') return window.repairUI.handleBillingOrderStatusChange(event); }
+    catch (e) { console.warn('handleBillingOrderStatusChange failed:', e); }
   },
   handleCustomerPick: (event) => {
     try { if (typeof window.repairUI?.handleCustomerPick === 'function') return window.repairUI.handleCustomerPick(event); }

@@ -33,6 +33,40 @@
     `;
   }
 
+  // ─── Billing / Conversion ───
+  function _renderBilling(stats) {
+    if (!stats) return '';
+    const total = (stats.chargeable || 0) + (stats.free || 0) + (stats.undecided || 0);
+    const conv = stats.conversionRate || 0;
+    const reasonMap = { price: '價格過高', budget: '客戶預算不足', internal: '客戶內部流程/延後', other: '其他', unknown: '未填' };
+    const reasons = Object.entries(stats.reasonCount || {})
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${reasonMap[k] || k}：${v}`)
+      .join('、');
+
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">💰 收費 / 轉單</div>
+        <div class="ana-billing-grid">
+          <div class="ana-billing-kpi">
+            <div class="ana-billing-kpi-val">${conv}%</div>
+            <div class="ana-billing-kpi-label">需收費 → 已下單轉單率</div>
+          </div>
+          <div class="ana-billing-list">
+            <div class="ana-billing-row"><span class="muted">需收費</span><b>${stats.chargeable}</b></div>
+            <div class="ana-billing-row"><span class="muted">不需收費</span><b>${stats.free}</b></div>
+            <div class="ana-billing-row"><span class="muted">未決定</span><b>${stats.undecided}</b></div>
+            <div class="ana-billing-row"><span class="muted">已下單</span><b>${stats.ordered}</b></div>
+            <div class="ana-billing-row"><span class="muted">未下單</span><b>${stats.notOrdered}</b></div>
+            <div class="ana-billing-row"><span class="muted">下單未確認</span><b>${stats.unknownOrder}</b></div>
+          </div>
+        </div>
+        ${reasons ? `<div class="muted" style="margin-top:10px;">未下單原因：${esc(reasons)}</div>` : ''}
+      </div>
+    `;
+  }
+
   // ─── Bar Chart (CSS-based) ───
   function _renderBarChart(title, data, options = {}) {
     if (!data.length) return '';
@@ -232,6 +266,8 @@
         </div>
 
         ${_renderKPIs(data)}
+
+        ${_renderBilling(data.billingStats)}
 
         <div class="ana-grid-2">
           ${_renderBarChart('維修趨勢（月別）', data.trend)}
