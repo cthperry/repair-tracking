@@ -1,0 +1,45 @@
+/**
+ * Shared CSS Variables
+ * @file core/variables.css
+ * @description 共享的 CSS 自訂屬性（設計 tokens）供 Desktop 和 Mobile 使用
+ */
+
+:root {
+  /* 企業級 B2B：低彩度、層次清楚（V161.092 視覺層次/模組 Accent） */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: rgba(37, 99, 235, 0.10);
+  --color-secondary: #0ea5e9;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+
+  /* 三層背景：稍深底色 + 白色面板 + 白色卡片 */
+  --color-background: #f4f6fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f2f5fa;
+  --color-panel: #ffffff;
+  --color-panel-alt: #f7f9fd;
+
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-border: #dbe2ef;
+  --color-shadow: rgba(15, 23, 42, 0.08);
+  --color-backdrop: rgba(15, 23, 42, 0.40);
+
+  /* 模組 Accent（預設=primary；由 core/theme.js 依路由動態覆寫） */
+  --module-accent: var(--color-primary);
+  --module-accent-ink: var(--color-primary);
+  --module-accent-soft: var(--color-primary-soft);
+  --focus-ring: var(--color-primary-soft);
+
+  /* 陰影下修：避免「漂浮玩具感」 */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
+  --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.14);
+
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --ring: 0 0 0 3px var(--focus-ring);
+}

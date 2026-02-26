@@ -1,0 +1,139 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "data": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "repairs": {
+          ".indexOn": [
+            "updatedAt",
+            "completedAt",
+            "status",
+            "createdAt",
+            "serialNumber"
+          ]
+        },
+        "quotes": {
+          ".indexOn": [
+            "updatedAt",
+            "createdAt",
+            "quoteNo",
+            "repairId"
+          ]
+        },
+        "orders": {
+          ".indexOn": [
+            "updatedAt",
+            "createdAt",
+            "orderNo",
+            "quoteId",
+            "repairId"
+          ]
+        },
+        "customers": {
+          ".indexOn": [
+            "updatedAt",
+            "createdAt",
+            "companyName",
+            "name"
+          ]
+        },
+        "parts": {
+          ".indexOn": [
+            "updatedAt",
+            "createdAt",
+            "mpn",
+            "name"
+          ]
+        },
+        "maintenance": {
+          "equipments": {
+            ".indexOn": [
+              "updatedAt",
+              "createdAt",
+              "equipmentNo",
+              "name",
+              "model",
+              "location",
+              "owner",
+              "cycleUnit",
+              "cycleEvery",
+              "_search"
+            ]
+          },
+          "records": {
+            ".indexOn": [
+              "updatedAt",
+              "createdAt",
+              "performedAt",
+              "equipmentId",
+              "equipmentNo",
+              "equipmentName",
+              "_search"
+            ]
+          },
+          "settings": {
+            ".indexOn": [
+              "updatedAt"
+            ]
+          }
+        },
+        "repairLogs": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          "$rid": {
+            ".indexOn": [
+              "tsStart",
+              "createdAt"
+            ]
+          }
+        },
+        "repairWorkLogs": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid",
+          "$rid": {
+            ".indexOn": [
+              "visitDate",
+              "createdAt"
+            ]
+          }
+        },
+        "workLogs": {
+          ".indexOn": [
+            "workDate",
+            "repairId"
+          ]
+        }
+      }
+    },
+    "weeklyPlans": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        ".indexOn": [
+          "weekKey",
+          "updatedAt"
+        ]
+      }
+    },
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      ".indexOn": [
+        "email",
+        "role",
+        "isActive"
+      ],
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin')",
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin')"
+      }
+    },
+    "usersByEmail": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+    }
+  }
+}

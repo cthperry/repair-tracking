@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,"/>
+  <title>維修追蹤系統 - Index</title>
+<style>
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family: "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;background:linear-gradient(180deg,#eef2f6 0%,#f1f5f9 100%);color:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .card{width:min(720px,92vw);background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;box-shadow:0 14px 28px rgba(15,23,42,.10)}
+  .title{font-size:20px;font-weight:700;margin-bottom:6px;color:#2563eb}
+  .muted{color:#475569;font-size:13px}
+  .row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid #e2e8f0;background:#ffffff;color:#0f172a;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:14px}
+  .btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
+  .btn:hover{background:#f1f5f9}
+  .btn.primary:hover{background:#1d4ed8}
+  .note{margin-top:14px;font-size:12px;color:#475569;line-height:1.5}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="title" id="index-title">維修追蹤系統</div>
+    <div class="muted">入口頁（可直接收藏此頁）</div>
+    <div class="row">
+      <button class="btn primary" onclick="goAuto()">自動選擇（建議）</button>
+      <button class="btn" onclick="location.href='V161_Desktop.html'">開啟 Desktop（Responsive）</button>
+      <button class="btn" onclick="location.href='V161_Mobile.html'">開啟 Mobile（同 Desktop）</button>
+    </div>
+    <div class="note">
+      • 維修單號規則：RYYYYMMDD-流水號（001 起算）。<br/>
+      • Firebase 模式使用 transaction 取號（路徑：counters/repairNo/YYYYMMDD）；本機模式使用 localStorage 取號。
+    </div>
+  </div>
+<script>
+function isMobile(){
+  const ua = navigator.userAgent || '';
+  // 以『寬度』判斷：避免 1366×768 這類筆電因高度較小而被誤判為 Mobile
+  const byUA = /Android|iPhone|iPod|iPad/i.test(ua);
+  const byWidth = window.innerWidth <= 960;
+  return byUA || byWidth;
+}
+function goAuto(){
+  location.href = isMobile() ? 'V161_Mobile.html' : 'V161_Desktop.html';
+}
+goAuto();
+</script>
+</body>
+</html>

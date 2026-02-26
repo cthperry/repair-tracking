@@ -1,0 +1,217 @@
+/* 機台歷史（序號追蹤） - 企業系統風（淺藍灰背景 + 面板層次） */
+
+.machines-module {
+  padding: 16px;
+}
+
+.machines-header{margin-bottom:12px;}
+
+
+.machines-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 14px;
+}
+
+.machine-panel{overflow:hidden;}
+
+.machine-panel-header {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.machine-panel-header .input {
+  width: 100%;
+}
+
+.serial-list {
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+
+.serial-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.serial-item:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.serial-item.active {
+  background: var(--module-accent-soft);
+  border-left: 4px solid var(--module-accent);
+  padding-left: 8px;
+}
+
+.serial-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.serial-no {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.serial-sub {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.machine-detail {
+  padding: 14px;
+}
+
+.machine-summary {
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.summary-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.summary-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.summary-box .box-title {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summary-box .box-main {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.summary-chips .chip {
+  font-size: 12px;
+}
+
+.machine-history {
+  margin-top: 14px;
+}
+
+.machine-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.machine-history-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.history-card:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.history-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-no {
+  font-weight: 800;
+}
+
+.history-sub {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.history-chips {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.machines-empty {
+  padding: 30px;
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .machines-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .serial-list {
+    max-height: 340px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

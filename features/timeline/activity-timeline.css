@@ -1,0 +1,127 @@
+/* ============================================
+   Activity Timeline
+   ============================================ */
+
+.tl-timeline {
+  position: relative;
+  padding: 0 0 0 20px;
+}
+
+/* Vertical line */
+.tl-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--color-border, rgba(0,0,0,.10));
+  border-radius: 1px;
+}
+
+.tl-item {
+  position: relative;
+  padding: 8px 0 12px;
+}
+.tl-item + .tl-item {
+  border-top: none;
+}
+
+/* Dot on the line */
+.tl-dot {
+  position: absolute;
+  left: -17px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-panel, #fff);
+  box-shadow: 0 0 0 2px var(--color-border, rgba(0,0,0,.08));
+  z-index: 1;
+}
+
+.tl-content {
+  min-width: 0;
+}
+
+.tl-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tl-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tl-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #1e293b);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.tl-date-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.05);
+  color: var(--color-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.tl-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.tl-time {
+  font-size: 11px;
+  color: var(--color-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.tl-by {
+  font-size: 11px;
+  color: var(--color-text-muted, #64748b);
+}
+.tl-by::before {
+  content: '·';
+  margin-right: 4px;
+}
+
+.tl-detail {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-muted, #64748b);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.tl-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 13px;
+}
+
+.tl-more {
+  padding: 12px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted, #94a3b8);
+}
+
+/* ─── Type-specific styling ─── */
+.tl-item[data-type="create"] .tl-summary { color: #16a34a; }
+.tl-item[data-type="complete"] .tl-summary { color: #059669; }
+.tl-item[data-type="delete"] .tl-summary { color: #dc2626; }
+.tl-item[data-type="worklog"] { background: rgba(245,158,11,.04); border-radius: 8px; padding-left: 4px; margin-left: -4px; }

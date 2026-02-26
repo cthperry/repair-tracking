@@ -1,0 +1,206 @@
+/* ========================================
+   報價管理（Quotes）
+   ======================================== */
+
+.quotes-module {
+  padding: 16px;
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quotes-search {
+  width: min(360px, 52vw);
+}
+
+.quotes-filters {
+  padding: 10px 12px;
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.quotes-filters-inner{display:flex;flex-direction:column;gap:10px;}
+.quotes-filters-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.quotes-filters-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.quotes-advanced-filters{margin-top:6px;}
+
+.quotes-filters .chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.quotes-filters .filter-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.quotes-filters .filter-group{display:flex;flex-direction:column;gap:6px;min-width:180px;}
+.quotes-filters-hint{font-size:12px;}
+
+.quotes-summary{margin-top:2px;}
+.quotes-stats{padding:2px 0;}
+.stat-card.clickable{cursor:pointer;}
+.stat-card.clickable:active{transform:translateY(1px);}
+
+.quote-card-sub{font-size:12px;line-height:1.35;white-space:normal;}
+
+.quotes-list {
+  min-height: 200px;
+}
+
+.quotes-list-footer{
+  margin-top:10px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  border:1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.quotes-list-footer-actions{display:flex;align-items:center;gap:10px;}
+
+@media (max-width: 768px) {
+  .quotes-list-footer{flex-direction:column;align-items:stretch;}
+  .quotes-list-footer-actions{justify-content:stretch;}
+  .quotes-list-footer-actions .btn{width:100%;}
+}
+
+
+.detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-header-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.quotes-detail-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.quotes-detail-title h3{margin:0;}
+.quotes-detail-sub{font-size:12px;white-space:normal;line-height:1.35;}
+
+.quote-items-wrap{max-width:100%;}
+.quote-items-table{min-width:1600px;}
+.quote-num-input{max-width:100px;text-align:right;}
+.quote-money-input{max-width:140px;text-align:right;}
+
+/* 項目（報價明細）工具列 / 互動 */
+.quote-items-head{display:flex;flex-direction:column;gap:6px;}
+.quote-items-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:-4px 0 8px;}
+.quote-items-toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.quote-text-input{min-width:240px;}
+.quote-mpn-input{min-width:160px;}
+.quote-vendor-input{min-width:180px;}
+.quote-unit-input{min-width:90px;}
+.op-col{white-space:nowrap;}
+.quote-remove-btn{color:var(--color-error);border-color:rgba(220,38,38,.28);}
+.quote-remove-btn:hover{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.36);}
+.quote-empty-inline{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 0;color:var(--color-text-secondary);}
+
+
+.quote-total-row{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 12px;
+  border:1px solid var(--color-border);
+  border-radius:12px;
+  background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+}
+.quote-total-amount{font-weight:900;color:var(--color-text);}
+.quote-scroll-hint{margin-top:8px;font-size:12px;}
+
+@media (max-width: 768px) {
+  .quotes-search { width: 100%; }
+  .quote-items-table{min-width:1100px;}
+  .quote-total-row{flex-direction:column;align-items:stretch;gap:6px;}
+}
+
+/* ========================================
+   增量渲染 Placeholder（避免大量資料初次渲染卡頓）
+   ======================================== */
+.quotes-cards.is-rendering{min-height:160px;}
+
+.quote-card.placeholder{cursor:default;opacity:.78;}
+
+.quote-card.placeholder .ph{
+  display:block;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(148,163,184,.20) 25%, rgba(148,163,184,.34) 37%, rgba(148,163,184,.20) 63%);
+  background-size: 400% 100%;
+  animation: quotes-shimmer 1.15s ease-in-out infinite;
+}
+
+.quote-card.placeholder .ph-line{height:12px;}
+.quote-card.placeholder .ph-badge{height:20px;width:72px;border-radius:999px;}
+
+.quote-card.placeholder .w-40{width:40%;}
+.quote-card.placeholder .w-50{width:50%;}
+.quote-card.placeholder .w-60{width:60%;}
+.quote-card.placeholder .w-70{width:70%;}
+.quote-card.placeholder .w-80{width:80%;}
+.quote-card.placeholder .w-90{width:90%;}
+
+@keyframes quotes-shimmer{
+  0%{background-position: 100% 0;}
+  100%{background-position: 0 0;}
+}
+
+/* ========================================
+   Quote History（版本與變更歷史）
+   ======================================== */
+.quote-history-toolbar{
+  display:flex;
+  justify-content:flex-end;
+  margin:6px 0 8px;
+}
+
+.quote-history-box{
+  border:1px solid rgba(15,42,67,0.14);
+  background:#ffffff;
+  border-radius:12px;
+  padding:10px;
+  max-height:260px;
+  overflow:auto;
+}
+
+.quote-history-item{
+  padding:10px;
+  border-bottom:1px solid rgba(15,42,67,0.10);
+}
+
+.quote-history-item:last-child{border-bottom:none;}
+
+.quote-history-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.quote-history-meta{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.quote-history-action{display:flex;gap:8px;align-items:center;}
+
+.quote-history-summary{margin-top:6px;font-weight:600;}
+
+.quote-history-changed{margin-top:4px;}
+
+.quote-history-details{margin-top:8px;}
+
+.quote-history-pre{
+  white-space:pre;
+  font-size:12px;
+  line-height:1.35;
+  background:rgba(148,163,184,.16);
+  border-radius:10px;
+  padding:10px;
+  overflow:auto;
+}

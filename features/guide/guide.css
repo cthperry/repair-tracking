@@ -1,0 +1,52 @@
+/*
+ * 使用者操作指南
+ * V161 - Guide Module
+ */
+
+.guide-module{padding:14px 16px;max-width:1100px;margin:0 auto;}
+
+/* Guide 以單欄閱讀為主：避免 .card-list 自動多欄導致卡片過窄、內容擠壓與看起來像「重疊」 */
+.guide-module .card-list{grid-template-columns:1fr;}
+.guide-module .card{width:100%;}
+
+.guide-hero{margin-top:12px;}
+.guide-hero .card-body{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;align-items:start;}
+
+.guide-hero h3{font-size:18px;font-weight:900;color:var(--color-text);margin:0 0 6px 0;}
+.guide-hero p{margin:0;color:var(--color-text-secondary);line-height:1.6;}
+
+.guide-kpi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.guide-kpi .k{font-size:12px;color:var(--color-text-secondary);font-weight:800;}
+.guide-kpi .v{font-size:14px;color:var(--color-text);font-weight:900;}
+
+.guide-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
+
+.guide-card{scroll-margin-top:90px;}
+.guide-card .card-body{line-height:1.65;}
+
+.guide-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px;}
+.guide-step{border:1px solid var(--color-border);border-radius:12px;background:rgba(255,255,255,0.6);padding:10px;}
+.guide-step .t{font-weight:900;color:var(--color-text);margin-bottom:4px;line-height:1.25;word-break:break-word;}
+.guide-step .d{color:var(--color-text-secondary);font-size:13px;word-break:break-word;}
+
+.guide-callout{display:flex;gap:10px;align-items:flex-start;border:1px solid rgba(148,163,184,.55);background:rgba(255,255,255,.55);border-radius:12px;padding:10px;margin-top:10px;}
+.guide-callout .ico{flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--module-accent-soft);color:var(--module-accent-ink);font-weight:900;font-size:12px;letter-spacing:.2px;}
+.guide-callout .txt{min-width:0;}
+.guide-callout .txt .t{font-weight:900;color:var(--color-text);margin-bottom:2px;}
+.guide-callout .txt .d{color:var(--color-text-secondary);font-size:13px;word-break:break-word;}
+
+/* 搜尋列在 Desktop 保持寬度；Mobile 自動換行 */
+.guide-module #guide-search{min-width:280px;flex:1 1 360px;max-width:560px;}
+
+.guide-illu{border:1px solid rgba(148,163,184,.45);border-radius:12px;background:rgba(255,255,255,.55);padding:10px;overflow:hidden;}
+.guide-illu svg{width:100%;height:auto;display:block;}
+
+.guide-noresult{display:none;margin-top:12px;}
+
+@media (max-width: 860px){
+  .guide-module{padding:12px 12px;}
+  .guide-hero .card-body{grid-template-columns:1fr;}
+  .guide-steps{grid-template-columns:1fr;}
+  .guide-kpi{grid-template-columns:1fr;}
+  .guide-module #guide-search{min-width:0;flex:1 1 100%;max-width:100%;}
+}
