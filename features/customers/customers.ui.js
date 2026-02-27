@@ -435,20 +435,34 @@ class CustomerUI {
             this.toggleFiltersPanel();
             return;
           case 'openRenameCompany':
-            this.openRenameCompany();
+            // 注意：openRenameCompany 為 CustomerUI 的靜態方法（Object.assign(CustomerUI, {...})）
+            // 這裡不能用 instance this 呼叫，否則會出現 this.openRenameCompany is not a function
+            CustomerUI.openRenameCompany();
             return;
           case 'openForm':
-            this.openForm(id, company);
+            // 注意：openForm 為 CustomerUI 的靜態方法
+            CustomerUI.openForm(id, company);
             return;
           case 'toggleCompany':
             this.toggleCompany(company);
             return;
           case 'openDetail':
-            this.openDetail(id);
+            // 注意：openDetail 為 CustomerUI 的靜態方法
+            CustomerUI.openDetail(id);
             return;
           case 'closeModal':
             this.closeModal();
             return;
+          case 'saveCustomer': {
+            // M-BUG-1：避免 iOS Safari 舊版跨表單 submit 失效，改用 data-action + click delegation
+            const f = document.getElementById('customer-form');
+            if (!f) return;
+            const syntheticEvt = { target: f, preventDefault: () => {} };
+            if (window.CustomerUIForms && typeof window.CustomerUIForms.handleSubmit === 'function') {
+              window.CustomerUIForms.handleSubmit(syntheticEvt);
+            }
+            return;
+          }
           case 'confirmDelete':
             if (window.CustomerUIForms && typeof window.CustomerUIForms.confirmDelete === 'function') {
               window.CustomerUIForms.confirmDelete(id);

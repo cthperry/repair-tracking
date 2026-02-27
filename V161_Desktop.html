@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="core/shared.css">
   <!-- Core UI Components (buttons, inputs, cards, stats, etc.) -->
   <link rel="stylesheet" href="core/ui.css">
+  <!-- Corporate UI Enhancement (sidebar dark theme, typography, component polish) V161.276 -->
+  <link rel="stylesheet" href="core/corporate-enhancement.css">
 
   <style>
     /* Desktop specific background gradient */
@@ -51,18 +53,19 @@
     }
     
     aside {
-      width: 248px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,253,0.92) 100%);
-      border-right: 1px solid var(--color-border);
-      color: var(--color-text);
-      padding: 12px 12px;
+      width: 252px;
+      background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--sidebar-bg-alt) 100%);
+      border-right: 1px solid rgba(0,0,0,0.18);
+      color: var(--sidebar-text);
+      padding: 14px 10px;
       position: sticky;
       top: 0;
       height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      backdrop-filter: blur(10px);
+      gap: 10px;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.10);
+      /* 無 backdrop-filter：深色固態更有重量感 */
     }
     
     main {
@@ -78,13 +81,14 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 16px;
+      padding: 0 20px;
+      height: var(--header-height, 52px);
       border-bottom: 1px solid var(--color-border);
-      background: linear-gradient(180deg, rgba(255,255,255,0.90) 0%, rgba(247,249,253,0.90) 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.99) 0%, rgba(247,249,253,0.99) 100%);
       position: sticky;
       top: 0;
       z-index: 20;
-      backdrop-filter: blur(10px);
+      box-shadow: 0 1px 0 var(--color-border), 0 2px 8px rgba(15,23,42,0.04);
     }
 
     /* Header, brand, and user components now in core/shared.css */
@@ -100,14 +104,14 @@
     /* Buttons, inputs, and utility classes now in core/shared.css */
 
     /* ========================================
-       Navigation
+       Navigation（覆寫由 corporate-enhancement.css 統一處理）
        ======================================== */
-    .nav-title{color:var(--color-text-secondary);font-size:12px;margin-bottom:8px;}
-    .nav-item{padding:10px 10px;border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--color-text-secondary);border:1px solid transparent;user-select:none;}
-    .nav-item:hover{background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.18);color:var(--color-text);}
-    .nav-item.active{background:var(--module-accent-soft);box-shadow: inset 3px 0 0 var(--module-accent);border-radius:10px;color:var(--module-accent-ink);}
-    .nav-item.disabled{cursor:not-allowed;opacity:.5;}
-    .nav-item.disabled:hover{background:transparent;border-color:transparent;color:var(--color-text-secondary);}
+    .nav-title { color: var(--sidebar-text-muted); font-size: 10.5px; letter-spacing:0.10em; text-transform: uppercase; font-weight:900; padding: 10px 4px 4px 4px; margin-bottom: 0; }
+    .nav-item { padding:9px 10px; border-radius:8px; margin-bottom:2px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--sidebar-text); border:1px solid transparent; user-select:none; font-size:13px; font-weight:500; transition: background .14s ease, color .14s ease; }
+    .nav-item:hover { background:var(--sidebar-item-hover); color:var(--sidebar-text-hover); border-color: transparent; }
+    .nav-item.active { background:var(--sidebar-item-active); border-left:3px solid var(--module-accent); padding-left:7px; color:var(--sidebar-text-active); font-weight:700; }
+    .nav-item.disabled { cursor:not-allowed; opacity:.55; }
+    .nav-item.disabled:hover { background:transparent; color:var(--sidebar-text-muted); }
 
     /* Message states and spacer now in core/shared.css */
 
@@ -142,6 +146,7 @@
   <script src="core/utils/strings.js"></script>
   <script src="core/utils/time.js"></script>
   <script src="core/utils/dom.js"></script>
+<script src="core/mobile-safe-tap.js"></script>
 <!-- Step 1.2: 共用工具（日期/服務初始化等） -->
   <script src="core/utils.js"></script>
   <script src="core/registry.js"></script>

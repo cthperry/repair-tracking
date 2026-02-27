@@ -61,7 +61,8 @@ class CustomerUIForms {
           ${isEdit ? `<button class="btn danger" data-action="confirmDelete" data-id="${c.id}">刪除</button>` : '<div></div>'}
           <div style="display:flex; gap:8px;">
             <button class="btn" data-action="closeModal">取消</button>
-            <button type="submit" form="customer-form" class="btn primary">儲存</button>
+            <!-- type="button" + data-action 避免 iOS Safari 舊版跨表單送出失效 (M-BUG-1) -->
+            <button type="button" class="btn primary" data-action="saveCustomer">儲存</button>
           </div>
         </div>
       </div>
@@ -152,7 +153,7 @@ Object.assign(CustomerUIForms, {
 
     CustomerUIForms._submitting = true;
 
-    const submitBtn = document.querySelector('button[form="customer-form"][type="submit"]');
+    const submitBtn = document.querySelector('button[data-action="saveCustomer"]');
     const originalText = submitBtn ? submitBtn.textContent : '';
     if (submitBtn) {
       submitBtn.disabled = true;

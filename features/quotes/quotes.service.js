@@ -474,7 +474,7 @@ getSummaryForRepair(repairId) {
   // ===============================
   _getActor() {
     try {
-      const u = window.AuthSystem?.getUser?.() || window.currentUser || window.AuthSystem?.getCurrentUser?.() || null;
+      const u = window.AuthSystem?.getCurrentUser?.() || window.currentUser || null;  // N-1 fix: 統一使用 getCurrentUser()
       return {
         uid: (u?.uid || '').toString(),
         name: (u?.displayName || u?.name || '').toString(),
@@ -731,7 +731,7 @@ getSummaryForRepair(repairId) {
       .filter(it => (it.name || '').trim().length > 0);
 
     const quoteNo = await this._nextQuoteNo();
-    const owner = window.AuthSystem?.getUser?.() || null;
+    const owner = window.AuthSystem?.getCurrentUser?.() || null;  // N-1 fix: getUser() 不存在
     const actor = this._getActor();
     const now = QuoteModel.nowIso();
 

@@ -11,6 +11,9 @@ class SettingsService {
     this.isFirebase = false;
     this.db = null;
     this.ref = null;
+
+    // 避免在網路慢 / 首次登入授權尚未完成時，過早打 Firebase 造成「timeout」誤判
+    this._firebaseLoadTimeoutMs = 4500;
   }
 
   async init() {
@@ -18,9 +21,19 @@ class SettingsService {
 
     this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
     if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || 'unknown');
-      this.ref = this.db.ref(`users/${uid}/settings`);
+      // 盡量等待 Auth 先就緒（不破壞 Phase 1–3 規則：只用 AppRegistry.ensureReady）
+      try {
+        await window.AppRegistry?.ensureReady?.(['AuthService']);
+      } catch (_) {}
+
+      // Firebase auth 尚未 ready 時，避免用 unknown 組 path
+      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || firebase?.auth?.().currentUser?.uid || null);
+      if (uid) {
+        this.db = firebase.database();
+        this.ref = this.db.ref(`users/${uid}/settings`);
+      } else {
+        this.ref = null;
+      }
     }
 
     await this.load();
@@ -38,11 +51,15 @@ class SettingsService {
     // Firebase first
     if (this.ref) {
       try {
+        // 若尚未連線，直接走 local，避免製造 timeout 警告
+        const connected = await this._isFirebaseConnectedFast();
+        if (!connected) throw new Error('Firebase not connected');
+
         // 避免在網路不穩 / Firebase 連線卡住時，造成整個 SettingsService.init() 永遠 pending
         // 這會連帶讓依賴 settings 的 UI（例如：新增/編輯維修單的「常用公司」）永遠停在「載入中...」。
         const snap = await Promise.race([
           this.ref.once('value'),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('SettingsService Firebase timeout')), 1500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SettingsService Firebase timeout')), this._firebaseLoadTimeoutMs))
         ]);
         const data = snap.val();
         if (data) {
@@ -51,7 +68,14 @@ class SettingsService {
           return;
         }
       } catch (e) {
-        console.warn('SettingsService load Firebase failed, fallback to local:', e);
+        // timeout / 未連線 不是嚴重錯誤：系統會自動回退 local
+        // 但 permission_denied 需要保留資訊，方便後續調 rules。
+        const msg = (e && (e.message || e.toString())) || '';
+        if (/permission|denied/i.test(msg)) {
+          console.warn('SettingsService load Firebase failed (permission), fallback to local:', e);
+        } else {
+          console.warn('SettingsService load Firebase failed, fallback to local:', e);
+        }
       }
     }
 
@@ -105,6 +129,21 @@ class SettingsService {
     } catch (_) {}
 
     return this.settings;
+  }
+
+  async _isFirebaseConnectedFast() {
+    try {
+      if (!this.db) this.db = firebase.database();
+      const infoRef = this.db.ref('.info/connected');
+      const snap = await Promise.race([
+        infoRef.once('value'),
+        new Promise((resolve) => setTimeout(() => resolve(null), 600))
+      ]);
+      if (!snap) return false;
+      return !!snap.val();
+    } catch (_) {
+      return false;
+    }
   }
 }
 

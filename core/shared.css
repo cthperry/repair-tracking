@@ -289,3 +289,14 @@ select.input {
 .notif-empty{ padding:18px 12px; color:var(--text-muted, #64748b); text-align:center; }
 .notif-more{ padding:10px 12px; color:var(--text-muted, #64748b); font-size:12px; text-align:center; }
 .notif-panel-ft{ padding:10px 12px; border-top:1px solid rgba(148,163,184,.35); background:rgba(241,245,249,.45); display:flex; justify-content:flex-end; }
+
+
+/* ========================================
+   Phase 4.3 – Mobile Safe Tap（互動穩定性）
+   ======================================== */
+button,
+.btn,
+.action-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

@@ -109,7 +109,7 @@ class RepairService {
       console.log('🔧 Initializing Repair Service...');
       
       // 初始化 Firebase（如果可用）
-      if (window.AuthSystem.authMode === 'firebase' && typeof firebase !== 'undefined') {
+      if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {  // N-3 fix: 補可選鏈
         this.db = firebase.database();
         const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
         const root = this.db.ref('data').child(uid);

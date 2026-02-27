@@ -8,9 +8,9 @@ const AppConfig = {
   // 版本資訊
   // ========================================
   VERSION: 'V161',
-  VERSION_DATE: '2026-02-21',
+  VERSION_DATE: '2026-02-27',
   VERSION_NAME: 'Modular Phoenix',
-  BUILD_NUMBER: '271',
+  BUILD_NUMBER: '277',
   
   // ========================================
   // Firebase 配置
@@ -26,19 +26,35 @@ const AppConfig = {
   },
 
   // ========================================
+  // 認證配置
+  // ========================================
+  auth: {
+    /**
+     * 管理員 Email 清單（作為 Firebase DB role 欄位缺失時的緊急 fallback）
+     * 正式的角色設定以 Firebase Database /users/$uid/role 為準。
+     * 當 DB 已有 role 欄位時，此列表不會覆蓋既有設定。
+     */
+    adminEmails: [
+      'perry_chuang@premtek.com.tw'
+    ],
+    /** DB role 欄位缺失且 email 不在 adminEmails 時的預設角色 */
+    defaultRole: 'engineer'
+  },
+
+  // ========================================
   // 外部整合（SOP Hub / Apps Script 上傳）
   // ========================================
   integration: {
     gas: {
       // Apps Script Web App URL（POST JSON: {token,path,filename,mimeType,base64}）
       // 例："https://script.google.com/macros/s/xxxx/exec"
-      uploadUrl: "https://script.google.com/macros/s/AKfycbxMQgSLumGt70T_VJvP6-Qp39w2qCNRqtBeq6ciPArZXWa7-FsmN6LV56yTHqywnx54/exec",
+      uploadUrl: "",
       // CORS 代理（建議）：本機或伺服器端 proxy 轉送到 Apps Script，再由 proxy 回傳 JSON
       // 本機工具：tools/sop_upload_proxy/server.js（預設 http://localhost:8787/upload）
       // 例："http://localhost:8787/upload" 或 "https://<your-domain>/upload"
-      proxyUrl: "http://localhost:8787/upload",
+      proxyUrl: "",
       // ⚠️ 請自行填入 TOKEN（勿上傳到公開倉庫）
-      token: "OrderSOPHubDevToken20260220V2"
+      token: ""
     }
   },
 
@@ -368,6 +384,7 @@ const AppConfig = {
 
 // 凍結配置物件，防止意外修改
 Object.freeze(AppConfig);
+Object.freeze(AppConfig.auth);
 Object.freeze(AppConfig.firebase);
 Object.freeze(AppConfig.system);
 Object.freeze(AppConfig.business);
@@ -375,6 +392,8 @@ Object.freeze(AppConfig.weekly);
 Object.freeze(AppConfig.ui);
 Object.freeze(AppConfig.features);
 Object.freeze(AppConfig.error);
+Object.freeze(AppConfig.integration);
+Object.freeze(AppConfig.integration.gas);
 
 // 輸出到全域
 if (typeof window !== 'undefined') {

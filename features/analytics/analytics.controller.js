@@ -24,7 +24,7 @@ class AnalyticsController {
     }
   }
 
-  async reload(containerId = 'main-content') {
+  async reload(containerId = 'main-content', months = 6) {
     await this._ensureServicesReady();
 
     const container = document.getElementById(containerId);
@@ -32,9 +32,9 @@ class AnalyticsController {
 
     try {
       container.innerHTML = '<div class="analytics-loading">計算中…</div>';
-      const data = this._compute();
-      container.innerHTML = window.AnalyticsUI ? window.AnalyticsUI.render(data) : '<div class="msg-error">AnalyticsUI 未載入</div>';
-      try { window.AnalyticsUI?.bindEvents?.(container); } catch (_) {}
+      const data = this._compute(months);
+      container.innerHTML = window.AnalyticsUI ? window.AnalyticsUI.render(data, months) : '<div class="msg-error">AnalyticsUI 未載入</div>';
+      try { window.AnalyticsUI?.bindEvents?.(container, months); } catch (_) {}
       this.isInitialized = true;
     } catch (e) {
       console.error('Analytics reload failed:', e);
@@ -95,9 +95,9 @@ class AnalyticsController {
     }
   }
 
-  _compute() {
+  _compute(periodMonths = 6) {
     const repairs = this._allRepairs();
-    const months = this._lastNMonths(6);
+    const months = this._lastNMonths(periodMonths);
 
     // 1) 月別建立/完成
     const monthlyCreated = {};
@@ -213,7 +213,38 @@ class AnalyticsController {
       ? Math.round((billingStats.ordered / billingStats.chargeable) * 100)
       : 0;
 
-    // 7) 保養合規率（若可用）
+    // 7) 工程師負載 Top 10（依 ownerName）
+    const ownerCount = {};
+    const ownerActive = {};
+    for (const r of repairs) {
+      const o = (r.ownerName || '').trim();
+      if (!o) continue;
+      ownerCount[o] = (ownerCount[o] || 0) + 1;
+      if (r.status !== '已完成') ownerActive[o] = (ownerActive[o] || 0) + 1;
+    }
+    const topEngineers = Object.entries(ownerCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, total]) => ({ name, count: total, active: ownerActive[name] || 0 }));
+
+    // 8) 優先級分佈（進行中）
+    const priorityCount = {};
+    for (const r of active) {
+      const p = (r.priority || '一般').toString();
+      priorityCount[p] = (priorityCount[p] || 0) + 1;
+    }
+
+    // 9) MoM 成長（本月 vs 上月 新增單）
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    const thisMoCount = repairs.filter(r => this._toYM(r.createdAt || r.createdDate) === thisMonth).length;
+    const prevMoCount = repairs.filter(r => this._toYM(r.createdAt || r.createdDate) === prevMonth).length;
+    const momDelta = thisMoCount - prevMoCount;
+    const momPct = prevMoCount > 0 ? Math.round((momDelta / prevMoCount) * 100) : null;
+
+    // 10) 保養合規率（若可用）
     let maintenanceStats = null;
     try {
       const ms = this._getSvc('MaintenanceService');
@@ -237,12 +268,18 @@ class AnalyticsController {
       statusCount,
       topCustomers,
       topMachines,
+      topEngineers,
+      priorityCount,
+      momDelta,
+      momPct,
+      thisMoCount,
       totalActive,
       totalCompleted,
       totalAll,
       overallAvgDays,
       billingStats,
-      maintenanceStats
+      maintenanceStats,
+      periodMonths
     };
   }
 

@@ -183,9 +183,11 @@
     const m = manifest[r];
     if (!m) return;
 
+    // CSS 之間沒有相依性，並行載入可節省累積等待時間（P2-1）
     const styles = Array.isArray(m.styles) ? m.styles : [];
-    for (const href of styles) await _loadStyle(href);
+    await Promise.all(styles.map(href => _loadStyle(href)));
 
+    // JS 維持依序載入，確保執行順序（model → service → ui → controller）
     const scripts = Array.isArray(m.scripts) ? m.scripts : [];
     for (const src of scripts) await _loadScript(src);
   }

@@ -292,6 +292,19 @@ class MainApp {
       var t = ev.target;
       var actionEl = t && t.closest ? t.closest('[data-action]') : null;
 
+      // P3-1: [data-route] event delegation（取代 inline onclick）
+      // 優先於 actionEl 判斷，避免 nav-item 點擊被 "close panel" 邏輯攔截
+      if (!actionEl) {
+        var routeEl = t && t.closest ? t.closest('[data-route]') : null;
+        if (routeEl) {
+          var targetRoute = routeEl.getAttribute('data-route');
+          if (targetRoute && window.AppRouter) {
+            try { window.AppRouter.navigate(targetRoute); } catch (_) {}
+          }
+          return;
+        }
+      }
+
       // Click outside closes panel
       if (!actionEl) {
         var wrap = document.querySelector('.notif-wrap');

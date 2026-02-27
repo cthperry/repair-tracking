@@ -31,6 +31,7 @@ const APP_CONSTANTS = {
   ERROR_SEVERITY: {
     LOW: 'LOW',
     MEDIUM: 'MEDIUM',
-    HIGH: 'HIGH'
+    HIGH: 'HIGH',
+    CRITICAL: 'CRITICAL'
   }
 };

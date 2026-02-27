@@ -23,8 +23,19 @@ class AuthSystem {
   }
 
   _defaultRoleByEmail(email) {
+    // 管理員清單統一由 AppConfig.auth.adminEmails 維護（P1-1）
+    // 此方法僅作為 Firebase DB role 欄位缺失時的緊急 fallback，
+    // 正式角色以 /users/$uid/role 為準。
     const e = (email || '').toString().trim().toLowerCase();
-    return (e === 'perry_chuang@premtek.com.tw') ? 'admin' : 'engineer';
+    try {
+      const adminEmails = Array.isArray(AppConfig?.auth?.adminEmails)
+        ? AppConfig.auth.adminEmails
+        : [];
+      const defaultRole = AppConfig?.auth?.defaultRole || 'engineer';
+      return adminEmails.some(ae => ae.toLowerCase() === e) ? 'admin' : defaultRole;
+    } catch (_) {
+      return 'engineer';
+    }
   }
 
   _safeEmailKey(email) {
@@ -678,10 +689,7 @@ class AuthSystem {
 
       this.isAuthenticated = true;
 
-      // 儲存 Session
-      this.saveUserSession(this.currentUser);
-
-      // 觸發登入成功
+      // 觸發登入成功（Session 寫入已移至 onLoginSuccess，由 authMode 決定是否需要）
       await this.onLoginSuccess();
       
     } else {
@@ -722,18 +730,25 @@ class AuthSystem {
    */
   async onLoginSuccess() {
     console.log('🎉 Login successful!');
-    
+
     // 隱藏登入表單
     this.hideLoginForm();
-    
+
     // 設定全域變數
     try { (window.AppState && typeof window.AppState.setAuth === 'function') ? window.AppState.setAuth(this.currentUser) : null; } catch (_) { try { window.isAuthenticated = true; window.currentUser = this.currentUser; } catch (_) {} }
+
+    // Session 持久化：Firebase 模式由 SDK 自行管理（IndexedDB），不需另存 localStorage（P2-4）
+    // Local 模式才需要寫入 localStorage 以支援 checkAutoLogin()
+    if (this.authMode !== 'firebase') {
+      this.saveUserSession(this.currentUser);
+    }
+
     // 觸發登入成功事件
     const event = new CustomEvent('auth:login', {
       detail: { user: this.currentUser }
     });
     window.dispatchEvent(event);
-    
+
     // 主應用初始化由頁面端監聽 auth:login 事件處理（避免 AppRouter 尚未建立或無 init 方法）
   }
   

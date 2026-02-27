@@ -513,7 +513,7 @@ getSummaryForRepair(repairId) {
     const repair = window._svc('RepairService')?.get?.(quote.repairId) || null;
 
     const orderNo = await this._nextOrderNo();
-    const owner = window.AuthSystem?.getUser?.() || null;
+    const owner = window.AuthSystem?.getCurrentUser?.() || null;  // N-1 fix: getUser() 不存在
     const now = OrderModel.nowIso();
 
     const order = OrderModel.normalize({

@@ -38,8 +38,45 @@
   --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
   --shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.14);
 
-  --radius-sm: 10px;
-  --radius-md: 12px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --ring: 0 0 0 3px var(--focus-ring);
+
+  /* ── Corporate Enhancement Tokens (V161.276) ── */
+
+  /* Sidebar：深海軍藍，專業、沉穩 */
+  --sidebar-bg:            #1a2338;
+  --sidebar-bg-alt:        #1e2a40;
+  --sidebar-border:        rgba(255,255,255,0.07);
+  --sidebar-text:          rgba(255,255,255,0.68);
+  --sidebar-text-hover:    rgba(255,255,255,0.92);
+  --sidebar-text-active:   #ffffff;
+  --sidebar-text-muted:    rgba(255,255,255,0.38);
+  --sidebar-item-hover:    rgba(255,255,255,0.07);
+  --sidebar-item-active:   rgba(255,255,255,0.11);
+  --sidebar-brand-color:   rgba(255,255,255,0.90);
+
+  /* Header */
+  --header-bg:             #ffffff;
+  --header-height:         52px;
+
+  /* 精煉陰影（更有層次感，避免「糊」）*/
+  --shadow-card:           0 1px 3px rgba(15,23,42,0.05), 0 4px 14px rgba(15,23,42,0.07);
+  --shadow-card-hover:     0 4px 10px rgba(15,23,42,0.09), 0 10px 28px rgba(15,23,42,0.10);
+  --shadow-modal:          0 8px 24px rgba(15,23,42,0.10), 0 24px 56px rgba(15,23,42,0.16);
+  --shadow-btn:            0 1px 2px rgba(15,23,42,0.07);
+  --shadow-btn-primary:    0 2px 8px rgba(37,99,235,0.26);
+
+  /* 字型層次 */
+  --fw-normal:  400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+  --fw-black:   900;
+
+  /* 行距 */
+  --lh-tight:  1.25;
+  --lh-normal: 1.50;
+  --lh-loose:  1.70;
 }

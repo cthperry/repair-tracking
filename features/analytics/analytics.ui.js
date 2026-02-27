@@ -13,11 +13,21 @@
 
   // ─── KPI Cards ───
   function _renderKPIs(data) {
+    // MoM delta badge
+    const momBadge = (data.momPct !== null && data.momPct !== undefined)
+      ? (() => {
+          const sign = data.momDelta >= 0 ? '+' : '';
+          const color = data.momDelta > 0 ? '#ef4444' : data.momDelta < 0 ? '#16a34a' : '#64748b';
+          return `<span class="ana-kpi-delta" style="color:${color}">${sign}${data.momPct}%</span>`;
+        })()
+      : '';
+
     const cards = [
-      { label: '全部維修單', value: data.totalAll, icon: '📋' },
-      { label: '進行中', value: data.totalActive, icon: '🔧', accent: data.totalActive > 0 },
-      { label: '已完成', value: data.totalCompleted, icon: '✅' },
-      { label: '平均處理天數', value: data.overallAvgDays + ' 天', icon: '⏱️' }
+      { label: '全部維修單', value: data.totalAll, icon: '📋', sub: '' },
+      { label: '進行中', value: data.totalActive, icon: '🔧', accent: data.totalActive > 0, sub: '' },
+      { label: '本月新增', value: data.thisMoCount ?? '—', icon: '📅', sub: momBadge },
+      { label: '已完成', value: data.totalCompleted, icon: '✅', sub: '' },
+      { label: '平均處理天數', value: (data.overallAvgDays ?? 0) + ' 天', icon: '⏱️', sub: '' }
     ];
 
     return `
@@ -25,7 +35,7 @@
         ${cards.map(c => `
           <div class="ana-kpi ${c.accent ? 'ana-kpi-accent' : ''}">
             <div class="ana-kpi-icon">${c.icon}</div>
-            <div class="ana-kpi-val">${c.value}</div>
+            <div class="ana-kpi-val">${c.value}${c.sub || ''}</div>
             <div class="ana-kpi-label">${esc(c.label)}</div>
           </div>
         `).join('')}
@@ -245,24 +255,88 @@
     `;
   }
 
+  // ─── Engineer Workload ───
+  function _renderEngineerWorkload(items) {
+    if (!items || !items.length) return '';
+    const maxVal = items[0].count || 1;
+    const rows = items.map((d, i) => {
+      const w = Math.round((d.count / maxVal) * 100);
+      const activeRate = d.count > 0 ? Math.round((d.active / d.count) * 100) : 0;
+      return `
+        <div class="ana-rank-row">
+          <span class="ana-rank-idx">${i + 1}</span>
+          <span class="ana-rank-name" title="${esc(d.name)}">${esc(d.name.length > 14 ? d.name.slice(0, 14) + '…' : d.name)}</span>
+          <div class="ana-rank-bar-wrap">
+            <div class="ana-rank-bar" style="width:${w}%"></div>
+          </div>
+          <span class="ana-rank-val">${d.count}</span>
+          <span class="ana-eng-active" title="進行中 ${d.active} 件">${d.active > 0 ? `<span style="color:#f59e0b;font-size:11px">●${d.active}</span>` : ''}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">👤 工程師負載 Top ${items.length}</div>
+        <div class="ana-ranking ana-eng-ranking">${rows}</div>
+        <div class="muted" style="margin-top:8px;font-size:11px">● 黃色數字 = 進行中件數</div>
+      </div>
+    `;
+  }
+
+  // ─── Priority Distribution ───
+  function _renderPriorityDist(priorityCount) {
+    const entries = Object.entries(priorityCount || {}).filter(([, v]) => v > 0);
+    if (!entries.length) return '';
+    const total = entries.reduce((s, [, v]) => s + v, 0);
+    const colorMap = { '緊急': '#ef4444', '高': '#f59e0b', '一般': '#3b82f6', '低': '#94a3b8' };
+    const rows = entries
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => {
+        const w = Math.round((count / total) * 100);
+        const color = colorMap[label] || '#64748b';
+        return `
+          <div class="ana-pri-row">
+            <span class="ana-pri-dot" style="background:${color}"></span>
+            <span class="ana-pri-name">${esc(label)}</span>
+            <div class="ana-rank-bar-wrap">
+              <div class="ana-rank-bar" style="width:${w}%;background:${color}40;border-left:3px solid ${color}"></div>
+            </div>
+            <span class="ana-rank-val">${count}</span>
+            <span class="muted" style="font-size:11px;min-width:32px;text-align:right">${w}%</span>
+          </div>
+        `;
+      }).join('');
+    return `
+      <div class="card ana-chart-card">
+        <div class="ana-chart-title">🚦 優先級分佈（進行中）</div>
+        <div class="ana-ranking">${rows}</div>
+      </div>
+    `;
+  }
+
   // ─── Period Selector ───
-  function _renderPeriodSelector() {
+  function _renderPeriodSelector(activePeriod = 6) {
     return `
       <div class="ana-period-bar">
         <span class="ana-period-label">分析期間</span>
-        <button class="btn ghost ana-period-btn ana-period-active" data-months="6">6 個月</button>
-        <button class="btn ghost ana-period-btn" data-months="12" disabled title="未來版本">12 個月</button>
+        <button class="btn ghost ana-period-btn ${activePeriod === 6 ? 'ana-period-active' : ''}" data-months="6">6 個月</button>
+        <button class="btn ghost ana-period-btn ${activePeriod === 12 ? 'ana-period-active' : ''}" data-months="12">12 個月</button>
+        <button class="btn ghost ana-period-btn ${activePeriod === 3 ? 'ana-period-active' : ''}" data-months="3">3 個月</button>
       </div>
     `;
   }
 
   // ─── Main Render ───
-  function render(data) {
+  function render(data, activePeriod = 6) {
+    const periodLabel = activePeriod === 3 ? '近 3 個月' : activePeriod === 12 ? '近 12 個月' : '近 6 個月';
     return `
-      <div class="analytics-root" id="analytics-root">
+      <div class="analytics-root" id="analytics-root" data-period="${activePeriod}">
         <div class="ana-header">
-          <h2 class="ana-title">📊 資料分析</h2>
-          <div class="ana-subtitle">近 6 個月維修數據總覽</div>
+          <div>
+            <h2 class="ana-title">📊 資料分析</h2>
+            <div class="ana-subtitle">${periodLabel}維修數據總覽</div>
+          </div>
+          ${_renderPeriodSelector(activePeriod)}
         </div>
 
         ${_renderKPIs(data)}
@@ -280,6 +354,11 @@
         </div>
 
         <div class="ana-grid-2">
+          ${_renderEngineerWorkload(data.topEngineers)}
+          ${_renderPriorityDist(data.priorityCount)}
+        </div>
+
+        <div class="ana-grid-2">
           ${_renderRanking('客戶 Top 10（維修單數）', data.topCustomers, '👥')}
           ${_renderRanking('設備 Top 10（維修單數）', data.topMachines, '🖥️')}
         </div>
@@ -287,8 +366,17 @@
     `;
   }
 
-  function bindEvents(container) {
-    // Future: period selector, export, etc.
+  function bindEvents(container, activePeriod = 6) {
+    // 期間切換按鈕
+    container.querySelectorAll('.ana-period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const months = parseInt(btn.dataset.months, 10);
+        if (!months || months === activePeriod) return;
+        try {
+          window.AnalyticsController?.reload?.('main-content', months);
+        } catch (_) {}
+      });
+    });
   }
 
   window.AnalyticsUI = { render, bindEvents };

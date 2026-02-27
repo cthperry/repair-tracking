@@ -81,8 +81,6 @@
           }
         },
         "repairLogs": {
-          ".read": "auth != null && auth.uid == $uid",
-          ".write": "auth != null && auth.uid == $uid",
           "$rid": {
             ".indexOn": [
               "tsStart",
@@ -91,8 +89,6 @@
           }
         },
         "repairWorkLogs": {
-          ".read": "auth != null && auth.uid == $uid",
-          ".write": "auth != null && auth.uid == $uid",
           "$rid": {
             ".indexOn": [
               "visitDate",
@@ -133,7 +129,10 @@
     },
     "usersByEmail": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'"
+      "$emailKey": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'admin'",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || !data.exists() || data.child('uid').val() == auth.uid)"
+      }
     }
   }
 }

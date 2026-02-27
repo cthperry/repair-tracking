@@ -15,7 +15,7 @@
     SIMPLE: 'simple'
   };
 
-  const FULL_ROUTES = ['dashboard', 'repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'kb', 'sops', 'weekly', 'guide', 'settings'];
+  const FULL_ROUTES = ['dashboard', 'repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'analytics', 'kb', 'sops', 'weekly', 'guide', 'settings'];  // N-2 fix: 補上 analytics 與 ROUTE_CONFIG 一致
   // 與設定頁提示一致：簡易模式仍保留「指南」
   const SIMPLE_ROUTES = ['dashboard', 'repairs', 'customers', 'weekly', 'guide', 'settings'];
 

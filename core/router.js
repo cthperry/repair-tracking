@@ -23,15 +23,32 @@ class _AppRouter {
     machines:    { icon: '🖥️', title: '機台歷史', navLabel: '機台歷史', tabLabel: '機台', subtitle: '依序號快速查詢維修歷史', controller: 'MachinesController', moduleName: '機台歷史模組' },
     maintenance: { icon: '🛠️', title: '機台保養', navLabel: '機台保養', tabLabel: '保養', subtitle: '設備管理／保養紀錄／提醒／報表', controller: 'MaintenanceController', moduleName: '機台保養模組' },
     customers:   { icon: '👥', title: '客戶管理', navLabel: '客戶管理', tabLabel: '客戶', subtitle: '公司／聯絡人資料維護與釘選', controller: 'CustomerController', moduleName: '客戶模組' },
-    parts:       { icon: '🧩', title: '零件追蹤', navLabel: '零件追蹤', tabLabel: '零件', subtitle: '需求 → 報價 → 下單 → 到貨 → 更換', controller: 'PartsController', moduleName: '零件模組' },
-    quotes:      { icon: '🧾', title: '報價管理', navLabel: '報價', tabLabel: '報價', subtitle: '建立報價單並追蹤核准/送出狀態', controller: 'QuotesController', moduleName: '報價模組' },
-    orders:      { icon: '📦', title: '訂單追蹤', navLabel: '訂單', tabLabel: '訂單', subtitle: '採購與到貨進度、結案狀態管理', controller: 'OrdersController', moduleName: '訂單模組' },
+    parts:       { icon: '🧩', title: '零件追蹤', navLabel: '零件追蹤', tabLabel: '零件', subtitle: '需求 → 報價 → 下單 → 到貨 → 更換', controller: 'PartsController', moduleName: '零件模組', featureFlag: 'enableParts' },
+    quotes:      { icon: '🧾', title: '報價管理', navLabel: '報價', tabLabel: '報價', subtitle: '建立報價單並追蹤核准/送出狀態', controller: 'QuotesController', moduleName: '報價模組', featureFlag: 'enableQuotes' },
+    orders:      { icon: '📦', title: '訂單追蹤', navLabel: '訂單', tabLabel: '訂單', subtitle: '採購與到貨進度、結案狀態管理', controller: 'OrdersController', moduleName: '訂單模組', featureFlag: 'enableOrders' },
     kb:          { icon: '📚', title: '知識庫', navLabel: '知識庫', tabLabel: '知識', subtitle: 'FAQ／故障模式／SOP／案例查詢', controller: 'KBController', moduleName: '知識庫模組' },
     sops:        { icon: '🧾', title: 'SOP Hub', navLabel: 'SOP Hub', tabLabel: 'SOP', subtitle: 'SOP 版本／附件（My Drive）／關聯維修單', controller: 'SOPController', moduleName: 'SOP Hub 模組' },
     weekly:      { icon: '📊', title: '週報', navLabel: '週報', tabLabel: '週報', subtitle: '本週工作彙整／下週計畫', controller: 'WeeklyController', moduleName: '週報模組' },
     guide:       { icon: '📘', title: '使用者指南', navLabel: '使用者指南', tabLabel: '指南', subtitle: '快速上手／重點流程／FAQ', controller: 'GuideController', moduleName: '操作指南模組' },
     settings:    { icon: '⚙️', title: '設定', navLabel: '設定', tabLabel: '設定', subtitle: '預設值、Top N 釘選、系統參數', controller: 'SettingsController', moduleName: '設定模組' }
   };
+
+  /**
+   * 判斷某路由是否因 Feature Flag 而應隱藏
+   * @static
+   * @param {Object} config - ROUTE_CONFIG 單一路由設定
+   * @returns {boolean} 是否顯示（true = 顯示）
+   */
+  static _isRouteEnabled(config) {
+    if (!config || !config.featureFlag) return true;
+    try {
+      const flags = window.AppConfig && window.AppConfig.features;
+      if (!flags) return true;
+      return flags[config.featureFlag] !== false;
+    } catch (_) {
+      return true;
+    }
+  }
 
   /**
    * 創建 Router 實例
@@ -126,10 +143,13 @@ class _AppRouter {
    * @returns {string} 導航選單的 HTML 字符串
    */
   static generateNavItems() {
+    // P3-1: 移除 inline onclick → event delegation（bindGlobalHeaderActions 中處理）
+    // P2-2: 依 Feature Flag 過濾隱藏模組
     return Object.entries(_AppRouter.ROUTE_CONFIG)
+      .filter(([, config]) => _AppRouter._isRouteEnabled(config))
       .map(([route, config], index) => {
         const activeClass = index === 0 ? ' active' : '';
-        return `<div class="nav-item${activeClass}" data-route="${route}" onclick="AppRouter.navigate('${route}')">${config.icon} ${config.navLabel}</div>`;
+        return `<div class="nav-item${activeClass}" data-route="${route}">${config.icon} ${config.navLabel}</div>`;
       })
       .join('\n                ');
   }
@@ -140,10 +160,13 @@ class _AppRouter {
    * @returns {string} 標籤欄的 HTML 字符串
    */
   static generateTabItems() {
+    // P3-1: 移除 inline onclick → event delegation（bindGlobalHeaderActions 中處理）
+    // P2-2: 依 Feature Flag 過濾隱藏模組
     return Object.entries(_AppRouter.ROUTE_CONFIG)
+      .filter(([, config]) => _AppRouter._isRouteEnabled(config))
       .map(([route, config], index) => {
         const activeClass = index === 0 ? ' active' : '';
-        return `<div class="tab-item${activeClass}" data-route="${route}" onclick="AppRouter.navigate('${route}')">
+        return `<div class="tab-item${activeClass}" data-route="${route}">
             <div class="tab-icon">${config.icon}</div>
             <div class="tab-label">${config.tabLabel}</div>
           </div>`;
