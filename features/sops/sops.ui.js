@@ -180,6 +180,7 @@ class SOPUI {
       ? rows.map(r => {
           const id = this._escapeAttr(r.id);
           const title = this._escape(r.title || '(未命名)');
+          const titleAttr = this._escapeAttr(r.title || '(未命名)');
           const scope = this._escape(r.scopeCustomerId || '通用');
           const latest = Number.isFinite(+r.latestVersion) ? String(r.latestVersion) : '-';
           const updated = this._escape(this._fmtDate(r.updatedAt));
@@ -190,10 +191,13 @@ class SOPUI {
               <td class="muted">${scope}</td>
               <td class="muted">${this._escape(latest)}</td>
               <td class="muted">${updated}</td>
+              <td style="text-align:center;">
+                <button class="btn ghost" type="button" data-action="sops-delete-sop" data-id="${id}" data-title="${titleAttr}" title="刪除此 SOP" style="padding:2px 8px;font-size:13px;color:#c0392b;">🗑️</button>
+              </td>
             </tr>
           `;
         }).join('')
-      : `<tr><td colspan="5" class="muted">尚無資料</td></tr>`;
+      : `<tr><td colspan="6" class="muted">尚無資料</td></tr>`;
 
     return `
       <div class="sops-topbar">
@@ -238,6 +242,7 @@ class SOPUI {
                 <th>適用客戶</th>
                 <th>最新版本</th>
                 <th>更新</th>
+                <th style="width:60px;text-align:center;">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -338,6 +343,7 @@ class SOPUI {
             `
             : `
               <button class="btn" type="button" data-action="sops-start-edit" data-id="${this._escapeAttr(sopId)}">編輯</button>
+              <button class="btn" type="button" data-action="sops-delete-sop" data-id="${this._escapeAttr(sopId)}" data-title="${this._escapeAttr(sop.title || '')}" style="color:#c0392b;">🗑️ 刪除</button>
             `
           }
           <button class="btn" type="button" data-action="sops-go-list">返回列表</button>
@@ -563,6 +569,26 @@ class SOPUI {
     }
   }
 
+  async deleteSop(id, title){
+    const sopId = String(id || '').trim();
+    if (!sopId) return;
+
+    const label = String(title || sopId);
+    const confirmed = window.confirm(`確定要刪除 SOP「${label}」嗎？\n\n刪除後將從列表移除，此動作無法復原。`);
+    if (!confirmed) return;
+
+    const svc = this._svc();
+    if (!svc || typeof svc.removeSop !== 'function') return this._toast('SOPService 未載入', 'error');
+
+    try {
+      await svc.removeSop(sopId);
+      this._toast(`已刪除 SOP：${label}`, 'success');
+      this.goList();
+    } catch (e) {
+      this._toast(e?.message || '刪除失敗', 'error');
+    }
+  }
+
   async uploadVersion(form){
     const svc = this._svc();
     if (!svc || typeof svc.addVersion !== 'function') return this._toast('SOPService 未載入', 'error');
@@ -738,6 +764,11 @@ class SOPUI {
 
         if (act === 'sops-apply-filters') return this.applyFilters();
         if (act === 'sops-clear-filters') return this.clearFilters();
+
+        if (act === 'sops-delete-sop') {
+          const title = String(el.getAttribute('data-title') || '');
+          return this.deleteSop(id, title);
+        }
 
         // 重要：避免 submit 被其他模組攔截（stopImmediatePropagation），改以 click action 觸發
         if (act === 'sops-create-sop') {
