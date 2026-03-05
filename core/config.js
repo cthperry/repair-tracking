@@ -8,9 +8,9 @@ const AppConfig = {
   // 版本資訊
   // ========================================
   VERSION: 'V161',
-  VERSION_DATE: '2026-02-27',
+  VERSION_DATE: '2026-03-05',
   VERSION_NAME: 'Modular Phoenix',
-  BUILD_NUMBER: '278',
+  BUILD_NUMBER: '280',
   
   // ========================================
   // Firebase 配置
@@ -38,7 +38,22 @@ const AppConfig = {
       'perry_chuang@premtek.com.tw'
     ],
     /** DB role 欄位缺失且 email 不在 adminEmails 時的預設角色 */
-    defaultRole: 'engineer'
+    defaultRole: 'engineer',
+
+    /**
+     * Enterprise Auth：是否允許 Firebase 初始化失敗時降級為 Local Mode
+     * - 為了避免「未登入仍可進入系統」，預設關閉。
+     * - 若真的需要離線 Demo，可手動改為 true。
+     */
+    allowLocalFallback: false,
+
+    /**
+     * Firebase Auth Persistence
+     * - local：關閉瀏覽器後仍保留登入
+     * - session：關閉分頁即登出
+     * - none：不持久化
+     */
+    persistence: 'local'
   },
 
   // ========================================

@@ -13,7 +13,10 @@ class SettingsService {
     this.ref = null;
 
     // 避免在網路慢 / 首次登入授權尚未完成時，過早打 Firebase 造成「timeout」誤判
-    this._firebaseLoadTimeoutMs = 4500;
+    this._firebaseLoadTimeoutMs = 9000;
+
+    // Firebase timeout 後的自動重試（避免第一次連線慢就永遠卡在 local）
+    this._firebaseRetryTimer = null;
   }
 
   async init() {
@@ -51,10 +54,6 @@ class SettingsService {
     // Firebase first
     if (this.ref) {
       try {
-        // 若尚未連線，直接走 local，避免製造 timeout 警告
-        const connected = await this._isFirebaseConnectedFast();
-        if (!connected) throw new Error('Firebase not connected');
-
         // 避免在網路不穩 / Firebase 連線卡住時，造成整個 SettingsService.init() 永遠 pending
         // 這會連帶讓依賴 settings 的 UI（例如：新增/編輯維修單的「常用公司」）永遠停在「載入中...」。
         const snap = await Promise.race([
@@ -71,7 +70,11 @@ class SettingsService {
         // timeout / 未連線 不是嚴重錯誤：系統會自動回退 local
         // 但 permission_denied 需要保留資訊，方便後續調 rules。
         const msg = (e && (e.message || e.toString())) || '';
-        if (/permission|denied/i.test(msg)) {
+        if (/SettingsService Firebase timeout/i.test(msg)) {
+          // 第一次連線慢很常見：先回退 local，但稍後自動重試一次
+          this._scheduleFirebaseRetry();
+          console.warn('SettingsService load Firebase timeout, fallback to local (will retry):', e);
+        } else if (/permission|denied/i.test(msg)) {
           console.warn('SettingsService load Firebase failed (permission), fallback to local:', e);
         } else {
           console.warn('SettingsService load Firebase failed, fallback to local:', e);
@@ -137,13 +140,47 @@ class SettingsService {
       const infoRef = this.db.ref('.info/connected');
       const snap = await Promise.race([
         infoRef.once('value'),
-        new Promise((resolve) => setTimeout(() => resolve(null), 600))
+        new Promise((resolve) => setTimeout(() => resolve(null), 1500))
       ]);
       if (!snap) return false;
       return !!snap.val();
     } catch (_) {
       return false;
     }
+  }
+
+  _scheduleFirebaseRetry() {
+    try {
+      if (this._firebaseRetryTimer) return;
+      this._firebaseRetryTimer = setTimeout(async () => {
+        this._firebaseRetryTimer = null;
+        try {
+          // 重新建立 ref（避免第一次 init 時 uid 尚未 ready）
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || firebase?.auth?.().currentUser?.uid || null);
+          if (!uid) return;
+          if (!this.db) this.db = firebase.database();
+          this.ref = this.db.ref(`users/${uid}/settings`);
+
+          // 只重試一次：成功就覆寫設定並同步通知 UI
+          const connected = await this._isFirebaseConnectedFast();
+          if (!connected) return;
+          const snap = await Promise.race([
+            this.ref.once('value'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('SettingsService Firebase timeout')), this._firebaseLoadTimeoutMs))
+          ]);
+          const data = snap && typeof snap.val === 'function' ? snap.val() : null;
+          if (data) {
+            this.settings = SettingsModel.normalize(data);
+            this.saveToLocal();
+            try { window.dispatchEvent(new CustomEvent('settings:updated', { detail: this.settings })); } catch (_) {}
+            console.log('✅ SettingsService Firebase retry loaded');
+          }
+        } catch (e) {
+          // 重試失敗不再打擾使用者
+          console.warn('SettingsService Firebase retry failed:', e);
+        }
+      }, 2500);
+    } catch (_) {}
   }
 }
 

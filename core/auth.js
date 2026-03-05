@@ -297,9 +297,21 @@ class AuthSystem {
     } catch (error) {
       console.error('Auth initialization error:', error);
       window.ErrorHandler.log('HIGH', 'Auth', 'Initialization failed', { error });
-      
-      // 降級到本地模式
-      this.switchToLocalMode();
+
+      // Enterprise Auth：預設不允許降級 local，避免「未登入仍可進入系統」
+      const allowLocal = !!(AppConfig?.auth?.allowLocalFallback);
+      if (allowLocal) {
+        // 降級到本地模式（僅在明確允許時）
+        this.switchToLocalMode();
+        return;
+      }
+
+      // 不降級：顯示登入畫面並提示錯誤（保持 Auth Gate）
+      try {
+        this.renderLoginForm();
+        this.showLoginForm();
+        this.showLoginError('Firebase 認證初始化失敗，請檢查網路或 Firebase 設定後再重試。');
+      } catch (_) {}
     }
   }
   
@@ -320,6 +332,25 @@ class AuthSystem {
       
       // 取得 Auth 實例
       this.firebaseAuth = firebase.auth();
+
+      // Enterprise Auth：設定持久化（local/session/none）
+      try {
+        const pref = (AppConfig?.auth?.persistence || 'local').toString().toLowerCase();
+        const P = firebase?.auth?.Auth?.Persistence;
+        let mode = null;
+        if (P) {
+          if (pref === 'session') mode = P.SESSION;
+          else if (pref === 'none') mode = P.NONE;
+          else mode = P.LOCAL;
+        }
+        if (mode && typeof this.firebaseAuth.setPersistence === 'function') {
+          await this.firebaseAuth.setPersistence(mode);
+          console.log('  ✓ Firebase Auth persistence set:', pref);
+        }
+      } catch (e) {
+        // 不阻斷登入流程：若瀏覽器不支援或權限不足，仍可正常使用
+        console.warn('  ⚠ Failed to set Firebase Auth persistence:', e);
+      }
       
       // 監聽認證狀態
       this.firebaseAuth.onAuthStateChanged((user) => {
@@ -647,6 +678,7 @@ class AuthSystem {
    * 處理認證狀態變更（Firebase）
    */
   async handleAuthStateChanged(user) {
+    const wasAuthed = !!this.isAuthenticated;
     if (user) {
       // 使用者已登入
       console.log('Auth state changed: User logged in', user.email);
@@ -704,6 +736,15 @@ class AuthSystem {
       
       // 顯示登入表單
       this.showLoginForm();
+
+      // 若上一輪已登入，這裡必須觸發登出事件，避免 UI / Service 殘留狀態
+      if (wasAuthed) {
+        try {
+          // 清除全域變數
+          try { (window.AppState && typeof window.AppState.clearAuth === 'function') ? window.AppState.clearAuth() : null; } catch (_) { try { window.isAuthenticated = false; window.currentUser = null; } catch (_) {} }
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+        } catch (_) {}
+      }
     }
     
     // 通知監聽器
@@ -789,8 +830,10 @@ class AuthSystem {
    */
   async checkAutoLogin() {
     const session = this.loadUserSession();
-    
-    if (session && this.authMode === 'local') {
+
+    // Enterprise Auth：避免未授權自動登入（只有明確允許 Local Fallback 才啟用）
+    const allowLocal = !!(AppConfig?.auth?.allowLocalFallback);
+    if (allowLocal && session && this.authMode === 'local') {
       // 本地模式自動登入
       this.currentUser = session;
       this.isAuthenticated = true;
@@ -991,6 +1034,9 @@ const authSystem = new AuthSystem();
 // 輸出到全域
 if (typeof window !== 'undefined') {
   window.AuthSystem = authSystem;
+
+  // Phase 2：提供 Service 介面，供 AppRegistry.ensureReady(['AuthService']) 使用
+  try { window.AppRegistry?.register?.('AuthService', authSystem); } catch (_) {}
   
   // 便捷方法
   window.logout = () => authSystem.logout();
