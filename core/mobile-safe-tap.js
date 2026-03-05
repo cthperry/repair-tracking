@@ -33,12 +33,20 @@
   function closestActionEl(target) {
     if (!target || !target.closest) return null;
     // 覆蓋常見可點元素：button / a / .btn / .action-btn / [role=button]
-    return target.closest('button, a, .btn, .action-btn, [role="button"], [data-action]');
+    return target.closest('button, a, .btn, .action-btn, [role="button"], [data-action]:not(form):not(input):not(textarea):not(select)');
+  }
+
+  function isEditableTarget(target) {
+    if (!target || !target.closest) return false;
+    return !!target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable]:not([contenteditable="false"])');
   }
 
   // touchend → 主動觸發 click（會 bubble，能打到事件委派）
   document.addEventListener('touchend', function (e) {
     try {
+      // 文字輸入元件（或其子元素）交給原生行為，避免吃掉焦點導致無法輸入
+      if (isEditableTarget(e.target)) return;
+
       var el = closestActionEl(e.target);
       if (!el) return;
 
