@@ -1,0 +1,422 @@
+/**
+ * 工作記錄 - 樣式
+ * WorkLog Module - Styles
+ */
+
+/* ========================================
+   工作記錄區塊（嵌入 repair detail）
+   ======================================== */
+
+.worklog-section {
+  margin-top: 16px;
+}
+
+.worklog-section .detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========================================
+   工作記錄卡片
+   ======================================== */
+
+.worklog-card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--card-bg, #ffffff);
+  transition: box-shadow 0.15s;
+}
+
+.worklog-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.worklog-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.worklog-card-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+
+.worklog-card-date strong {
+  color: var(--text, #1f2937);
+}
+
+.worklog-card-date .muted {
+  color: var(--muted, #9ca3af);
+  font-size: 13px;
+}
+
+.worklog-card-status {
+  flex-shrink: 0;
+}
+
+.worklog-card-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text, #374151);
+}
+
+.worklog-action {
+  margin-bottom: 6px;
+}
+
+.worklog-findings {
+  color: var(--muted, #6b7280);
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--subtle-bg, #f9fafb);
+  border-radius: 6px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.worklog-parts {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+  margin-top: 4px;
+}
+
+.worklog-label {
+  font-weight: 500;
+  color: var(--text-secondary, #4b5563);
+}
+
+.worklog-card-footer {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light, #f3f4f6);
+}
+
+.worklog-card-footer .btn.small {
+  font-size: 12px;
+  padding: 3px 8px;
+  min-height: auto;
+}
+
+/* ========================================
+   工作記錄表單（inline in detail view）
+   ======================================== */
+
+.worklog-form {
+  border: 2px solid var(--primary, #3b82f6);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px 0;
+  background: var(--card-bg, #ffffff);
+}
+
+.worklog-form-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--primary, #3b82f6);
+}
+
+.worklog-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.worklog-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.worklog-form-row.full {
+  grid-column: 1 / -1;
+}
+
+.worklog-form-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #4b5563);
+}
+
+.worklog-form-row label .required {
+  color: #ef4444;
+}
+
+.worklog-form-row input,
+.worklog-form-row textarea,
+.worklog-form-row select {
+  font-size: 14px;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  background: var(--input-bg, #ffffff);
+  color: var(--text, #1f2937);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.worklog-form-row input:focus,
+.worklog-form-row textarea:focus,
+.worklog-form-row select:focus {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.worklog-form-row textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+
+.worklog-form-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+/* ========================================
+   Mini Summary（repair card 的 chip）
+   ======================================== */
+
+.worklog-chip {
+  font-size: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* ========================================
+   響應式
+   ======================================== */
+
+@media (max-width: 600px) {
+  .worklog-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .worklog-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ========================================
+   Dark mode 支援
+   ======================================== */
+
+[data-theme="dark"] .worklog-card {
+  background: var(--card-bg, #1f2937);
+  border-color: var(--border, #374151);
+}
+
+[data-theme="dark"] .worklog-form {
+  background: var(--card-bg, #1f2937);
+  border-color: var(--primary, #60a5fa);
+}
+
+[data-theme="dark"] .worklog-findings {
+  background: var(--subtle-bg, #111827);
+}
+
+[data-theme="dark"] .worklog-card-footer {
+  border-top-color: var(--border, #374151);
+}
+
+
+/* ========================================
+   工作記錄改版：摘要 + 卡片式欄位
+   ======================================== */
+.worklog-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.worklog-section-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.worklog-head-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.worklog-head-stat {
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--subtle-bg, #f8fafc);
+  border: 1px solid var(--border-light, #e5e7eb);
+}
+
+.worklog-head-stat span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.worklog-head-stat strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  color: var(--text, #1f2937);
+}
+
+.worklog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.worklog-empty {
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--subtle-bg, #f8fafc);
+  border: 1px dashed var(--border, #d1d5db);
+}
+
+.worklog-empty-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--text, #1f2937);
+}
+
+.worklog-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.worklog-card {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.99) 0%, rgba(248,250,252,.99) 100%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+}
+
+.worklog-card-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.worklog-card-updated {
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.worklog-action {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.65;
+  color: var(--text, #111827);
+}
+
+.worklog-field-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--border-light, #e5e7eb);
+}
+
+.worklog-field-card.subtle {
+  background: var(--subtle-bg, #f8fafc);
+}
+
+.worklog-field-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-secondary, #4b5563);
+  margin-bottom: 6px;
+}
+
+.worklog-field-value {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text, #374151);
+}
+
+.worklog-card-footer {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.worklog-card-footer .btn {
+  min-width: 88px;
+}
+
+@media (max-width: 600px) {
+  .worklog-head-stats {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .worklog-actions .btn {
+    width: 100%;
+  }
+}
+
+
+@media (max-width: 600px) {
+  .worklog-card-footer {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .worklog-card-footer .btn {
+    width: 100%;
+  }
+}
+
+
+/* ========================================
+   Form Audit V161.292 - WorkLog
+   ======================================== */
+.worklog-form{
+  margin:12px 0;
+}
+.worklog-form .form-section{
+  border-color:rgba(59,130,246,.22);
+  background:linear-gradient(180deg, rgba(255,255,255,.99) 0%, rgba(248,250,252,.98) 100%);
+}
+.worklog-form-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+.worklog-form-row.full{
+  grid-column:1 / -1;
+}
+.worklog-form-buttons{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid rgba(148,163,184,.24);
+}
+.worklog-form-buttons .form-actions-note{
+  min-width:220px;
+}
+@media (max-width: 640px){
+  .worklog-form-grid{grid-template-columns:1fr;}
+  .worklog-form-buttons .form-actions-note{min-width:0;margin-right:0;}
+}

@@ -1,0 +1,17 @@
+{
+  "name": "repair-tracking-v161",
+  "private": true,
+  "description": "RepairTracking（V161）- 測試保護網（Vitest + Playwright）",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0",
+    "playwright": "^1.49.0",
+    "vitest": "^2.1.8"
+  }
+}

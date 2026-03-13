@@ -1,0 +1,113 @@
+/* SOP Hub（SOP-1） - UI 對齊 OrderSOPHub Phase 1 */
+
+.sops-page{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.sops-topbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.sops-title{
+  font-size:18px;
+  font-weight:900;
+  color:var(--color-text);
+}
+
+.sops-card{
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: 0 6px 16px var(--color-shadow);
+}
+
+.sops-row{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.sops-field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:140px;
+}
+
+.sops-field label{
+  font-size:12px;
+  color: var(--color-text-secondary);
+}
+
+/* 讓 button.link 看起來像連結（不吃 button 預設樣式） */
+.sops-page .link{
+  background:transparent;
+  border:none;
+  padding:0;
+  text-align:left;
+}
+
+/* 進階區塊 */
+.sops-advanced{
+  border:1px solid var(--color-border);
+  border-radius:12px;
+  padding:10px 12px;
+  background:var(--color-surface-2);
+}
+
+.sops-advanced summary{
+  cursor:pointer;
+  font-weight:800;
+  color:var(--color-text);
+}
+
+/* 表格在窄視窗可水平捲動（避免擠壓）
+   注意：不要把 table 設成 display:block，會破壞欄寬與呈現（造成「顯示不完整」錯覺）。 */
+.sops-table-wrap{
+  width:100%;
+  overflow:auto;
+}
+
+.sops-table-wrap .table{
+  width:100%;
+  min-width: 720px;
+}
+
+@media (max-width: 720px){
+  .sops-field{min-width:0;flex:1 1 100%;}
+}
+
+
+/* ========================================
+   Form Audit V161.292 - SOP
+   ======================================== */
+.sops-form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.sops-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+  align-items:start;
+}
+.sops-field{
+  gap:8px;
+}
+.sops-field label{
+  font-size:12px;
+  line-height:1.45;
+  color:var(--color-text-secondary);
+  font-weight:900;
+}
+.sops-actions .muted{margin-right:auto;}
+@media (max-width: 720px){
+  .sops-row{grid-template-columns:1fr;}
+}

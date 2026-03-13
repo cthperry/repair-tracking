@@ -1,0 +1,640 @@
+/**
+ * Corporate UI Enhancement
+ * @file core/corporate-enhancement.css
+ * @version V161.276
+ * @description
+ *   疊加在 variables.css → shared.css → ui.css 之上的企業級美工優化層。
+ *   涵蓋：排版層次、按鈕、表單、卡片、表格、導覽列、側欄、Header、Modal。
+ *   全部使用 CSS 變數，不硬寫色碼，避免與主題系統衝突。
+ */
+
+/* ============================================================
+   1. Body & Typography Foundation
+   ============================================================ */
+
+body {
+  font-size: 14px;
+  line-height: var(--lh-normal);
+  color: var(--color-text);
+  font-family: "Noto Sans TC", "Microsoft JhengHei UI", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: var(--fw-normal);
+  letter-spacing: 0.01em;
+}
+
+/* 標題層次 */
+h1, h2, h3, h4, h5, h6 { letter-spacing: 0.01em; }
+h1 { font-size: 22px; font-weight: var(--fw-black); line-height: var(--lh-tight); }
+h2 { font-size: 18px; font-weight: var(--fw-black); line-height: var(--lh-tight); }
+h3 { font-size: 16px; font-weight: var(--fw-bold);  line-height: var(--lh-tight); }
+h4 { font-size: 14px; font-weight: var(--fw-bold); }
+
+/* Page title 強化 */
+.page-title h2 {
+  font-size: 18px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.01em;
+  color: var(--color-text);
+}
+.page-title .muted {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: var(--fw-medium);
+}
+
+/* Section title dot accent 強化 */
+.form-section-title {
+  font-size: 13px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--color-text);
+}
+.form-section-title::before {
+  width: 6px; height: 6px;
+  opacity: 0.85;
+}
+
+
+/* ============================================================
+   2. Sidebar（左側導覽列 — 深色企業風）
+   ============================================================ */
+
+aside {
+  background: linear-gradient(
+    180deg,
+    var(--sidebar-bg)     0%,
+    var(--sidebar-bg-alt) 100%
+  ) !important;
+  border-right: 1px solid rgba(0,0,0,0.18) !important;
+  color: var(--sidebar-text) !important;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.12);
+}
+
+/* 頂部品牌區 */
+.sidebar-header {
+  border-bottom: 1px solid var(--sidebar-border);
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+}
+.sidebar-header .brand {
+  color: var(--sidebar-brand-color) !important;
+  font-size: 15px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.04em;
+}
+.sidebar-header .brand-badge {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.80);
+}
+.sidebar-header .header-subtitle,
+.sidebar-sub {
+  color: var(--sidebar-text-muted) !important;
+  font-size: 11px;
+}
+
+/* User Pill on sidebar */
+.sidebar-header .user-pill {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.14);
+}
+.sidebar-header .user-name {
+  color: rgba(255,255,255,0.88) !important;
+  font-weight: var(--fw-bold);
+}
+.sidebar-header .user-avatar {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.90);
+}
+
+/* Nav section label */
+.nav-title {
+  color: var(--sidebar-text-muted) !important;
+  font-size: 10.5px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 10px 4px 4px 4px;
+}
+
+/* Nav items on dark sidebar */
+.nav-item {
+  color: var(--sidebar-text) !important;
+  border-color: transparent !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 9px 10px !important;
+  margin-bottom: 2px !important;
+  font-size: 13px;
+  font-weight: var(--fw-medium);
+  transition: background 0.14s ease, color 0.14s ease, transform 0.10s ease !important;
+}
+.nav-item:hover {
+  background: var(--sidebar-item-hover) !important;
+  color: var(--sidebar-text-hover) !important;
+}
+.nav-item.active {
+  background: var(--sidebar-item-active) !important;
+  box-shadow: none !important;
+  color: var(--sidebar-text-active) !important;
+  font-weight: var(--fw-bold) !important;
+  /* 左邊 accent 條 */
+  border-left: 3px solid var(--module-accent) !important;
+  padding-left: 7px !important;
+}
+.nav-item.disabled {
+  color: var(--sidebar-text-muted) !important;
+  opacity: 0.6;
+}
+
+/* Sidebar footer 分隔線 */
+.sidebar-footer {
+  border-top: 1px solid var(--sidebar-border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+.sidebar-footer .nav-item {
+  font-size: 12px;
+}
+
+
+/* ============================================================
+   3. Header（頂部橫欄）
+   ============================================================ */
+
+header {
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.98) 0%,
+    rgba(247,249,253,0.98) 100%
+  ) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  box-shadow: 0 1px 0 var(--color-border), 0 2px 8px rgba(15,23,42,0.04);
+  padding: 0 20px !important;
+  height: var(--header-height);
+}
+
+.header-title {
+  font-size: 14px;
+  font-weight: var(--fw-black);
+  color: var(--color-text);
+  letter-spacing: 0.01em;
+}
+.header-subtitle {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: var(--fw-medium);
+}
+.brand {
+  font-size: 15px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.02em;
+}
+
+
+/* ============================================================
+   4. Buttons — 精煉視覺重量
+   ============================================================ */
+
+.btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-md) !important;
+  font-size: 13px;
+  font-weight: var(--fw-bold) !important;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-btn);
+  transition: background 0.14s ease, border-color 0.14s ease,
+              box-shadow 0.14s ease, filter 0.14s ease !important;
+}
+.btn:hover {
+  box-shadow: 0 2px 6px rgba(15,23,42,0.12);
+}
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-btn);
+}
+
+/* Primary button — 有 glow */
+.btn.primary {
+  box-shadow: var(--shadow-btn-primary) !important;
+  background: linear-gradient(
+    180deg,
+    var(--color-primary)       0%,
+    var(--color-primary-hover) 100%
+  ) !important;
+  border-color: var(--color-primary-hover) !important;
+}
+.btn.primary:hover {
+  box-shadow: 0 4px 14px rgba(37,99,235,0.34) !important;
+  filter: brightness(1.04);
+}
+
+/* Danger button */
+.btn.danger {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 2px 6px rgba(220,38,38,0.22) !important;
+}
+.btn.danger:hover {
+  box-shadow: 0 4px 12px rgba(220,38,38,0.30) !important;
+}
+
+/* Ghost button */
+.btn.ghost {
+  box-shadow: none !important;
+}
+
+/* Small button */
+.btn.sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Disabled state */
+.btn[disabled] {
+  box-shadow: none !important;
+  opacity: 0.50;
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   5. Form Inputs — 更清晰的焦點/狀態
+   ============================================================ */
+
+.input, .textarea {
+  border-radius: var(--radius-md) !important;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  font-size: 13.5px;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease !important;
+}
+.input:not(textarea):not(.textarea) {
+  height: 40px;
+  line-height: 40px;
+}
+.input:focus, .textarea:focus {
+  border-color: var(--module-accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
+}
+
+/* Label 強化 */
+.field label, .form-label, .field-label {
+  font-size: 11.5px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  text-transform: none;
+}
+
+/* Form section 邊框更精細 */
+.form-section {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+
+/* ============================================================
+   6. Cards — 更強的陰影層次
+   ============================================================ */
+
+.card {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  border-color: var(--color-border);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease,
+              transform 0.14s ease !important;
+}
+.card:hover {
+  box-shadow: var(--shadow-card-hover) !important;
+  border-color: rgba(148,163,184,0.60);
+  transform: translateY(-1px);
+}
+.card::before {
+  height: 3px;
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    var(--module-accent)         0%,
+    rgba(15,23,42,0)             70%
+  );
+}
+.card-head {
+  background: var(--color-panel) !important;
+  border-bottom-color: var(--color-border);
+  padding: 12px 14px;
+}
+.card-title {
+  font-size: 13.5px;
+  font-weight: var(--fw-bold);
+  color: var(--color-text);
+}
+.card-body {
+  padding: 12px 14px;
+}
+.card-foot {
+  padding: 10px 14px;
+  background: var(--color-panel-alt);
+  border-top-color: var(--color-border);
+}
+
+/* Stat cards */
+.stat-card {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: box-shadow 0.18s ease, transform 0.14s ease !important;
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-card-hover) !important;
+  transform: translateY(-1px);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: var(--fw-black);
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+
+/* ============================================================
+   7. Tables — 更成熟的企業表格風格
+   ============================================================ */
+
+.table-wrap {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card);
+  border-color: var(--color-border);
+  overflow: hidden;
+}
+
+.table th {
+  background: var(--color-panel-alt) !important;
+  color: var(--color-text-secondary);
+  font-size: 11.5px !important;
+  font-weight: var(--fw-black) !important;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  border-bottom: 2px solid var(--color-border) !important;
+  padding: 10px 14px !important;
+  white-space: nowrap;
+}
+
+.table td {
+  font-size: 13px;
+  padding: 10px 14px !important;
+  vertical-align: middle;
+  border-bottom-color: rgba(219,226,239,0.70);
+}
+
+.table tr:hover td {
+  background: rgba(37,99,235,0.03) !important;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ============================================================
+   8. Panels & Module Toolbar
+   ============================================================ */
+
+.panel, .module-toolbar {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card);
+  border-color: var(--color-border);
+}
+
+/* 左側 accent 條加粗 */
+.panel::before, .module-toolbar::before {
+  width: 3px;
+  opacity: 1 !important;
+  background: var(--module-accent) !important;
+}
+.panel.accent-strong::before {
+  opacity: 1 !important;
+}
+
+
+/* ============================================================
+   9. Modal — 企業級彈窗精修
+   ============================================================ */
+
+.modal-content, .modal-dialog {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-modal) !important;
+  border-color: rgba(148,163,184,0.30);
+}
+
+.modal-header {
+  background: linear-gradient(
+    180deg,
+    var(--color-panel) 0%,
+    var(--color-panel-alt) 100%
+  );
+  border-bottom-color: var(--color-border);
+  padding: 14px 18px;
+}
+/* 左側 accent 條升強 */
+.modal-header::before {
+  width: 4px;
+  background: var(--module-accent) !important;
+  opacity: 1 !important;
+}
+
+.modal-title {
+  font-size: 15px !important;
+  font-weight: var(--fw-black) !important;
+  letter-spacing: 0.01em;
+}
+.modal-header h3 {
+  font-size: 16px !important;
+  font-weight: var(--fw-black) !important;
+  letter-spacing: 0.01em;
+}
+
+.modal-close {
+  border-radius: var(--radius-sm) !important;
+  color: var(--color-text-secondary);
+}
+
+.modal-body {
+  padding: 18px;
+  background: var(--color-surface);
+}
+.modal-footer {
+  padding: 12px 18px;
+  background: var(--color-panel-alt);
+  border-top-color: var(--color-border);
+}
+
+
+/* ============================================================
+   10. Badges & Chips — 更緊實的字型
+   ============================================================ */
+
+.badge, .status-badge {
+  font-size: 11.5px !important;
+  font-weight: var(--fw-bold) !important;
+  letter-spacing: 0.02em;
+  border-radius: 6px !important;    /* 矩形圓角而非完整膠囊 — 更 B2B */
+  padding: 3px 8px !important;
+}
+
+.chip {
+  font-size: 12px !important;
+  font-weight: var(--fw-semibold) !important;
+  border-radius: 7px !important;
+}
+
+
+/* ============================================================
+   11. Scrollbars — 更收斂
+   ============================================================ */
+
+* { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.40) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.35);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.55);
+  background-clip: content-box;
+}
+
+/* Sidebar scrollbar 更淡（深色背景） */
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  background-clip: content-box;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+  background-clip: content-box;
+}
+
+
+/* ============================================================
+   12. Toast notifications — 微調
+   ============================================================ */
+
+.toast {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+  font-size: 13px;
+}
+.toast__msg {
+  font-weight: var(--fw-semibold) !important;
+}
+
+
+/* ============================================================
+   13. Notification Panel
+   ============================================================ */
+
+.notif-panel {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-modal) !important;
+  border-color: rgba(148,163,184,0.30);
+}
+.notif-item {
+  border-radius: var(--radius-md) !important;
+}
+
+
+/* ============================================================
+   14. Meta Grid（卡片資訊格）
+   ============================================================ */
+
+.meta-k {
+  font-size: 10.5px !important;
+  font-weight: var(--fw-black) !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.meta-v {
+  font-size: 13px;
+  font-weight: var(--fw-medium);
+  color: var(--color-text);
+}
+
+
+/* ============================================================
+   15. Empty State
+   ============================================================ */
+
+.empty-state {
+  border-radius: var(--radius-lg) !important;
+  padding: 36px 24px;
+  border-color: rgba(148,163,184,0.40);
+}
+.empty-icon { font-size: 48px; opacity: 0.45; }
+.empty-title {
+  font-size: 17px;
+  font-weight: var(--fw-black);
+  letter-spacing: 0.01em;
+  margin-bottom: 8px;
+}
+.empty-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+
+/* ============================================================
+   16. Detail Tab Bar
+   ============================================================ */
+
+.detail-tabbar {
+  border-radius: var(--radius-lg) !important;
+  padding: 5px;
+}
+.detail-tabbar .chip {
+  border-radius: 7px !important;
+}
+
+
+/* ============================================================
+   17. Density overrides — 保持 compact 模式一致
+   ============================================================ */
+
+body[data-density="compact"] .stat-card { transform: none; }
+body[data-density="compact"] .stat-card:hover { transform: none; }
+body[data-density="compact"] .card:hover { transform: none; }
+body[data-density="compact"] .btn:active { transform: translateY(1px); }
+
+
+/* ============================================================
+   18. Login Form（Auth 動態插入）
+   ============================================================ */
+
+/* Login 表單出現在 body 上，透過 .login-container 等 class 控制 */
+.login-container, .auth-container {
+  background: linear-gradient(
+    135deg,
+    var(--sidebar-bg)     0%,
+    var(--sidebar-bg-alt) 100%
+  );
+}
+
+
+/* ============================================================
+   19. Reduced Motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .stat-card { transition: none !important; transform: none !important; }
+  .btn { transition: none !important; }
+}
