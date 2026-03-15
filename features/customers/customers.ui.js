@@ -414,6 +414,8 @@ class CustomerUI {
       </div>
     `;
 
+    // 重置 _domBound，確保每次 render() 後重新綁定事件（destroy 不會重置此旗標）
+    this._domBound = false;
     this._bindDomHandlers(container);
     this.updateList();
   }

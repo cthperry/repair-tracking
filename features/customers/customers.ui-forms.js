@@ -343,7 +343,6 @@ Object.assign(CustomerUIForms, {
   async handleSubmit(event) {
     try { event.preventDefault(); } catch (_) {}
     try { event.stopPropagation(); } catch (_) {}
-    try { event.stopPropagation(); } catch (_) {}
 
     if (CustomerUIForms._submitting) return;
 
