@@ -430,9 +430,22 @@ class AuthSystem {
    */
   async initFirebase() {
     try {
-      // 檢查 Firebase SDK 是否載入
+      // 等待 Firebase SDK 載入（CDN 偶發延遲；同步 <script> 理論上已載入，
+      // 但部分瀏覽器環境在 DOMContentLoaded 前偶有 race；最多等 5 秒）
       if (typeof firebase === 'undefined') {
-        throw new Error('Firebase SDK not loaded');
+        await new Promise((resolve, reject) => {
+          let elapsed = 0;
+          const iv = setInterval(() => {
+            elapsed += 100;
+            if (typeof firebase !== 'undefined') {
+              clearInterval(iv);
+              resolve();
+            } else if (elapsed >= 5000) {
+              clearInterval(iv);
+              reject(new Error('Firebase SDK not loaded'));
+            }
+          }, 100);
+        });
       }
       
       // 初始化 Firebase App
@@ -674,8 +687,11 @@ class AuthSystem {
     try {
       if (this.authMode === 'firebase') {
         await this.loginWithFirebase(email, password);
-      } else {
+      } else if (this.authMode === 'local') {
         await this.loginLocal(email, password);
+      } else {
+        // authMode 為 null：Firebase 尚未初始化成功（SDK 未載入或網路問題）
+        throw { code: 'auth/sdk-not-ready', message: '認證服務未就緒，請重新整理頁面後再試。' };
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -1128,7 +1144,8 @@ class AuthSystem {
       'auth/invalid-email': 'Email 格式錯誤',
       'auth/user-disabled': '此帳號已被停用',
       'auth/too-many-requests': '登入嘗試次數過多，請稍後再試',
-      'auth/network-request-failed': '網路連線失敗'
+      'auth/network-request-failed': '網路連線失敗',
+      'auth/sdk-not-ready': '認證服務未就緒，請重新整理頁面後再試。'
     };
     
     return messages[error.code] || error.message || '登入失敗，請稍後再試';
