@@ -808,8 +808,10 @@ class CustomerUI {
           try { e.preventDefault(); } catch (_) {}
           try { e.stopPropagation(); } catch (_) {}
           try { e.stopImmediatePropagation?.(); } catch (_) {}
-          if (form.id === 'customer-form' && window.CustomerUIForms?.handleSubmit) return window.CustomerUIForms.handleSubmit(e);
-          if (form.id === 'company-rename-form' && window.CustomerUI?.handleRenameCompany) return window.CustomerUI.handleRenameCompany(e);
+          // getAttribute('id') 避免 <input name="id"> named access 覆蓋 form.id 屬性
+          const _fid = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
+          if (_fid === 'customer-form' && window.CustomerUIForms?.handleSubmit) return window.CustomerUIForms.handleSubmit(e);
+          if (_fid === 'company-rename-form' && window.CustomerUI?.handleRenameCompany) return window.CustomerUI.handleRenameCompany(e);
           return undefined;
         };
         form.addEventListener('submit', directSubmit);

@@ -348,7 +348,10 @@ Object.assign(CustomerUIForms, {
     if (CustomerUIForms._submitting) return;
 
     const form = event?.target?.closest ? (event.target.closest('form') || event.target) : event?.target;
-    if (!form || form.id !== 'customer-form') return;
+    // 用 getAttribute('id') 而非 form.id：
+    // 因為表單內有 <input name="id">，瀏覽器 named access 會讓 form.id 回傳該 input 元素而非字串
+    const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
+    if (!form || formId !== 'customer-form') return;
 
     try {
       if (window.FormValidate) {
