@@ -128,10 +128,6 @@
       styles: ['features/machines/machines.css'],
       scripts: ['features/machines/machines.ui.js', 'features/machines/machines.controller.js']
     },
-    maintenance: {
-      styles: ['features/maintenance/maintenance.css'],
-      scripts: ['features/maintenance/maintenance.ui.js', 'features/maintenance/maintenance.controller.js']
-    },
     customers: {
       styles: ['features/customers/customers.css'],
       scripts: ['features/customers/customers.ui.js', 'features/customers/customers.ui-forms.js', 'features/customers/customers.controller.js']
@@ -167,10 +163,6 @@
     weekly: {
       styles: ['features/weekly/weekly.css'],
       scripts: ['features/weekly/weekly.ui.js', 'features/weekly/weekly.controller.js']
-    },
-    guide: {
-      styles: ['features/guide/guide.css'],
-      scripts: ['features/guide/guide.ui.js', 'features/guide/guide.controller.js']
     },
     settings: {
       styles: ['features/settings/settings.css'],

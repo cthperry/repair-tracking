@@ -60,7 +60,6 @@ features/<module>/
 - `analytics`：分析
 - `repairs`：維修管理
 - `machines`：機台歷史
-- `maintenance`：機台保養
 - `customers`：客戶管理
 - `parts`：零件追蹤
 - `quotes`：報價管理
@@ -68,7 +67,6 @@ features/<module>/
 - `kb`：知識庫
 - `sops`：SOP Hub
 - `weekly`：週報
-- `guide`：使用者指南
 - `settings`：設定
 
 ## 6. 啟動與載入流程
@@ -115,7 +113,7 @@ data/<uid>/...
 主要包含：
 - repairs / repairHistory / workLogs
 - customers / parts / quotes / orders / quoteHistory
-- maintenance / kb / sophub / meta
+- kb / sophub / meta
 
 ### 管理類資料
 ```text

@@ -6,7 +6,6 @@
  *   RepairService    → 維修統計 / 逾期維修
  *   QuoteService     → 待核准報價
  *   OrderService     → 待到貨訂單
- *   MaintenanceService → 逾期保養
  *   NotificationCenter → 通知清單
  */
 (function () {
@@ -29,6 +28,16 @@
     var d = new Date(isoStr);
     if (isNaN(d.getTime())) return NaN;
     return Math.floor((Date.now() - d.getTime()) / 86400000);
+  };
+
+  var daysUntil = function (isoStr) {
+    if (!isoStr) return NaN;
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return NaN;
+    var now = new Date();
+    now.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor((d.getTime() - now.getTime()) / 86400000);
   };
 
   var fmtDate = function (isoStr) {
@@ -105,32 +114,6 @@
     };
   }
 
-  function getMaintenanceStats() {
-    var svc = _svc('MaintenanceService');
-    if (!svc || typeof svc.getStats === 'function') {
-      try {
-        if (svc && !svc.isInitialized && typeof svc.init === 'function') {
-          // 非同步 init 已在 controller 處理，這裡直接讀
-        }
-        var stats = svc && svc.getStats ? svc.getStats() : null;
-        var dueList = svc && svc.getDueList ? svc.getDueList() : [];
-        var urgent = dueList.filter(function (r) {
-          var s = r && r.due ? r.due.status : '';
-          return s === 'overdue' || s === 'dueSoon1';
-        });
-        return {
-          total: stats ? stats.total : 0,
-          overdue: stats ? stats.overdue : 0,
-          dueSoon: stats ? stats.dueSoon : 0,
-          compliance: stats ? stats.compliance : 0,
-          urgentList: urgent.slice(0, 5)
-        };
-      } catch (_) {}
-    }
-    return { total: 0, overdue: 0, dueSoon: 0, compliance: 0, urgentList: [] };
-  }
-
-
   function getThisWeekKPI() {
     var rs = _svc('RepairService');
     var qs = _svc('QuoteService');
@@ -200,17 +183,66 @@
   function getBusinessActionStats() {
     var svc = _svc('RepairService');
     if (!svc || typeof svc.getAll !== 'function') {
-      return { pendingChargeDecision: 0, pendingOrderDecision: 0, staleActive: [], staleCount: 0 };
+      return {
+        pendingChargeDecision: 0,
+        pendingOrderDecision: 0,
+        staleActive: [],
+        staleCount: 0,
+        chargeable: 0,
+        free: 0,
+        undecided: 0,
+        ordered: 0,
+        notOrdered: 0,
+        unknownOrder: 0,
+        stageCount: {},
+        reasonCount: {}
+      };
     }
 
     var all = (svc.getAll() || []).filter(function (r) { return r && !r.isDeleted; });
     var pendingChargeDecision = 0;
     var pendingOrderDecision = 0;
     var staleActive = [];
+    var chargeable = 0;
+    var free = 0;
+    var undecided = 0;
+    var ordered = 0;
+    var notOrdered = 0;
+    var unknownOrder = 0;
+    var stageCount = {};
+    var reasonCount = {};
 
     for (var i = 0; i < all.length; i++) {
       var r = all[i] || {};
       var billing = (r.billing && typeof r.billing === 'object') ? r.billing : {};
+      var flow = (window.AppConfig && typeof window.AppConfig.getBillingFlowMeta === 'function')
+        ? window.AppConfig.getBillingFlowMeta(billing)
+        : null;
+
+      if (flow) {
+        if (flow.isChargeable) chargeable++;
+        else if (flow.isFree) free++;
+        else undecided++;
+
+        if (flow.isOrdered) ordered++;
+        else if (flow.isNotOrdered) {
+          notOrdered++;
+          var stageKey = (flow.stageCode || 'unknown').toString().toLowerCase();
+          var reasonKey = (flow.reasonCode || 'unknown').toString().toLowerCase();
+          stageCount[stageKey] = (stageCount[stageKey] || 0) + 1;
+          reasonCount[reasonKey] = (reasonCount[reasonKey] || 0) + 1;
+        } else if (flow.isChargeable) {
+          unknownOrder++;
+        }
+      } else {
+        if (billing.chargeable === true) chargeable++;
+        else if (billing.chargeable === false) free++;
+        else undecided++;
+        if (billing.chargeable === true && billing.orderStatus === 'ordered') ordered++;
+        else if (billing.chargeable === true && billing.orderStatus === 'not_ordered') notOrdered++;
+        else if (billing.chargeable === true) unknownOrder++;
+      }
+
       if (billing.chargeable !== true && billing.chargeable !== false) pendingChargeDecision++;
       if (billing.chargeable === true && billing.orderStatus !== 'ordered' && billing.orderStatus !== 'not_ordered') pendingOrderDecision++;
       if (r.status !== '已完成') {
@@ -233,12 +265,167 @@
       pendingChargeDecision: pendingChargeDecision,
       pendingOrderDecision: pendingOrderDecision,
       staleActive: staleActive.slice(0, 6),
-      staleCount: staleActive.length
+      staleCount: staleActive.length,
+      chargeable: chargeable,
+      free: free,
+      undecided: undecided,
+      ordered: ordered,
+      notOrdered: notOrdered,
+      unknownOrder: unknownOrder,
+      stageCount: stageCount,
+      reasonCount: reasonCount
     };
   }
 
-  function renderCommandCenter(repairs, quotes, orders, maint, week, biz) {
-    var urgentCount = (repairs.overdue ? repairs.overdue.length : 0) + (maint.overdue || 0);
+
+  function getFunnelStats() {
+    var repairSvc = _svc('RepairService');
+    var quoteSvc = _svc('QuoteService');
+    var orderSvc = _svc('OrderService');
+
+    var repairs = (repairSvc && typeof repairSvc.getAll === 'function') ? (repairSvc.getAll() || []).filter(function (r) { return r && !r.isDeleted; }) : [];
+    var quotes = (quoteSvc && typeof quoteSvc.getAll === 'function') ? (quoteSvc.getAll() || []).filter(function (q) { return q && !q.isDeleted; }) : [];
+    var orders = (orderSvc && typeof orderSvc.getAll === 'function') ? (orderSvc.getAll() || []).filter(function (o) { return o && !o.isDeleted; }) : [];
+
+    var activeRepairs = repairs.filter(function (r) { return r.status !== '已完成'; }).length;
+    var needParts = repairs.filter(function (r) { return r.status === '需要零件'; }).length;
+    var quoteDraft = quotes.filter(function (q) { return q.status === '草稿'; }).length;
+    var quoteSubmitted = quotes.filter(function (q) { return q.status === '已送出'; }).length;
+    var quoteApproved = quotes.filter(function (q) { return q.status === '已核准'; }).length;
+    var orderCreated = orders.filter(function (o) { return o.status === '建立'; }).length;
+    var orderOrdered = orders.filter(function (o) { return o.status === '已下單'; }).length;
+    var orderArrived = orders.filter(function (o) { return o.status === '已到貨'; }).length;
+    var orderClosed = orders.filter(function (o) { return o.status === '已結案'; }).length;
+    var chargeable = 0;
+    var billingOrdered = 0;
+    var billingPending = 0;
+
+    for (var i = 0; i < repairs.length; i++) {
+      var billing = (repairs[i] && repairs[i].billing && typeof repairs[i].billing === 'object') ? repairs[i].billing : {};
+      var flow = (window.AppConfig && typeof window.AppConfig.getBillingFlowMeta === 'function')
+        ? window.AppConfig.getBillingFlowMeta(billing)
+        : null;
+      if (flow ? flow.isChargeable : billing.chargeable === true) {
+        chargeable++;
+        if (flow ? flow.isOrdered : billing.orderStatus === 'ordered') billingOrdered++;
+        else billingPending++;
+      }
+    }
+
+    return {
+      activeRepairs: activeRepairs,
+      needParts: needParts,
+      quoteDraft: quoteDraft,
+      quoteSubmitted: quoteSubmitted,
+      quoteApproved: quoteApproved,
+      orderCreated: orderCreated,
+      orderOrdered: orderOrdered,
+      orderArrived: orderArrived,
+      orderClosed: orderClosed,
+      chargeable: chargeable,
+      billingOrdered: billingOrdered,
+      billingPending: billingPending
+    };
+  }
+
+  function getOrderWatchStats() {
+    var svc = _svc('OrderService');
+    if (!svc || typeof svc.getAll !== 'function') {
+      return { overdue: 0, dueSoon: 0, missingEta: 0, stalledOrdered: 0, watchList: [] };
+    }
+
+    var all = (svc.getAll() || []).filter(function (o) { return o && !o.isDeleted; });
+    var overdue = 0;
+    var dueSoon = 0;
+    var missingEta = 0;
+    var stalledOrdered = 0;
+    var watchList = [];
+
+    for (var i = 0; i < all.length; i++) {
+      var o = all[i] || {};
+      var status = o.status || '';
+      var isTerminal = false;
+      try {
+        isTerminal = !!(window.AppConfig && typeof window.AppConfig.isTerminalBusinessStatus === 'function' && window.AppConfig.isTerminalBusinessStatus('order', status));
+      } catch (_) {}
+      if (isTerminal || status === '已結案' || status === '已取消' || status === '已到貨') continue;
+
+      var eta = o.expectedAt || '';
+      var etaDays = daysUntil(eta);
+      var orderedDays = daysSince(o.orderedAt || o.createdAt);
+      var tag = '';
+      var tone = 'warn';
+      if (!eta) {
+        missingEta++;
+        tag = '未設定 ETA';
+        tone = 'neutral';
+      } else if (isFinite(etaDays) && etaDays < 0) {
+        overdue++;
+        tag = '交期逾期';
+        tone = 'danger';
+      } else if (isFinite(etaDays) && etaDays <= 7) {
+        dueSoon++;
+        tag = '7 天內到貨';
+      }
+      if (status === '已下單' && isFinite(orderedDays) && orderedDays >= 7 && !o.receivedAt) {
+        stalledOrdered++;
+        if (!tag) {
+          tag = '已下單超過 7 天';
+          tone = 'warn';
+        }
+      }
+      if (!tag) continue;
+      watchList.push({
+        id: o.id,
+        orderNo: o.orderNo || o.id || '',
+        vendor: o.vendor || '',
+        expectedAt: eta,
+        tag: tag,
+        tagTone: tone
+      });
+    }
+
+    watchList.sort(function (a, b) {
+      if (a.tag === '交期逾期' && b.tag !== '交期逾期') return -1;
+      if (a.tag !== '交期逾期' && b.tag === '交期逾期') return 1;
+      return String(a.expectedAt || '').localeCompare(String(b.expectedAt || ''));
+    });
+
+    return {
+      overdue: overdue,
+      dueSoon: dueSoon,
+      missingEta: missingEta,
+      stalledOrdered: stalledOrdered,
+      watchList: watchList.slice(0, 6)
+    };
+  }
+
+  function getEngineerLoadStats() {
+    var svc = _svc('RepairService');
+    if (!svc || typeof svc.getAll !== 'function') return [];
+
+    var all = (svc.getAll() || []).filter(function (r) { return r && !r.isDeleted && r.status !== '已完成'; });
+    var map = {};
+    for (var i = 0; i < all.length; i++) {
+      var r = all[i] || {};
+      var name = (r.ownerName || '').trim() || '未指派';
+      if (!map[name]) map[name] = { name: name, active: 0, needParts: 0, stale: 0, urgent: 0 };
+      map[name].active += 1;
+      if (r.status === '需要零件') map[name].needParts += 1;
+      var staleDays = daysSince(r.updatedAt || r.createdAt || r.createdDate);
+      if (isFinite(staleDays) && staleDays >= 3) map[name].stale += 1;
+      if ((r.priority || '').toString().toLowerCase() === 'urgent') map[name].urgent += 1;
+    }
+
+    return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) {
+      if (b.active !== a.active) return b.active - a.active;
+      if (b.needParts !== a.needParts) return b.needParts - a.needParts;
+      return b.stale - a.stale;
+    }).slice(0, 6);
+  }
+
+  function renderCommandCenter(repairs, quotes, orders, week, biz) {
+    var urgentCount = (repairs.overdue ? repairs.overdue.length : 0) + (repairs.needParts || 0);
     var businessCount = (biz.pendingChargeDecision || 0) + (biz.pendingOrderDecision || 0) + (quotes.pending || 0);
     var staleCount = biz.staleCount || 0;
 
@@ -255,7 +442,7 @@
     html += '<div class="dash-focus-card danger" data-action="dash-goto" data-route="repairs">';
     html += '<div class="dash-focus-label">立即處理</div>';
     html += '<div class="dash-focus-value">' + urgentCount + '</div>';
-    html += '<div class="dash-focus-desc">維修逾期 ' + (repairs.overdue ? repairs.overdue.length : 0) + ' · 保養逾期 ' + (maint.overdue || 0) + '</div>';
+    html += '<div class="dash-focus-desc">維修逾期 ' + (repairs.overdue ? repairs.overdue.length : 0) + ' · 需要零件 ' + (repairs.needParts || 0) + '</div>';
     html += '</div>';
 
     html += '<div class="dash-focus-card warn" data-action="dash-goto" data-route="quotes">';
@@ -273,8 +460,7 @@
     html += '</section>';
     return html;
   }
-
-  function renderFocusBoard(repairs, quotes, orders, maint, week, biz) {
+  function renderFocusBoard(repairs, quotes, orders, week, biz) {
     var buckets = [
       {
         title: '維修追蹤',
@@ -295,12 +481,12 @@
         ]
       },
       {
-        title: '保養 / 訂單',
-        route: 'maintenance',
+        title: '訂單交期',
+        route: 'orders',
         items: [
           { label: '待到貨訂單', value: orders.ordered },
-          { label: '保養逾期', value: maint.overdue },
-          { label: '即將到期', value: maint.dueSoon }
+          { label: '本週完成', value: week.completed || 0 },
+          { label: '本週新建', value: week.created || 0 }
         ]
       }
     ];
@@ -321,17 +507,136 @@
     return html;
   }
 
+  function renderBillingBoard(biz) {
+    var stageEntries = Object.entries(biz.stageCount || {})
+      .filter(function (entry) { return entry[1] > 0; })
+      .sort(function (a, b) { return b[1] - a[1]; })
+      .slice(0, 4);
+    var reasonEntries = Object.entries(biz.reasonCount || {})
+      .filter(function (entry) { return entry[1] > 0; })
+      .sort(function (a, b) { return b[1] - a[1]; })
+      .slice(0, 4);
+
+    var resolveLabel = function (type, value, fallback) {
+      try {
+        if (window.AppConfig && typeof window.AppConfig.getBusinessStatusMeta === 'function') {
+          var meta = window.AppConfig.getBusinessStatusMeta(type, value);
+          if (meta && meta.label) return meta.label;
+        }
+      } catch (_) {}
+      return fallback || value || '未填';
+    };
+
+    var stageHtml = stageEntries.length
+      ? stageEntries.map(function (entry) {
+          return '<div class="dash-billing-mini-row"><span>' + esc(resolveLabel('billing_stage', entry[0], '未填')) + '</span><strong>' + entry[1] + '</strong></div>';
+        }).join('')
+      : '<div class="dash-billing-empty">目前沒有未下單分布。</div>';
+
+    var reasonHtml = reasonEntries.length
+      ? reasonEntries.map(function (entry) {
+          return '<div class="dash-billing-mini-row"><span>' + esc(resolveLabel('billing_reason', entry[0], '未填')) + '</span><strong>' + entry[1] + '</strong></div>';
+        }).join('')
+      : '<div class="dash-billing-empty">目前沒有未下單原因。</div>';
+
+    var html = '<section class="dash-section dash-billing-board">';
+    html += '<div class="dash-section-title">💰 收費 / 請款追蹤</div>';
+    html += '<div class="dash-billing-grid">';
+    html += '<div class="dash-billing-card">';
+    html += '<div class="dash-billing-card-title">判定總覽</div>';
+    html += '<div class="dash-billing-stat-grid">';
+    html += '<div class="dash-billing-stat"><span>需收費</span><strong>' + (biz.chargeable || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>不需收費</span><strong>' + (biz.free || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>未決定</span><strong>' + (biz.undecided || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>下單未確認</span><strong>' + (biz.unknownOrder || 0) + '</strong></div>';
+    html += '</div></div>';
+    html += '<div class="dash-billing-card">';
+    html += '<div class="dash-billing-card-title">流程節點</div>';
+    html += '<div class="dash-billing-stat-grid">';
+    html += '<div class="dash-billing-stat"><span>已下單</span><strong>' + (biz.ordered || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>未下單</span><strong>' + (biz.notOrdered || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>收費未決</span><strong>' + (biz.pendingChargeDecision || 0) + '</strong></div>';
+    html += '<div class="dash-billing-stat"><span>下單未決</span><strong>' + (biz.pendingOrderDecision || 0) + '</strong></div>';
+    html += '</div></div>';
+    html += '<div class="dash-billing-card">';
+    html += '<div class="dash-billing-card-title">未下單狀態</div>';
+    html += '<div class="dash-billing-mini-list">' + stageHtml + '</div>';
+    html += '</div>';
+    html += '<div class="dash-billing-card">';
+    html += '<div class="dash-billing-card-title">未下單原因</div>';
+    html += '<div class="dash-billing-mini-list">' + reasonHtml + '</div>';
+    html += '</div>';
+    html += '</div></section>';
+    return html;
+  }
+
+  function renderFlowBoard(funnel) {
+    var cards = [
+      { title: '維修入口', major: funnel.activeRepairs, minor: '需要零件 ' + funnel.needParts, note: '所有待處理案件與需要採購零件的維修。', tone: 'primary', route: 'repairs' },
+      { title: '報價決策', major: funnel.quoteSubmitted, minor: '草稿 ' + funnel.quoteDraft + ' · 已核准 ' + funnel.quoteApproved, note: '報價是否正在客戶確認，直接影響後續請購節奏。', tone: 'info', route: 'quotes' },
+      { title: '訂單交期', major: funnel.orderOrdered, minor: '建立 ' + funnel.orderCreated + ' · 已到貨 ' + funnel.orderArrived, note: '訂單建立、已下單到已到貨的交期節點。', tone: 'warning', route: 'orders' },
+      { title: '收費 / 下單', major: funnel.chargeable, minor: '已下單 ' + funnel.billingOrdered + ' · 未閉環 ' + funnel.billingPending, note: '需收費案件是否已實際進入商務與採購流程。', tone: 'success', route: 'analytics' }
+    ];
+
+    var html = '<section class="dash-section dash-flow-board"><div class="dash-section-head"><div class="dash-section-title">🧭 主流程漏斗</div><div class="dash-section-subtitle">將維修、報價、訂單與收費追蹤拉回同一個管理視角。</div></div><div class="dash-flow-grid">';
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      html += '<article class="dash-flow-card tone-' + c.tone + '" data-action="dash-goto" data-route="' + c.route + '">';
+      html += '<div class="dash-flow-card-head"><div class="dash-flow-card-title">' + c.title + '</div><div class="dash-flow-card-arrow">›</div></div>';
+      html += '<div class="dash-flow-card-value">' + c.major + '</div>';
+      html += '<div class="dash-flow-card-minor">' + c.minor + '</div>';
+      html += '<div class="dash-flow-card-note">' + c.note + '</div>';
+      html += '</article>';
+    }
+    html += '</div></section>';
+    return html;
+  }
+
+  function renderDeliveryBoard(orderWatch) {
+    var list = orderWatch.watchList || [];
+    var listHtml = list.length ? list.map(function (item) {
+      return '<button type="button" class="dash-watch-item tone-' + esc(item.tagTone) + '" data-action="dash-open-order" data-id="' + esc(item.id) + '">' +
+        '<div class="dash-watch-copy"><div class="dash-watch-title">' + esc(item.orderNo) + (item.vendor ? ' · ' + esc(item.vendor) : '') + '</div><div class="dash-watch-meta">' + esc(item.expectedAt ? ('ETA ' + item.expectedAt) : '尚未指定 ETA') + '</div></div>' +
+        '<span class="dash-watch-tag">' + esc(item.tag) + '</span>' +
+      '</button>';
+    }).join('') : '<div class="dash-watch-empty">目前沒有需要特別追蹤的交期案件。</div>';
+
+    return '<section class="dash-section dash-delivery-board">' +
+      '<div class="dash-section-head"><div class="dash-section-title">🚚 交期監控</div><div class="dash-section-subtitle">針對已下單但尚未到貨的案件，直接追蹤 ETA、逾期與無 ETA 風險。</div></div>' +
+      '<div class="dash-delivery-grid">' +
+        '<div class="dash-delivery-stat"><span>交期逾期</span><strong>' + (orderWatch.overdue || 0) + '</strong></div>' +
+        '<div class="dash-delivery-stat"><span>7 天內到貨</span><strong>' + (orderWatch.dueSoon || 0) + '</strong></div>' +
+        '<div class="dash-delivery-stat"><span>未設定 ETA</span><strong>' + (orderWatch.missingEta || 0) + '</strong></div>' +
+        '<div class="dash-delivery-stat"><span>已下單超過 7 天</span><strong>' + (orderWatch.stalledOrdered || 0) + '</strong></div>' +
+      '</div>' +
+      '<div class="dash-watch-list">' + listHtml + '</div>' +
+    '</section>';
+  }
+
+  function renderEngineerBoard(team) {
+    var rows = team && team.length ? team.map(function (row, index) {
+      return '<div class="dash-owner-row">' +
+        '<div class="dash-owner-rank">' + (index + 1) + '</div>' +
+        '<div class="dash-owner-main"><div class="dash-owner-name">' + esc(row.name) + '</div><div class="dash-owner-meta">進行中 ' + row.active + ' · 需要零件 ' + row.needParts + ' · 待更新 ' + row.stale + '</div></div>' +
+        '<div class="dash-owner-side">' + (row.urgent > 0 ? '<span class="dash-owner-urgent">緊急 ' + row.urgent + '</span>' : '<span class="dash-owner-ok">穩定</span>') + '</div>' +
+      '</div>';
+    }).join('') : '<div class="dash-watch-empty">目前沒有進行中的工程師負載資料。</div>';
+
+    return '<section class="dash-section dash-owner-board">' +
+      '<div class="dash-section-head"><div class="dash-section-title">👤 工程師負載</div><div class="dash-section-subtitle">以目前進行中維修為準，集中看每位工程師的活躍案件、需要零件與待更新數量。</div></div>' +
+      '<div class="dash-owner-list">' + rows + '</div>' +
+    '</section>';
+  }
+
   // === Render ===
 
-  function renderKPI(repairs, quotes, orders, maint, week) {
+  function renderKPI(repairs, quotes, orders, week) {
     var cards = [
       { label: '進行中', value: repairs.active, color: 'var(--module-accent, #2563eb)', route: 'repairs' },
       { label: '需要零件', value: repairs.needParts, color: '#f59e0b', route: 'repairs' },
       { label: '待核准報價', value: quotes.pending, color: '#4f46e5', route: 'quotes' },
       { label: '待到貨訂單', value: orders.ordered, color: '#d97706', route: 'orders' },
-      { label: '保養逾期', value: maint.overdue, color: '#ef4444', route: 'maintenance' },
-      { label: '保養即將到期', value: maint.dueSoon, color: '#f59e0b', route: 'maintenance' }
-    ,
+      { label: '逾期維修', value: repairs.overdue.length, color: '#ef4444', route: 'repairs' },
       { label: 'MTTR', value: (week && week.mttr) ? (week.mttr + ' 天') : '—', color: '#0ea5e9' },
       { label: '轉單率', value: (week && week.quotesSubmitted) ? (week.conversion + '%') : '—', color: '#10b981' }
     ];
@@ -339,7 +644,7 @@
     var html = '<div class="dash-kpi-grid">';
     for (var i = 0; i < cards.length; i++) {
       var c = cards[i];
-      var urgent = (c.value > 0 && (c.label === '保養逾期' || c.label === '需要零件'));
+      var urgent = (c.value > 0 && (c.label === '逾期維修' || c.label === '需要零件'));
       html += '<div class="dash-kpi-card' + (urgent ? ' urgent' : '') + '" data-action="dash-goto" data-route="' + c.route + '">';
       html += '<div class="dash-kpi-value" style="color:' + c.color + ';">' + c.value + '</div>';
       html += '<div class="dash-kpi-label">' + c.label + '</div>';
@@ -359,7 +664,7 @@
     return html;
   }
 
-  function renderActionItems(repairs, quotes, orders, maint, biz) {
+  function renderActionItems(repairs, quotes, orders, biz) {
     var items = [];
 
     // 逾期維修
@@ -400,19 +705,6 @@
         icon: '🟠', severity: 'medium',
         text: '訂單待到貨：' + esc(o.orderNo || o.id) + (o.vendor ? ' — ' + esc(o.vendor) : ''),
         action: 'dash-open-order', id: o.id
-      });
-    }
-
-    // 保養逾期/即將到期
-    for (var m = 0; m < maint.urgentList.length; m++) {
-      var eq = maint.urgentList[m].equipment || {};
-      var due = maint.urgentList[m].due || {};
-      var tag = due.status === 'overdue' ? '逾期' : '即將到期';
-      items.push({
-        icon: due.status === 'overdue' ? '🔴' : '🟡',
-        severity: due.status === 'overdue' ? 'high' : 'medium',
-        text: '保養' + tag + '：' + esc(eq.equipmentNo || '') + ' ' + esc(eq.name || '') + (due.nextDue ? '（到期 ' + esc(due.nextDue) + '）' : ''),
-        action: 'dash-goto', route: 'maintenance'
       });
     }
 
@@ -513,33 +805,33 @@
     var repairs = getRepairStats();
     var quotes = getQuoteStats();
     var orders = getOrderStats();
-    var maint = getMaintenanceStats();
     var week = getThisWeekKPI();
-
     var biz = getBusinessActionStats();
+    var funnel = getFunnelStats();
+    var orderWatch = getOrderWatchStats();
+    var team = getEngineerLoadStats();
 
     var html = '<div class="dash-container">';
-    html += renderCommandCenter(repairs, quotes, orders, maint, week, biz);
+    html += renderCommandCenter(repairs, quotes, orders, week, biz);
+    html += renderFlowBoard(funnel);
 
     // KPI 卡片
-    html += renderKPI(repairs, quotes, orders, maint, week);
+    html += renderKPI(repairs, quotes, orders, week);
+    html += renderBillingBoard(biz);
 
-    // 兩欄佈局
-    html += '<div class="dash-two-col dash-two-col--command">';
-
-    // 左欄：待辦事項 / 行動分區
+    html += '<div class="dash-two-col dash-two-col--ops">';
     html += '<div class="dash-col-main">';
-    html += renderActionItems(repairs, quotes, orders, maint, biz);
-    html += renderFocusBoard(repairs, quotes, orders, maint, week, biz);
+    html += renderDeliveryBoard(orderWatch);
+    html += renderActionItems(repairs, quotes, orders, biz);
+    html += renderFocusBoard(repairs, quotes, orders, week, biz);
     html += '</div>';
-
-    // 右欄：通知 + 快速操作
     html += '<div class="dash-col-side">';
+    html += renderEngineerBoard(team);
     html += renderNotifications();
     html += renderQuickActions();
     html += '</div>';
+    html += '</div>';
 
-    html += '</div>'; // two-col
     html += '</div>'; // container
     return html;
   };

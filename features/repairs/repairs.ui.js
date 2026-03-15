@@ -95,6 +95,120 @@ class RepairUI {
 
   }
 
+  _chipHtml(label, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.chipHTML === 'function') {
+        return window.UI.chipHTML(label, options);
+      }
+    } catch (_) {}
+    const tone = (options.tone || '').toString().trim();
+    const className = ['chip', options.static ? 'static' : '', options.active ? 'active' : '', tone ? `tone-${tone}` : '', (options.className || '').toString().trim()].filter(Boolean).join(' ');
+    const tagName = (options.tagName || 'button').toString().toLowerCase() === 'span' ? 'span' : 'button';
+    const attrs = (options.attrs || '').toString().trim();
+    const typeAttr = tagName === 'button' && !/\btype=/.test(attrs) ? 'type="button"' : '';
+    return `<${tagName} class="${className}"${[typeAttr, attrs].filter(Boolean).join(' ') ? ` ${[typeAttr, attrs].filter(Boolean).join(' ')}` : ''}>${options.allowHtml ? String(label || '—') : escapeHTML(label || '—')}</${tagName}>`;
+  }
+
+  _toneForRepairStatusChip(status = '') {
+    const value = (status || '').toString().trim();
+    if (value === '需要零件') return 'warning';
+    if (value === '已完成') return 'success';
+    return 'primary';
+  }
+
+  _getRepairStatusMeta(status = '') {
+    const normalized = (status || '').toString().trim();
+    const fallbackLabel = normalized || '未設定';
+    const fallbackColor = '#6b7280';
+    try {
+      const resolved = (window.AppConfig && typeof window.AppConfig.getStatusByValue === 'function')
+        ? window.AppConfig.getStatusByValue(normalized)
+        : null;
+      return {
+        value: normalized,
+        label: (resolved && resolved.label) ? resolved.label : fallbackLabel,
+        color: (resolved && resolved.color) ? resolved.color : fallbackColor
+      };
+    } catch (_) {
+      return { value: normalized, label: fallbackLabel, color: fallbackColor };
+    }
+  }
+
+  _getRepairPriorityMeta(priority = '') {
+    const normalized = (priority || '').toString().trim();
+    const fallbackLabel = normalized || '一般';
+    const fallbackColor = '#6b7280';
+    try {
+      const source = (window.AppConfig && window.AppConfig.business && Array.isArray(window.AppConfig.business.priority))
+        ? window.AppConfig.business.priority
+        : [];
+      const resolved = source.find(p => String(p && p.value || '').trim() === normalized);
+      return {
+        value: normalized,
+        label: (resolved && resolved.label) ? resolved.label : fallbackLabel,
+        color: (resolved && resolved.color) ? resolved.color : fallbackColor
+      };
+    } catch (_) {
+      return { value: normalized, label: fallbackLabel, color: fallbackColor };
+    }
+  }
+
+  _toRepairCardViewModel(repair) {
+    const raw = (repair && typeof repair === 'object') ? repair : {};
+    const display = (window.RepairModel && typeof window.RepairModel.toDisplay === 'function')
+      ? window.RepairModel.toDisplay(raw)
+      : raw;
+    const statusMeta = this._getRepairStatusMeta(raw.status || display.statusLabel || '');
+    const priorityMeta = this._getRepairPriorityMeta(raw.priority || display.priorityLabel || '');
+    const createdDateText = (raw.createdDate || '').toString().trim() || ((display.createdAtFormatted || '').toString().slice(0, 10));
+    const completedDateText = (display.completedAtFormatted || '').toString().trim() || createdDateText;
+    const ageInDays = Number(display && display.ageInDays);
+    const normalizedAge = Number.isFinite(ageInDays) ? ageInDays : 0;
+    const progressValue = Number(raw.progress);
+    const normalizedProgress = Number.isFinite(progressValue)
+      ? Math.max(0, Math.min(100, progressValue))
+      : (statusMeta.value === '已完成' ? 100 : (statusMeta.value === '需要零件' ? 50 : 10));
+
+    return {
+      repair: raw,
+      display,
+      statusMeta,
+      priorityMeta,
+      id: raw.id || '',
+      customer: raw.customer || '',
+      machine: raw.machine || '',
+      issue: raw.issue || '',
+      ownerName: raw.ownerName || '',
+      needParts: !!raw.needParts,
+      createdDateText,
+      completedDateText,
+      ageInDays: normalizedAge,
+      progress: normalizedProgress
+    };
+  }
+
+  _renderRepairCardError(repair, error) {
+    const safeId = escapeHTML((repair && repair.id) || '未知案件');
+    const safeMsg = escapeHTML((error && error.message) || '卡片渲染失敗');
+    return `
+      <div class="repair-card-shell repair-card-shell--error" data-repair-id="${safeId}">
+        <div class="card repair-card repair-card-error accent-left" style="--accent-opacity:.35">
+          <div class="card-head">
+            <div>
+              <div class="repair-card-id">${safeId}</div>
+              <div class="muted repair-card-sub">此案件卡片渲染失敗，請檢查狀態或優先級資料。</div>
+            </div>
+            <span class="badge badge-warning">資料需校正</span>
+          </div>
+          <div class="card-body">
+            <div class="repair-card-issue">${safeMsg}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+
   // ========================================
   // Saved Views（自訂檢視）
   // ========================================
@@ -546,7 +660,7 @@ class RepairUI {
         <span class="muted" style="margin-right:6px;">完成日期：</span>
         ${presets.map(p => {
           const active = (p.key === 'all') ? isAll : (from === p.from && !to);
-          return `<button class="chip ${active ? 'active' : ''}" style="--chip-color:var(--color-secondary);" data-action="repairs.applyHistoryDatePreset" data-value="${p.key}">${p.label}</button>`;
+          return this._chipHtml(p.label, { active, tone: 'secondary', attrs: `data-action="repairs.applyHistoryDatePreset" data-value="${p.key}"` });
         }).join('')}
       </div>
     `;
@@ -738,6 +852,61 @@ class RepairUI {
     if (emptyBtn) emptyBtn.innerText = this.filtersPanelOpen ? '🔍 收合篩選' : '🔍 開啟篩選';
   }
 
+  renderToolbarSummary() {
+    const scopeLabel = this.scope === 'history' ? '歷史已完成案件' : '進行中案件';
+    const densityLabel = this.listDensity === 'compact' ? '緊湊密度' : '標準密度';
+    return `${scopeLabel}｜${densityLabel}`;
+  }
+
+  renderStatsLoading() {
+    return `
+      <div class="card ops-kpi-card repairs-kpi-card repairs-kpi-card--loading">
+        <div class="ops-kpi-label">維修概況</div>
+        <div class="ops-kpi-value repairs-kpi-value">...</div>
+      </div>
+    `;
+  }
+
+  renderListHeader() {
+    return `
+      <div class="repairs-list-header panel compact">
+        <div class="repairs-list-left">
+          <div class="repairs-left-block">
+            ${this.renderScopeTabs()}
+          </div>
+          <div class="repairs-left-block">
+            ${this.scope === 'active' ? this.renderStatusChips() : `
+              <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
+              ${this.renderHistoryDatePresets()}
+            `}
+          </div>
+        </div>
+
+        <div class="repairs-list-right">
+          <div class="repairs-right-block keyword-block">
+            ${this.renderKeywordSearch()}
+          </div>
+          <div class="repairs-right-block sort-block">
+            <div class="repairs-list-sort">
+              <label class="muted">排序：</label>
+              <select class="input repairs-sort-select" id="sort-by" data-action="repairs.handleSort">
+                <option value="updatedAt" ${this.sortBy === 'updatedAt' ? 'selected' : ''}>更新時間</option>
+                <option value="createdAt" ${this.sortBy === 'createdAt' ? 'selected' : ''}>建立時間</option>
+                <option value="completedAt" ${this.sortBy === 'completedAt' ? 'selected' : ''}>完成時間</option>
+                <option value="customer" ${this.sortBy === 'customer' ? 'selected' : ''}>客戶名稱</option>
+                <option value="status" ${this.sortBy === 'status' ? 'selected' : ''}>狀態</option>
+                <option value="priority" ${this.sortBy === 'priority' ? 'selected' : ''}>優先級</option>
+              </select>
+              <button class="btn" data-action="repairs.toggleSortOrder" title="切換順序">
+                ${this.sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   setFiltersPanelOpen(isOpen, opts) {
     const open = !!isOpen;
     this.filtersPanelOpen = open;
@@ -746,7 +915,7 @@ class RepairUI {
     if (save) this.saveFiltersPanelOpen(open);
 
     const panel = document.getElementById('repairs-filters');
-    if (panel) panel.style.display = open ? 'block' : 'none';
+    if (panel) panel.hidden = !open;
 
     // 同步按鈕文字與欄位值（即使收合也同步，避免下一次展開顯示舊值）
     try { this.updateFiltersToggleButton(); } catch (_) {}
@@ -762,6 +931,68 @@ class RepairUI {
     if (!panel) return;
     panel.innerHTML = this.renderFilters();
     this.syncFiltersUI();
+  }
+
+  setModalOpen(isOpen) {
+    const modal = document.getElementById('repair-modal');
+    if (!modal) return false;
+    const open = !!isOpen;
+    modal.hidden = !open;
+    modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    modal.classList.toggle('is-open', open);
+    if (!open) {
+      try { modal.scrollTop = 0; } catch (_) {}
+    }
+    return open;
+  }
+
+  isModalOpen() {
+    const modal = document.getElementById('repair-modal');
+    return !!(modal && !modal.hidden);
+  }
+
+  closeModal(options = {}) {
+    const modal = document.getElementById('repair-modal');
+    const content = document.getElementById('repair-modal-content');
+    if (!(modal && content)) return false;
+
+    const opts = (options && typeof options === 'object') ? options : {};
+    const preserveContent = !!opts.preserveContent;
+
+    try {
+      const active = document.activeElement;
+      if (active && typeof active.closest === 'function' && active.closest('#repair-modal')) {
+        active.blur?.();
+      }
+    } catch (_) {}
+
+    try { if (typeof this._closeCompanyDropdown === 'function') this._closeCompanyDropdown(true); } catch (_) {}
+    try { if (typeof this._closeContactDropdown === 'function') this._closeContactDropdown(true); } catch (_) {}
+    try { if (typeof this._clearFormCache === 'function') this._clearFormCache(); } catch (_) {}
+
+    this.currentRepair = null;
+    this.currentView = 'list';
+
+    try { content.classList.remove('modal-wide', 'modal-large', 'modal-xlarge'); } catch (_) {}
+    if (!preserveContent) {
+      try { content.innerHTML = ''; } catch (_) {}
+    }
+
+    try { modal.scrollTop = 0; } catch (_) {}
+    try { content.scrollTop = 0; } catch (_) {}
+
+    this.setModalOpen(false);
+    return true;
+  }
+
+  renderEmptyStateActionBar(hasExtraFilters) {
+    return `
+      ${hasExtraFilters ? `
+        <button class="btn" data-action="repairs.clearFilters">🧹 清除篩選</button>
+        <button class="btn" id="repairs-empty-toggle-filters-btn" data-action="repairs.toggleFilters">${this.filtersPanelOpen ? '🔍 收合篩選' : '🔍 開啟篩選'}</button>
+      ` : ''}
+      <button class="btn primary" data-action="repairs.openForm">➕ 新增維修單</button>
+    `;
   }
 
   syncFiltersUI() {
@@ -912,8 +1143,8 @@ class RepairUI {
     const isHistory = this.scope === 'history';
     return `
       <div class="scope-tabs" aria-label="進行中/歷史切換">
-        <button class="chip ${isActive ? 'active' : ''}" style="--chip-color:var(--color-primary);" data-action="repairs.setScope" data-value="active">進行中 <span class="scope-count">${counts.active}</span></button>
-        <button class="chip ${isHistory ? 'active' : ''}" style="--chip-color:var(--color-primary);" data-action="repairs.setScope" data-value="history">歷史（已完成） <span class="scope-count">${counts.history}</span></button>
+        ${this._chipHtml(`進行中 <span class="scope-count">${counts.active}</span>`, { active: isActive, tone: 'primary', allowHtml: true, attrs: 'data-action="repairs.setScope" data-value="active"' })}
+        ${this._chipHtml(`歷史（已完成） <span class="scope-count">${counts.history}</span>`, { active: isHistory, tone: 'primary', allowHtml: true, attrs: 'data-action="repairs.setScope" data-value="history"' })}
       </div>
     `;
   }
@@ -948,10 +1179,7 @@ class RepairUI {
         ${chips.map(c => {
           const isActive = (c.value || '') === (selected || '');
           const enc = encodeURIComponent(c.value || '');
-          const style = `--chip-color:${c.color};`;
-          return `
-            <button class="chip ${isActive ? 'active' : ''}" style="${style}" data-action="repairs.applyStatusChip" data-value="${enc}">${c.label}</button>
-          `;
+          return this._chipHtml(c.label, { active: isActive, tone: this._toneForRepairStatusChip(c.value || c.label), attrs: `data-action="repairs.applyStatusChip" data-value="${enc}"` });
         }).join('')}
       </div>
     `;
@@ -979,17 +1207,19 @@ class RepairUI {
     try { this._autoApplySavedViewIfNeeded(); } catch (_) {}
     
     container.innerHTML = `
-      <div class="repairs-module ${this.listDensity === 'compact' ? 'density-compact' : 'density-standard'}">
-        <!-- 頂部工具列 -->
+      <div class="repairs-module ops-module-shell ${this.listDensity === 'compact' ? 'density-compact' : 'density-standard'}">
         <div class="repairs-toolbar module-toolbar">
           <div class="module-toolbar-left">
-            <div class="page-title">
-              <h2>📋 維修管理</h2>
-              <span class="muted" id="repairs-count">載入中...</span>
+            <div>
+              <div class="ops-toolbar-title">
+                <div class="ops-toolbar-heading">📋 維修管理</div>
+                <span class="badge">Repair</span>
+              </div>
+              <div class="ops-toolbar-summary" id="repairs-count">${this.renderToolbarSummary()}</div>
             </div>
           </div>
-          
-          <div class="module-toolbar-right">
+
+          <div class="module-toolbar-right ops-actions">
             ${this.renderSavedViewsToolbar()}
             <button class="btn" id="repairs-toggle-filters-btn" data-action="repairs.toggleFilters">
               ${this.filtersPanelOpen ? '🔍 收合篩選' : '🔍 篩選'}
@@ -1002,27 +1232,26 @@ class RepairUI {
             </button>
           </div>
         </div>
-        
-        <!-- 篩選面板 -->
-        <div id="repairs-filters" class="repairs-filters panel" style="display: ${this.filtersPanelOpen ? 'block' : 'none'};">
+
+        <div id="repairs-filters" class="repairs-filters panel ops-filter-panel" ${this.filtersPanelOpen ? '' : 'hidden'}>
           ${this.renderFilters()}
         </div>
-        
-        <!-- 統計卡片 -->
-        <div id="repairs-stats" class="repairs-stats">
-          <div class="panel compact" style="padding:14px 16px; color: var(--color-text-secondary);">載入中...</div>
-        </div>
-        
-        <!-- 主內容區 -->
-        <div id="repairs-content" class="repairs-content">
-          ${this.renderListShell([], { loading: true })}
+
+        <div class="repairs-main-stack">
+          <div id="repairs-stats" class="repairs-stats">
+            ${this.renderStatsLoading()}
+          </div>
+
+          <div id="repairs-content" class="repairs-content">
+            ${this.renderListShell([], { loading: true })}
+          </div>
         </div>
       </div>
-      
-      <!-- Modal 容器 -->
-      <div id="repair-modal" class="modal" style="display: none;">
+
+      <div id="repair-modal" class="modal repairs-modal" hidden aria-hidden="true">
         <div class="modal-backdrop" data-action="repairs.closeModal"></div>
-        <div class="modal-content" id="repair-modal-content"></div>
+        <!-- 使用 modal-host 承載內層 .modal-dialog，避免外層 modal-content 與內層 dialog 雙重 shell 造成表單尺寸與 X 位置異常 -->
+        <div class="modal-host" id="repair-modal-content"></div>
       </div>
     `;
     
@@ -1158,28 +1387,26 @@ class RepairUI {
       seen.add(key);
       return true;
     });
-    
+
     return `
-      <div class="stats-grid">
-        <div class="stat-card" style="--accent: var(--color-text-secondary);">
-          <div class="stat-value">${stats.total}</div>
-          <div class="stat-label">總計</div>
+      <div class="card ops-kpi-card repairs-kpi-card" style="--ops-accent: var(--color-text-secondary);">
+        <div class="ops-kpi-label">總計</div>
+        <div class="ops-kpi-value repairs-kpi-value">${stats.total}</div>
+      </div>
+
+      ${uniqueStatuses.map(status => `
+        <div class="card ops-kpi-card repairs-kpi-card" style="--ops-accent: ${status.color};">
+          <div class="ops-kpi-label">${status.label}</div>
+          <div class="ops-kpi-value repairs-kpi-value">
+            ${stats.byStatus[status.value] || 0}
+          </div>
         </div>
-        
-        ${uniqueStatuses.map(status => `
-          <div class="stat-card" style="--accent: ${status.color};">
-            <div class="stat-value" style="color: ${status.color};">
-              ${stats.byStatus[status.value] || 0}
-            </div>
-            <div class="stat-label">${status.label}</div>
-          </div>
-        `).join('')}
-        
-        <div class="stat-card" style="--accent: var(--color-secondary);">
-          <div class="stat-value" style="color: var(--color-secondary);">
-            ${stats.avgAge}
-          </div>
-          <div class="stat-label">平均處理天數</div>
+      `).join('')}
+
+      <div class="card ops-kpi-card repairs-kpi-card" style="--ops-accent: var(--color-secondary);">
+        <div class="ops-kpi-label">平均處理天數</div>
+        <div class="ops-kpi-value repairs-kpi-value">
+          ${stats.avgAge}
         </div>
       </div>
     `;
@@ -1198,42 +1425,8 @@ class RepairUI {
     
     return `
       <div class="repairs-list">
-        <div class="repairs-list-header panel compact">
-          <div class="repairs-list-left">
-            <div class="repairs-left-block">
-              ${this.renderScopeTabs()}
-            </div>
-            <div class="repairs-left-block">
-              ${this.scope === 'active' ? this.renderStatusChips() : `
-                <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
-                ${this.renderHistoryDatePresets()}
-              `}
-            </div>
-          </div>
+        ${this.renderListHeader()}
 
-          <div class="repairs-list-right">
-            <div class="repairs-right-block keyword-block">
-              ${this.renderKeywordSearch()}
-            </div>
-            <div class="repairs-right-block sort-block">
-              <div class="repairs-list-sort">
-              <label class="muted">排序：</label>
-              <select class="input" id="sort-by" data-action="repairs.handleSort" style="width: 150px;">
-                <option value="updatedAt" ${this.sortBy === 'updatedAt' ? 'selected' : ''}>更新時間</option>
-                <option value="createdAt" ${this.sortBy === 'createdAt' ? 'selected' : ''}>建立時間</option>
-                <option value="completedAt" ${this.sortBy === 'completedAt' ? 'selected' : ''}>完成時間</option>
-                <option value="customer" ${this.sortBy === 'customer' ? 'selected' : ''}>客戶名稱</option>
-                <option value="status" ${this.sortBy === 'status' ? 'selected' : ''}>狀態</option>
-                <option value="priority" ${this.sortBy === 'priority' ? 'selected' : ''}>優先級</option>
-              </select>
-              <button class="btn" data-action="repairs.toggleSortOrder" title="切換順序">
-                ${this.sortOrder === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
-            </div>
-          </div>
-        </div>
-        
         <div class="repairs-cards">
           ${repairs.map(repair => this.renderRepairCard(repair)).join('')}
         </div>
@@ -1261,41 +1454,7 @@ class RepairUI {
 
     return `
       <div class="repairs-list">
-        <div class="repairs-list-header panel compact">
-          <div class="repairs-list-left">
-            <div class="repairs-left-block">
-              ${this.renderScopeTabs()}
-            </div>
-            <div class="repairs-left-block">
-              ${this.scope === 'active' ? this.renderStatusChips() : `
-                <div class="muted">僅顯示「已完成」且未刪除的維修單；預設依完成時間由新到舊排序。</div>
-                ${this.renderHistoryDatePresets()}
-              `}
-            </div>
-          </div>
-
-          <div class="repairs-list-right">
-            <div class="repairs-right-block keyword-block">
-              ${this.renderKeywordSearch()}
-            </div>
-            <div class="repairs-right-block sort-block">
-              <div class="repairs-list-sort">
-              <label class="muted">排序：</label>
-              <select class="input" id="sort-by" data-action="repairs.handleSort" style="width: 150px;">
-                <option value="updatedAt" ${this.sortBy === 'updatedAt' ? 'selected' : ''}>更新時間</option>
-                <option value="createdAt" ${this.sortBy === 'createdAt' ? 'selected' : ''}>建立時間</option>
-                <option value="completedAt" ${this.sortBy === 'completedAt' ? 'selected' : ''}>完成時間</option>
-                <option value="customer" ${this.sortBy === 'customer' ? 'selected' : ''}>客戶名稱</option>
-                <option value="status" ${this.sortBy === 'status' ? 'selected' : ''}>狀態</option>
-                <option value="priority" ${this.sortBy === 'priority' ? 'selected' : ''}>優先級</option>
-              </select>
-              <button class="btn" data-action="repairs.toggleSortOrder" title="切換順序">
-                ${this.sortOrder === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
-            </div>
-          </div>
-        </div>
+        ${this.renderListHeader()}
 
         <div class="repairs-cards ${loading ? 'is-rendering' : ''}" id="repairs-cards" data-total="${repairs.length}">
           ${loading ? this.renderLoadingCards() : ''}
@@ -1364,7 +1523,13 @@ class RepairUI {
       let count = 0;
 
       while (i < total && count < maxPerFrame) {
-        html += this.renderRepairCard(list[i]);
+        const repair = list[i];
+        try {
+          html += this.renderRepairCard(repair);
+        } catch (err) {
+          console.error('RepairUI.renderRepairCard failed:', err, repair);
+          html += this._renderRepairCardError(repair, err);
+        }
         i += 1;
         count += 1;
 
@@ -1415,9 +1580,9 @@ class RepairUI {
 
       return `
         <div class="repair-linkage" data-stop-prop="1">
-          <span class="chip quick static" style="--chip-color: var(--color-warning);">🧩 零件：${partsText}</span>
-          <span class="chip quick static" style="--chip-color: var(--color-accent);">🧾 報價：${quoteText}</span>
-          <span class="chip quick static" style="--chip-color: var(--color-secondary);">📦 訂單：${orderText}</span>
+          ${this._chipHtml(`🧩 零件：${partsText}`, { static: true, tone: 'warning', className: 'quick', allowHtml: true, tagName: 'span' })}
+          ${this._chipHtml(`🧾 報價：${quoteText}`, { static: true, tone: 'info', className: 'quick', allowHtml: true, tagName: 'span' })}
+          ${this._chipHtml(`📦 訂單：${orderText}`, { static: true, tone: 'secondary', className: 'quick', allowHtml: true, tagName: 'span' })}
         </div>
       `;
     } catch (e) {
@@ -1430,9 +1595,7 @@ class RepairUI {
    * 渲染維修卡片（企業系統風：操作列外置）
    */
   renderRepairCard(repair) {
-    const display = window.RepairModel.toDisplay(repair);
-    const statusConfig = AppConfig.getStatusByValue(repair.status);
-    const priorityConfig = AppConfig.business.priority.find(p => p.value === repair.priority);
+    const vm = this._toRepairCardViewModel(repair);
 
     // HTML 安全：避免使用者輸入含尖括號/引號造成卡片 DOM 破壞或整頁事件失效
     const escapeHtml = (input) => {
@@ -1445,13 +1608,13 @@ class RepairUI {
         .replace(/'/g, '&#39;');
     };
 
-    const safeId = escapeHtml(repair.id);
-    const safeCustomer = escapeHtml(repair.customer);
-    const safeMachine = escapeHtml(repair.machine);
-    const safeIssue = escapeHtml(repair.issue);
-    const safeOwnerName = escapeHtml(repair.ownerName);
-    const safeCreatedDate = escapeHtml((repair.createdDate || '').toString().trim() || (display.createdAtFormatted || '').slice(0, 10));
-    const safeCompletedDate = escapeHtml((display.completedAtFormatted || '').toString().trim() || safeCreatedDate);
+    const safeId = escapeHtml(vm.id);
+    const safeCustomer = escapeHtml(vm.customer);
+    const safeMachine = escapeHtml(vm.machine);
+    const safeIssue = escapeHtml(vm.issue);
+    const safeOwnerName = escapeHtml(vm.ownerName);
+    const safeCreatedDate = escapeHtml(vm.createdDateText);
+    const safeCompletedDate = escapeHtml(vm.completedDateText);
 
     return `
       <div class="repair-card-shell" data-repair-id="${safeId}">
@@ -1467,24 +1630,24 @@ class RepairUI {
               <div class="muted repair-card-sub">${safeCustomer}</div>
             </div>
             <div class="card-head-right repair-card-badges">
-              ${repair.needParts ? '<span class="badge badge-warning">需零件</span>' : ''}
-              <span class="badge custom" style="--badge-color:${priorityConfig.color};">${priorityConfig.label}</span>
+              ${vm.needParts ? '<span class="badge badge-warning">需零件</span>' : ''}
+              <span class="badge custom" style="--badge-color:${vm.priorityMeta.color};">${escapeHtml(vm.priorityMeta.label)}</span>
             </div>
           </div>
 
           <div class="card-body">
             <div class="repair-card-machine">${safeMachine}</div>
             <div class="repair-card-issue">${safeIssue}</div>
-            ${this.renderLinkageChips(repair.id)}
+            ${this.renderLinkageChips(vm.id)}
           </div>
 
           <div class="card-foot repair-card-foot">
             <div class="repair-card-status">
-              <span class="badge custom" style="--badge-color:${statusConfig.color};">${statusConfig.label}</span>
-              <div class="progress-bar" style="--bar-color:${statusConfig.color};">
-                <div class="progress-fill" style="width: ${repair.progress}%;"></div>
+              <span class="badge custom" style="--badge-color:${vm.statusMeta.color};">${escapeHtml(vm.statusMeta.label)}</span>
+              <div class="progress-bar" style="--bar-color:${vm.statusMeta.color};">
+                <div class="progress-fill" style="width: ${vm.progress}%;"></div>
               </div>
-              <span class="progress-text">${repair.progress}%</span>
+              <span class="progress-text">${vm.progress}%</span>
             </div>
 
             <div class="repair-card-meta">
@@ -1492,7 +1655,7 @@ class RepairUI {
               ${this.scope === 'history'
                 ? `<span class="muted">✅ 完成：${safeCompletedDate}</span>`
                 : `<span class="muted">📅 ${safeCreatedDate}</span>`}
-              ${display.ageInDays > 7 ? `<span class="badge badge-warning">${display.ageInDays} 天</span>` : ''}
+              ${vm.ageInDays > 7 ? `<span class="badge badge-warning">${vm.ageInDays} 天</span>` : ''}
               <a class="link" href="javascript:void(0)" data-action="repair-open-history" data-id="${safeId}">查看歷史</a>
             </div>
           </div>
@@ -1517,8 +1680,20 @@ class RepairUI {
       .filter(([_, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0));
     const hasExtraFilters = effectiveFilters.length > 0;
 
+    if (window.UI && typeof window.UI.emptyStateHTML === 'function') {
+      return window.UI.emptyStateHTML({
+        icon: '📋',
+        title: '沒有維修記錄',
+        text: hasExtraFilters
+          ? `沒有符合篩選條件的記錄（此分頁共 ${scopeTotal} 筆），請調整或清除篩選條件。`
+          : '開始建立第一筆維修記錄',
+        className: 'repairs-empty-state',
+        actionHtml: this.renderEmptyStateActionBar(hasExtraFilters)
+      });
+    }
+
     return `
-      <div class="empty-state">
+      <div class="empty-state repairs-empty-state">
         <div class="empty-icon">📋</div>
         <div class="empty-title">沒有維修記錄</div>
         <div class="empty-text">
@@ -1526,14 +1701,7 @@ class RepairUI {
             ? `沒有符合篩選條件的記錄（此分頁共 ${scopeTotal} 筆），請調整或清除篩選條件。`
             : '開始建立第一筆維修記錄'}
         </div>
-
-        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top: 6px;">
-          ${hasExtraFilters ? `
-            <button class="btn" data-action="repairs.clearFilters">🧹 清除篩選</button>
-            <button class="btn" id="repairs-empty-toggle-filters-btn" data-action="repairs.toggleFilters">${this.filtersPanelOpen ? '🔍 收合篩選' : '🔍 開啟篩選'}</button>
-          ` : ''}
-          <button class="btn primary" data-action="repairs.openForm">➕ 新增維修單</button>
-        </div>
+        <div class="ops-actions ops-empty-actions repairs-empty-actions">${this.renderEmptyStateActionBar(hasExtraFilters)}</div>
       </div>
     `;
   }
@@ -1927,23 +2095,6 @@ class RepairUI {
             stop();
             return window.RepairUI?.openSopsHub?.();
 
-          // --- MNT：從維修單連動 ---
-          case 'repairs.openMaintenanceFromRepair':
-            stop();
-            return window.RepairUI?.openMaintenanceFromRepair?.(id);
-
-          case 'repairs.createMaintenanceEquipmentFromRepair':
-            stop();
-            return window.RepairUI?.createMaintenanceEquipmentFromRepair?.(id);
-
-          case 'repairs.addMaintenanceRecordFromRepair':
-            stop();
-            return window.RepairUI?.addMaintenanceRecordFromRepair?.(id);
-
-          case 'repairs.closeAndWriteMaintenance':
-            stop();
-            return window.RepairUI?.closeAndWriteMaintenance?.(id);
-
           default:
             return;
         }
@@ -2086,9 +2237,7 @@ ${hint}` : ''}
 
       // 若目前有開啟詳情/表單 modal，刪除後直接關閉避免殘留
       try {
-        const modal = document.getElementById('repair-modal');
-        const isOpen = modal && (modal.style.display === 'flex' || modal.style.display === 'block');
-        if (isOpen) RepairUI.closeModal();
+        if (this.isModalOpen()) RepairUI.closeModal();
       } catch (_) {}
 
       this.currentRepair = null;
@@ -3204,6 +3353,8 @@ ${hint}` : ''}
     const modal = document.createElement('div');
     modal.id = modalId;
     modal.className = 'modal';
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
     modal.style.display = 'flex';
     modal.style.zIndex = '1200';
 
@@ -3458,7 +3609,7 @@ ${hint}` : ''}
     // fallback（保相容）
     const panel = document.getElementById('repairs-filters');
     if (panel) {
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      panel.hidden = !panel.hidden;
     }
   }
 
@@ -3840,7 +3991,7 @@ ${hint}` : ''}
     try { content.classList.remove('modal-wide', 'modal-large', 'modal-xlarge'); } catch (_) {}
 
     // 先打開 modal（避免使用者感覺「沒反應」）
-    modal.style.display = 'flex';
+    instance.setModalOpen(true);
 
     // 每次開啟表單都要強制回到頂部，避免上一次在 modal 內捲動的位置被沿用
     // （使用者要求：滑桿/狀態區必須在最上方，開啟新增/編輯時要直接看到）
@@ -3954,7 +4105,7 @@ static openDetail(repairId) {
     if (modal && content) {
       content.innerHTML = instance.renderDetail();
       RepairUI._syncModalSize(content);
-      modal.style.display = 'flex';
+      instance.setModalOpen(true);
 
       // 避免沿用前一次捲動位置
       try { content.scrollTop = 0; } catch (_) {}
@@ -3963,17 +4114,6 @@ static openDetail(repairId) {
       // 延後載入：零件追蹤摘要
       setTimeout(() => {
         RepairUI.loadPartsMini(repairId);
-      }, 0);
-
-      // 延後載入：保養摘要（MNT-4）
-      setTimeout(async () => {
-        try {
-          if (instance && typeof instance.refreshMaintenanceSummary === 'function') {
-            await instance.refreshMaintenanceSummary(repairId);
-          }
-        } catch (e) {
-          console.warn('RepairUI: maintenance mini load failed', e);
-        }
       }, 0);
 
       // 延後載入：報價 / 訂單摘要 + 綁定按鈕（避免 DOM 尚未就緒）
@@ -4082,11 +4222,13 @@ static openDetail(repairId) {
 
     const showHistory = (key === 'history');
 
-    main.style.display = showHistory ? 'none' : '';
-    hist.style.display = showHistory ? '' : 'none';
+    main.hidden = showHistory;
+    hist.hidden = !showHistory;
 
     try { btnMain.classList.toggle('active', !showHistory); } catch (_) {}
     try { btnHist.classList.toggle('active', showHistory); } catch (_) {}
+    try { btnMain.setAttribute('aria-selected', showHistory ? 'false' : 'true'); } catch (_) {}
+    try { btnHist.setAttribute('aria-selected', showHistory ? 'true' : 'false'); } catch (_) {}
 
     // 切換後回到頂部，避免使用者誤以為卡住
     const content = document.getElementById('repair-modal-content');
@@ -4123,16 +4265,13 @@ static openDetail(repairId) {
       }
 
       const statusBadge = (s) => {
-        const status = (s || '').toString();
-        const map = {
-          '需求提出': 'badge-warning',
-          '已報價': 'badge-info',
-          '已下單': 'badge-info',
-          '已到貨': 'badge-success',
-          '已更換': 'badge-success',
-          '取消': 'badge'
-        };
-        const cls = map[status] || 'badge';
+        const status = (s || '').toString().trim();
+        let cls = 'badge';
+        try {
+          if (window.AppConfig && typeof window.AppConfig.getStatusBadgeClass === 'function') {
+            cls = window.AppConfig.getStatusBadgeClass('part', status) || 'badge';
+          }
+        } catch (_) {}
         return `<span class="badge ${cls}">${status || '—'}</span>`;
       };
 
@@ -4182,525 +4321,6 @@ static openDetail(repairId) {
       }
     } catch (e) {
       console.error(e);
-    }
-  }
-
-  // ===============================
-  // MNT-4 - Repairs ↔ Maintenance linkage（Static wrappers）
-  // 說明：本檔案採用「RepairUI（class）+ repairUI（instance）」並存模式。
-  // UI 內大量 onclick 以 RepairUI.xxx 呼叫，因此此處提供 wrapper 將呼叫轉交給 instance。
-  // ===============================
-
-  static async openMaintenanceFromRepair(repairId) {
-    const instance = window.repairUI;
-    if (!instance || typeof instance.openMaintenanceFromRepair !== 'function') {
-      if (window.UI && typeof window.UI.toast === 'function') window.UI.toast('維修模組尚未就緒（repairUI 未初始化）', { type: 'warning' });
-      else alert('維修模組尚未就緒（repairUI 未初始化）');
-      return;
-    }
-    return await instance.openMaintenanceFromRepair(repairId);
-  }
-
-  static async createMaintenanceEquipmentFromRepair(repairId) {
-    const instance = window.repairUI;
-    if (!instance || typeof instance.createMaintenanceEquipmentFromRepair !== 'function') {
-      if (window.UI && typeof window.UI.toast === 'function') window.UI.toast('維修模組尚未就緒（repairUI 未初始化）', { type: 'warning' });
-      else alert('維修模組尚未就緒（repairUI 未初始化）');
-      return;
-    }
-    return await instance.createMaintenanceEquipmentFromRepair(repairId);
-  }
-
-  static async addMaintenanceRecordFromRepair(repairId) {
-    const instance = window.repairUI;
-    if (!instance || typeof instance.addMaintenanceRecordFromRepair !== 'function') {
-      if (window.UI && typeof window.UI.toast === 'function') window.UI.toast('維修模組尚未就緒（repairUI 未初始化）', { type: 'warning' });
-      else alert('維修模組尚未就緒（repairUI 未初始化）');
-      return;
-    }
-    return await instance.addMaintenanceRecordFromRepair(repairId);
-  }
-
-  static async closeAndWriteMaintenance(repairId) {
-    const instance = window.repairUI;
-    if (!instance || typeof instance.closeAndWriteMaintenance !== 'function') {
-      if (window.UI && typeof window.UI.toast === 'function') window.UI.toast('維修模組尚未就緒（repairUI 未初始化）', { type: 'warning' });
-      else alert('維修模組尚未就緒（repairUI 未初始化）');
-      return;
-    }
-    return await instance.closeAndWriteMaintenance(repairId);
-  }
-
-  /**
-   * 關閉 Modal
-   */
-  static closeModal() {
-    const modal = document.getElementById('repair-modal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
-
-    // 清理內容與狀態，避免下一次開啟時殘留造成 UI 卡住或誤判
-    const content = document.getElementById('repair-modal-content');
-    if (content) {
-      content.innerHTML = '';
-      try { content.classList.remove('modal-wide', 'modal-large', 'modal-xlarge'); } catch (_) {}
-    }
-
-    const instance = window.repairUI;
-    if (instance) {
-      instance.currentRepair = null;
-      try { if (typeof instance._clearFormCache === 'function') instance._clearFormCache(); } catch (_) {}
-    }
-  }
-
-  // ===============================
-  // V161.105 - Repair Templates
-  // ===============================
-  bindTemplatePicker(){
-    const sel = document.getElementById('repair-template-select');
-    const btnManage = document.getElementById('btn-template-manage');
-    if(!sel) return;
-
-    // fill options
-    const list = (window._svc('RepairTemplatesService') && typeof window._svc('RepairTemplatesService').getEnabled === 'function')
-      ? window._svc('RepairTemplatesService').getEnabled()
-      : [];
-    sel.innerHTML = `<option value="">（不使用模板）</option>` + list.map(t=>{
-      const name = escapeHTML((t.name||'').toString());
-      return `<option value="${escapeAttr(t.id)}">${name}</option>`;
-    }).join('');
-
-    sel.onchange = ()=>{
-      const id = sel.value;
-      if(!id) return;
-      const t = window._svc('RepairTemplatesService') ? window._svc('RepairTemplatesService').getById(id) : null;
-      if(!t) return;
-      this.applyTemplateToForm(t);
-      // reset select back to blank to allow re-apply
-      sel.value = '';
-    };
-
-    if(btnManage){
-      btnManage.onclick = ()=>{
-        try{
-          if(window.AppRouter && typeof window.AppRouter.navigate==='function'){
-            window.AppRouter.navigate('settings');
-            // best effort scroll
-            setTimeout(()=>{
-              const el = document.getElementById('settings-repair-templates-card');
-              if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
-            }, 200);
-          }
-        }catch(_){}
-      };
-    }
-  }
-
-  applyTemplateToForm(tpl){
-    const form = document.getElementById('repair-form');
-    if(!form || !tpl) return;
-    const fire = (el)=>{
-      if(!el) return;
-      try{ el.dispatchEvent(new Event('input', {bubbles:true})); }catch(_){ }
-      try{ el.dispatchEvent(new Event('change', {bubbles:true})); }catch(_){ }
-    };
-
-    const setVal = (name, val)=>{
-      const el = form.querySelector(`[name="${name}"]`);
-      if(!el) return;
-      el.value = (val ?? '');
-      fire(el);
-    };
-
-    const setBool = (name, boolVal)=>{
-      const el = form.querySelector(`[name="${name}"]`);
-      if(!el) return;
-      if (el.type === 'checkbox') {
-        el.checked = !!boolVal;
-      } else {
-        el.value = !!boolVal ? '1' : '';
-      }
-      fire(el);
-    };
-
-    setVal('status', tpl.status || '');
-    setVal('progress', Number(tpl.progress ?? 0));
-    setVal('priority', tpl.priority || '');
-    setVal('productLine', tpl.productLine || '');
-    setVal('machine', tpl.machine || '');
-    setVal('issue', tpl.issue || '');
-    setVal('content', tpl.content || '');
-    setVal('notes', tpl.notes || '');
-    setBool('needParts', tpl.needParts === true);
-
-    // update progress label if exists
-    const pv = document.getElementById('progress-value');
-    if(pv) pv.textContent = `${Number(tpl.progress ?? 0)}%`;
-
-    // keep status/progress coupling rules
-    try{ RepairUI.handleStatusChange({ target: form.querySelector('[name="status"]') }); }catch(_){}
-  }
-
-  // ===============================
-  // MNT-4 - Repairs ↔ Maintenance linkage
-  // ===============================
-  _maintenanceSvc(){
-    try { return window._svc ? window._svc('MaintenanceService') : window._svc('MaintenanceService'); } catch (_) { return window._svc('MaintenanceService'); }
-  }
-
-  async _ensureMaintenanceReady(){
-    try {
-      if (window.Utils && typeof window.Utils.ensureServiceReady === 'function') {
-        await window.Utils.ensureServiceReady('MaintenanceService', { loadAll: true });
-        return true;
-      }
-      const svc = this._maintenanceSvc();
-      if (!svc) return false;
-      if (typeof svc.init === 'function' && !svc.isInitialized) await svc.init();
-      if (typeof svc.loadAll === 'function') await svc.loadAll();
-      return true;
-    } catch (e) {
-      console.warn('RepairUI: ensure MaintenanceService ready failed', e);
-      return false;
-    }
-  }
-
-  _getRepairById(repairId){
-    try { return window._svc('RepairService')?.get?.(repairId) || null; } catch (_) { return null; }
-  }
-
-  _buildMaintenancePrefillFromRepair(repair){
-    const r = repair || {};
-    const serial = (r.serialNumber || '').toString().trim();
-    const productLine = (r.productLine || '').toString().trim();
-    const machine = (r.machine || '').toString().trim();
-    const customer = (r.customer || '').toString().trim();
-
-    return {
-      equipmentNo: serial,
-      name: machine,
-      model: productLine,
-      location: customer,
-      ownerName: (r.ownerName || '').toString().trim(),
-      ownerEmail: (r.ownerEmail || '').toString().trim(),
-      installDate: (r.createdDate || '').toString().trim() // 可手動調整
-    };
-  }
-
-  async refreshMaintenanceSummary(repairId){
-    const sum = document.getElementById('maintenance-summary');
-    const act = document.getElementById('maintenance-actions');
-    if (!sum || !act) return;
-
-    const rid = (repairId || this.currentRepair?.id || '').toString();
-    const repair = this._getRepairById(rid) || this.currentRepair;
-    if (!repair) {
-      sum.innerHTML = '<div class="muted">找不到維修單資料</div>';
-      return;
-    }
-
-    const esc = (s)=> (window.StringUtils?.escapeHTML ? window.StringUtils.escapeHTML(String(s ?? '')) : String(s ?? ''));
-    const serial = (repair.serialNumber || '').toString().trim();
-
-    // 無序號：只能提示
-    if (!serial) {
-      sum.innerHTML = '<div class="muted">此維修單尚未填寫「序號」。請先編輯維修單補上序號後再連動保養。</div>';
-      return;
-    }
-
-    const ok = await this._ensureMaintenanceReady();
-    if (!ok) {
-      sum.innerHTML = '<div class="muted">保養模組尚未就緒（MaintenanceService 未載入或初始化失敗）</div>';
-      return;
-    }
-
-    const svc = this._maintenanceSvc();
-    const eq = (svc?.getEquipments?.() || []).find(x => x && !x.isDeleted && String(x.equipmentNo||'').trim() === serial) || null;
-
-    const badge = (s, due) => {
-      const st = (s || '').toString();
-      const r1 = Number(due?.remind1) || 3;
-      const r2 = Number(due?.remind2) || 7;
-      if (st === 'overdue') return '<span class="badge badge-error">逾期</span>';
-      if (st === 'dueSoon1') return `<span class="badge badge-warning">${r1} 天內到期</span>`;
-      if (st === 'dueSoon2') return `<span class="badge badge-info">${r2} 天內到期</span>`;
-      if (st === 'noRecord') return '<span class="badge">尚無紀錄</span>';
-      if (st === 'notCreated') return '<span class="badge">未建立設備</span>';
-      return '<span class="badge badge-success">正常</span>';
-    };
-
-    let html = '';
-    let btnCloseText = '✅ 結案並寫入保養';
-    let hasLinkedRecord = false;
-
-    if (!eq) {
-      html = `
-        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-          <div style="min-width:0;">
-            <div style="font-weight:800;">序號：${esc(serial)}</div>
-            <div class="muted" style="margin-top:4px;">此序號尚未在保養設備中建立。你可以一鍵建立設備後再新增紀錄。</div>
-          </div>
-          <div>${badge('notCreated')}</div>
-        </div>
-      `.trim();
-    } else {
-      const due = svc?.getDueInfo ? svc.getDueInfo(eq) : null;
-      const st = due?.status || 'ok';
-
-      // 是否已存在「本維修單」寫入的紀錄（避免重複建立）
-      try {
-        const tag = `repair:${rid}`;
-        const recs = (svc?.getRecords?.() || []).filter(r => r && !r.isDeleted && String(r.equipmentId||'') === String(eq.id));
-        const linked = recs.find(r => Array.isArray(r.tags) && r.tags.includes(tag));
-        if (linked) {
-          hasLinkedRecord = true;
-          btnCloseText = '🔎 開啟保養紀錄';
-        }
-      } catch (_) {}
-
-      html = `
-        <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;">
-          <div style="min-width:0;">
-            <div style="font-weight:800;">序號：${esc(serial)}</div>
-            <div class="muted" style="margin-top:4px;">設備：${esc(eq.name || repair.machine || '')}${eq.model ? `　|　型號：${esc(eq.model)}` : ''}</div>
-            <div class="muted" style="margin-top:4px;">上次保養：${esc(due?.lastYMD || '—')}　|　下次到期：${esc(due?.nextDue || '—')}</div>
-            <div class="muted" style="margin-top:4px;">週期：每 ${esc(due?.cycleEvery || eq.cycleEvery || 30)} ${esc(due?.cycleUnit || eq.cycleUnit || 'day')}</div>
-            ${hasLinkedRecord ? '<div class="muted" style="margin-top:4px;">此維修單已建立（或已存在）對應的保養紀錄。</div>' : ''}
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">${badge(st, due)}</div>
-        </div>
-      `.trim();
-    }
-
-    sum.innerHTML = html;
-
-    // 動作列：依狀態調整文案（不做 disabled，維持流程可用性；邏輯於 handler 內防呆）
-    act.innerHTML = `
-      <button class="chip" type="button" data-action="repairs.openMaintenanceFromRepair" data-id="${esc(rid)}">開啟保養</button>
-      <button class="chip" type="button" data-action="repairs.createMaintenanceEquipmentFromRepair" data-id="${esc(rid)}">建立設備</button>
-      <button class="chip" type="button" data-action="repairs.addMaintenanceRecordFromRepair" data-id="${esc(rid)}">＋建紀錄</button>
-      <button class="chip" type="button" data-action="repairs.closeAndWriteMaintenance" data-id="${esc(rid)}">${esc(btnCloseText)}</button>
-    `.trim();
-  }
-
-  async openMaintenanceFromRepair(repairId){
-    const rid = (repairId || '').toString();
-    const repair = this._getRepairById(rid);
-    if (!repair) {
-      window.UI?.toast?.('找不到維修單', { type: 'warning' });
-      return;
-    }
-    const serial = (repair.serialNumber || '').toString().trim();
-    if (!serial) {
-      window.UI?.toast?.('請先在維修單填寫序號，才能連動保養設備', { type: 'warning' });
-      return;
-    }
-
-    const ok = await this._ensureMaintenanceReady();
-    if (!ok) {
-      window.UI?.toast?.('保養模組初始化失敗', { type: 'error' });
-      return;
-    }
-    const svc = this._maintenanceSvc();
-    const eq = (svc?.getEquipments?.() || []).find(x => x && !x.isDeleted && String(x.equipmentNo||'').trim() === serial) || null;
-
-    if (eq) {
-      window.__maintenanceDeepLink = { tab: 'equipments', searchEquip: serial, filterEquipmentId: eq.id };
-    } else {
-      window.__maintenanceDeepLink = { tab: 'equipments', searchEquip: serial, action: { type: 'createEquipment', prefill: this._buildMaintenancePrefillFromRepair(repair) } };
-    }
-
-    // 關閉維修詳情 modal，避免遮擋
-    try { RepairUI.closeModal(); } catch (_) {}
-    try { window.AppRouter?.navigate?.('maintenance'); } catch (_) {}
-  }
-
-  async createMaintenanceEquipmentFromRepair(repairId){
-    const rid = (repairId || '').toString();
-    const repair = this._getRepairById(rid);
-    if (!repair) {
-      window.UI?.toast?.('找不到維修單', { type: 'warning' });
-      return;
-    }
-    const serial = (repair.serialNumber || '').toString().trim();
-    if (!serial) {
-      window.UI?.toast?.('請先在維修單填寫序號，才能建立保養設備', { type: 'warning' });
-      return;
-    }
-
-    const ok = await this._ensureMaintenanceReady();
-    if (!ok) {
-      window.UI?.toast?.('保養模組初始化失敗', { type: 'error' });
-      return;
-    }
-
-    const svc = this._maintenanceSvc();
-    try {
-      const exist = (svc?.getEquipments?.() || []).find(x => x && !x.isDeleted && String(x.equipmentNo||'').trim() === serial) || null;
-      const prefill = this._buildMaintenancePrefillFromRepair(repair);
-      const eq = exist ? exist : await svc.upsertEquipment(prefill);
-      window.__maintenanceDeepLink = { tab: 'equipments', searchEquip: serial, filterEquipmentId: eq.id, action: { type: 'editEquipment', equipmentId: eq.id } };
-      try { RepairUI.closeModal(); } catch (_) {}
-      window.AppRouter?.navigate?.('maintenance');
-      window.UI?.toast?.('已建立保養設備', { type: 'success' });
-    } catch (e) {
-      console.error(e);
-      window.UI?.toast?.((e && e.message) ? `建立設備失敗：${e.message}` : '建立設備失敗', { type: 'error' });
-    }
-  }
-
-  async addMaintenanceRecordFromRepair(repairId){
-    const rid = (repairId || '').toString();
-    const repair = this._getRepairById(rid);
-    if (!repair) {
-      window.UI?.toast?.('找不到維修單', { type: 'warning' });
-      return;
-    }
-    const serial = (repair.serialNumber || '').toString().trim();
-    if (!serial) {
-      window.UI?.toast?.('請先在維修單填寫序號，才能新增保養紀錄', { type: 'warning' });
-      return;
-    }
-
-    const ok = await this._ensureMaintenanceReady();
-    if (!ok) {
-      window.UI?.toast?.('保養模組初始化失敗', { type: 'error' });
-      return;
-    }
-    const svc = this._maintenanceSvc();
-
-    try {
-      const exist = (svc?.getEquipments?.() || []).find(x => x && !x.isDeleted && String(x.equipmentNo||'').trim() === serial) || null;
-      const eq = exist ? exist : await svc.upsertEquipment(this._buildMaintenancePrefillFromRepair(repair));
-
-      window.__maintenanceDeepLink = {
-        tab: 'records',
-        searchEquip: serial,
-        filterEquipmentId: eq.id,
-        action: { type: 'createRecord', equipmentId: eq.id }
-      };
-      try { RepairUI.closeModal(); } catch (_) {}
-      window.AppRouter?.navigate?.('maintenance');
-      window.UI?.toast?.('已開啟新增保養紀錄', { type: 'success' });
-    } catch (e) {
-      console.error(e);
-      window.UI?.toast?.((e && e.message) ? `新增紀錄失敗：${e.message}` : '新增紀錄失敗', { type: 'error' });
-    }
-  }
-
-  async closeAndWriteMaintenance(repairId){
-    const rid = (repairId || '').toString();
-    const repair = this._getRepairById(rid);
-    if (!repair) {
-      window.UI?.toast?.('找不到維修單', { type: 'warning' });
-      return;
-    }
-    const serial = (repair.serialNumber || '').toString().trim();
-    if (!serial) {
-      window.UI?.toast?.('請先在維修單填寫序號，才能結案並寫入保養', { type: 'warning' });
-      return;
-    }
-
-    const ok = await this._ensureMaintenanceReady();
-    if (!ok) {
-      window.UI?.toast?.('保養模組初始化失敗', { type: 'error' });
-      return;
-    }
-    const svc = this._maintenanceSvc();
-
-    try {
-      // 1) 確保設備存在
-      const exist = (svc?.getEquipments?.() || []).find(x => x && !x.isDeleted && String(x.equipmentNo||'').trim() === serial) || null;
-      const eq = exist ? exist : await svc.upsertEquipment(this._buildMaintenancePrefillFromRepair(repair));
-
-      // 2) 找是否已存在「本維修單」對應紀錄（避免重複建立）
-      const tag = `repair:${rid}`;
-      const recs = (svc?.getRecords?.() || []).filter(r => r && !r.isDeleted && String(r.equipmentId||'') === String(eq.id));
-      let record = recs.find(r => Array.isArray(r.tags) && r.tags.includes(tag)) || null;
-
-      // 3) 若不存在則建立
-      if (!record) {
-        // 來源：零件追蹤（最佳努力；若未初始化，嘗試 init/loadAll）
-        let parts = [];
-        try {
-          if (window._svc('RepairPartsService') && typeof window._svc('RepairPartsService').listForRepair === 'function') {
-            if (!window._svc('RepairPartsService').isInitialized && typeof window._svc('RepairPartsService').init === 'function') {
-              await window._svc('RepairPartsService').init();
-            }
-            if (typeof window._svc('RepairPartsService').loadAll === 'function') {
-              await window._svc('RepairPartsService').loadAll();
-            }
-
-            const items = (window._svc('RepairPartsService').listForRepair(rid) || []).filter(i => i && !i.isDeleted);
-            const used = items.filter(i => String(i.status||'').trim() === '已更換');
-
-            parts = used.map(i => {
-              const name = (i.partName || '').toString().trim();
-              const mpn = (i.mpn || '').toString().trim();
-              const vendor = (i.vendor || '').toString().trim();
-              const qty = Number(i.qty);
-              const qtyText = Number.isFinite(qty) ? qty : 1;
-              const noteParts = [];
-              if (mpn) noteParts.push(`MPN: ${mpn}`);
-              if (vendor) noteParts.push(`Vendor: ${vendor}`);
-              return { name: name || '(未命名零件)', qty: qtyText, note: noteParts.join(' / ') };
-            });
-          }
-        } catch (e) {
-          console.warn('RepairUI: load parts for maintenance record failed', e);
-          parts = [];
-        }
-
-        const today = window.MaintenanceModel?.todayYMD ? window.MaintenanceModel.todayYMD() : (new Date().toISOString().slice(0,10));
-
-        const notesLines = [];
-        notesLines.push(`由維修單結案建立`);
-        if (repair.repairNo) notesLines.push(`維修單號：${repair.repairNo}`);
-        notesLines.push(`維修單 ID：${rid}`);
-        if (repair.customer) notesLines.push(`客戶：${repair.customer}`);
-        if (repair.machine) notesLines.push(`設備：${repair.machine}`);
-        if (repair.serialNumber) notesLines.push(`序號：${repair.serialNumber}`);
-        if (repair.issue) notesLines.push(`問題：${repair.issue}`);
-        if (repair.content) notesLines.push(`內容：${repair.content}`);
-        if (parts.length) notesLines.push(`更換零件：${parts.map(p => `${p.name} x${p.qty}`).join('；')}`);
-
-        const input = {
-          equipmentId: eq.id,
-          performedAt: today,
-          performer: (repair.ownerName || '').toString().trim(),
-          parts,
-          notes: notesLines.join('\n'),
-          tags: [tag, repair.repairNo ? `repairNo:${repair.repairNo}` : `repairNo:${rid}`]
-        };
-
-        record = await svc.upsertRecord(input);
-      }
-
-      // 4) 結案（狀態/進度）
-      try {
-        const needUpdate = (String(repair.status||'') !== '已完成') || (Number(repair.progress) !== 100);
-        if (needUpdate && window._svc('RepairService') && typeof window._svc('RepairService').update === 'function') {
-          await window._svc('RepairService').update(rid, { status: '已完成', progress: 100, historyNote: '結案並寫入保養紀錄' });
-        }
-      } catch (e) {
-        console.warn('RepairUI: close repair failed (non-fatal)', e);
-      }
-
-      // 5) 跳轉並開啟該紀錄（編輯）
-      window.__maintenanceDeepLink = {
-        tab: 'records',
-        searchEquip: serial,
-        filterEquipmentId: eq.id,
-        action: { type: 'editRecord', recordId: record.id }
-      };
-
-      try { RepairUI.closeModal(); } catch (_) {}
-      window.AppRouter?.navigate?.('maintenance');
-      window.UI?.toast?.('已結案並寫入保養紀錄', { type: 'success' });
-    } catch (e) {
-      console.error(e);
-      window.UI?.toast?.((e && e.message) ? `結案寫入失敗：${e.message}` : '結案寫入失敗', { type: 'error' });
     }
   }
 
@@ -5023,6 +4643,24 @@ const repairUI = new RepairUI();
 window.repairUI = repairUI;
 window.RepairUI = RepairUI;
 
+// Static bridge：RepairUI.* 供 data-action / 其他模組安全呼叫，實際實作仍由同一個 repairUI instance 處理。
+Object.assign(RepairUI, {
+  closeModal(options) {
+    try {
+      return window.repairUI?.closeModal?.(options);
+    } catch (e) {
+      console.warn('RepairUI.closeModal bridge failed:', e);
+      return false;
+    }
+  },
+  isModalOpen() {
+    try {
+      return !!window.repairUI?.isModalOpen?.();
+    } catch (_) {
+      return false;
+    }
+  }
+});
 
 // === V161.105: Template Manage (inline onclick fallback) ===
 RepairUI.templateManage = function () {

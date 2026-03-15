@@ -73,6 +73,14 @@ class SOPUI {
     return s.slice(0, 10);
   }
 
+  _fmtDateTime(iso){
+    const s = String(iso || '');
+    if (!s) return '-';
+    const date = s.slice(0, 10);
+    const time = s.slice(11, 16);
+    return time ? `${date} ${time}` : date;
+  }
+
   render(containerId = 'main-content'){
     this._renderedContainerId = containerId;
     const host = document.getElementById(containerId);
@@ -325,40 +333,130 @@ class SOPUI {
 
     const latest = Number.isFinite(+sop.latestVersion) ? parseInt(sop.latestVersion, 10) : 0;
     const nextVer = latest + 1;
-
     const isEdit = !!this._detailEditing;
-
-    const msgHtml = this._detailMsg ? `<span class="muted" style="margin-left:10px;">${this._escape(this._detailMsg)}</span>` : '';
+    const categoryLabel = this._catLabel(sop.category);
+    const scopeLabel = String(sop.scopeCustomerId || '').trim() || '通用';
+    const tagCount = Array.isArray(sop.tags) ? sop.tags.length : 0;
+    const latestLink = String(sop.latestDriveWebViewLink || '').trim();
+    const abstractText = String(sop.abstract || '').trim();
+    const safeAbstract = this._escape(abstractText || '尚未填寫摘要');
+    const safeTitle = this._escape(sop.title || '(未命名 SOP)');
+    const safeOwner = this._escape(sop.ownerUid || '系統');
+    const safeCreated = this._escape(this._fmtDateTime(sop.createdAt));
+    const safeUpdated = this._escape(this._fmtDateTime(sop.updatedAt));
+    const overviewSignals = [
+      `<span class="enterprise-detail-overview-chip tone-primary">${this._escape(categoryLabel)}</span>`,
+      `<span class="enterprise-detail-overview-chip ${latest > 0 ? 'tone-success' : 'tone-warning'}">${latest > 0 ? `最新版本 V${latest}` : '尚未建立版本'}</span>`,
+      `<span class="enterprise-detail-overview-chip">適用：${this._escape(scopeLabel)}</span>`,
+      latestLink ? '<span class="enterprise-detail-overview-chip tone-success">已連結最新附件</span>' : '<span class="enterprise-detail-overview-chip tone-warning">尚未連結最新附件</span>'
+    ].join('');
+    const latestLinkAction = latestLink
+      ? `<a class="btn" href="${this._escapeAttr(latestLink)}" target="_blank" rel="noreferrer">開啟最新版本</a>`
+      : `<button class="btn" type="button" disabled>尚無最新版本</button>`;
+    const msgHtml = this._detailMsg
+      ? `<div class="sops-detail-status-note">${this._escape(this._detailMsg)}</div>`
+      : `<div class="sops-detail-status-note muted">${isEdit ? '編輯模式：變更標題、類別與適用範圍後請直接按儲存。' : '詳情頁已整合主檔、版本與附件脈絡，維持單一閱讀層。'}</div>`;
 
     return `
-      <div class="sops-topbar">
-        <div>
-          <div class="sops-title">SOP 詳情</div>
-          <div class="muted">ID：<code>${this._escape(sopId)}</code></div>
+      <section class="enterprise-detail-hero sops-detail-hero" style="--module-accent:var(--module-accent); --module-accent-soft:var(--module-accent-soft);">
+        <div class="enterprise-detail-hero-copy">
+          <div class="module-badge">SOP Hub</div>
+          <h3>${safeTitle}</h3>
+          <p>以單一主檔維護 SOP 標題、類別、適用範圍與版本附件，不再將版本資訊拆散在工具列與表單首屏。</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+        <div class="enterprise-detail-hero-stats">
+          <div class="enterprise-mini-stat"><span>主檔編號</span><strong>${this._escape(sopId)}</strong></div>
+          <div class="enterprise-mini-stat"><span>最新版本</span><strong>${latest > 0 ? `V${this._escape(String(latest))}` : '未建立'}</strong></div>
+          <div class="enterprise-mini-stat"><span>最後更新</span><strong>${safeUpdated}</strong></div>
+        </div>
+      </section>
+
+      <section class="enterprise-detail-overview-board sops-detail-overview-board">
+        <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary">
+          <div class="enterprise-detail-overview-card-head">
+            <div>
+              <div class="enterprise-detail-overview-eyebrow">Document Overview</div>
+              <div class="enterprise-detail-overview-title">SOP 主檔總覽</div>
+            </div>
+            <div class="enterprise-detail-overview-signal-row">${overviewSignals}</div>
+          </div>
+          <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-4">
+            <div class="enterprise-detail-overview-item"><span>類別</span><strong>${this._escape(categoryLabel)}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>適用範圍</span><strong>${this._escape(scopeLabel)}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>建立時間</span><strong>${safeCreated}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>更新時間</span><strong>${safeUpdated}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>主檔狀態</span><strong>${isEdit ? '編輯中' : '唯讀檢視'}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>版本筆數</span><strong>${latest} 筆</strong></div>
+            <div class="enterprise-detail-overview-item"><span>標籤數量</span><strong>${this._escape(String(tagCount))} 個</strong></div>
+            <div class="enterprise-detail-overview-item"><span>擁有者</span><strong>${safeOwner}</strong></div>
+          </div>
+        </article>
+
+        <article class="enterprise-detail-overview-card">
+          <div class="enterprise-detail-overview-card-head">
+            <div>
+              <div class="enterprise-detail-overview-eyebrow">Usage Context</div>
+              <div class="enterprise-detail-overview-title">適用脈絡與摘要</div>
+            </div>
+          </div>
+          <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+            <div class="enterprise-detail-overview-item"><span>客戶 / 範圍</span><strong>${this._escape(scopeLabel)}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>最新附件</span><strong>${latestLink ? '已建立連結' : '尚未建立'}</strong></div>
+          </div>
+          <div class="enterprise-detail-overview-note"><span>摘要</span><div>${safeAbstract}</div></div>
+        </article>
+
+        <article class="enterprise-detail-overview-card">
+          <div class="enterprise-detail-overview-card-head">
+            <div>
+              <div class="enterprise-detail-overview-eyebrow">Version Pipeline</div>
+              <div class="enterprise-detail-overview-title">版本作業節點</div>
+            </div>
+          </div>
+          <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+            <div class="enterprise-detail-overview-item"><span>目前最新版本</span><strong>${latest > 0 ? `V${this._escape(String(latest))}` : '尚未建立'}</strong></div>
+            <div class="enterprise-detail-overview-item"><span>下一版號</span><strong>V${this._escape(String(nextVer))}</strong></div>
+          </div>
+          <div class="enterprise-detail-overview-note"><span>版本說明</span><div>主檔欄位與版本上傳已拆成獨立區塊，避免編輯主檔時混入附件流程與長段教學文字。</div></div>
+        </article>
+      </section>
+
+      <section class="enterprise-detail-command-bar sops-detail-command-bar">
+        <div class="enterprise-detail-command-copy">
+          <div class="enterprise-detail-command-title">SOP 操作</div>
+          ${msgHtml}
+        </div>
+        <div class="detail-buttons enterprise-detail-command-actions">
+          ${latestLinkAction}
           ${isEdit
             ? `
-              <button class="btn ghost" type="button" data-action="sops-cancel-edit">取消</button>
+              <button class="btn" type="button" data-action="sops-cancel-edit">取消</button>
               <button class="btn primary" type="button" data-action="sops-save-edit" data-id="${this._escapeAttr(sopId)}">儲存</button>
             `
             : `
               <button class="btn" type="button" data-action="sops-start-edit" data-id="${this._escapeAttr(sopId)}">編輯</button>
-              <button class="btn" type="button" data-action="sops-delete-sop" data-id="${this._escapeAttr(sopId)}" data-title="${this._escapeAttr(sop.title || '')}" style="color:#c0392b;">🗑️ 刪除</button>
+              <button class="btn danger" type="button" data-action="sops-delete-sop" data-id="${this._escapeAttr(sopId)}" data-title="${this._escapeAttr(sop.title || '')}">刪除</button>
             `
           }
           <button class="btn" type="button" data-action="sops-go-list">返回列表</button>
         </div>
-      </div>
+      </section>
 
-      <div class="panel sops-card" style="padding:14px 16px;">
+      <div class="panel sops-card sops-detail-card">
+        <div class="sops-detail-card-head">
+          <div>
+            <div class="sops-detail-card-eyebrow">Master Profile</div>
+            <div class="sops-detail-card-title">主檔欄位</div>
+          </div>
+          <div class="muted">標題、類別、適用範圍與摘要集中在同一份主檔表單維護。</div>
+        </div>
         <form class="sops-form enterprise-form" id="sops-detail-form" data-sop-id="${this._escapeAttr(sopId)}">
-          <div class="sops-row">
-            <div class="sops-field" style="flex:1;min-width:240px;">
+          <div class="sops-row sops-row-detail-main">
+            <div class="sops-field sops-field-span-2">
               <label>標題</label>
               <input class="input" name="title" value="${this._escapeAttr(sop.title || '')}" ${isEdit ? '' : 'disabled'} />
             </div>
-            <div class="sops-field" style="min-width:160px;">
+            <div class="sops-field">
               <label>類別</label>
               ${isEdit ? `
                 <select class="input" name="category">
@@ -368,70 +466,74 @@ class SOPUI {
                   <option value="general" ${(!sop.category || String(sop.category)==='general')?'selected':''}>通用</option>
                 </select>
               ` : `
-                <input class="input" value="${this._escapeAttr(this._catLabel(sop.category))}" disabled />
+                <input class="input" value="${this._escapeAttr(categoryLabel)}" disabled />
               `}
             </div>
-            <div class="sops-field" style="flex:1;min-width:200px;">
+            <div class="sops-field">
               <label>適用客戶</label>
-              <input class="input" name="scopeCustomerId" value="${this._escapeAttr(isEdit ? (sop.scopeCustomerId || '') : (sop.scopeCustomerId || '通用'))}" placeholder="（留空=通用）" ${isEdit ? '' : 'disabled'} />
+              <input class="input" name="scopeCustomerId" value="${this._escapeAttr(isEdit ? (sop.scopeCustomerId || '') : scopeLabel)}" placeholder="（留空 = 通用）" ${isEdit ? '' : 'disabled'} />
             </div>
-          </div>
-          <div class="sops-row" style="margin-top:12px;">
-            <div class="sops-field" style="flex:1;min-width:240px;">
+            <div class="sops-field sops-field-span-2">
               <label>標籤</label>
               <input class="input" name="tags" value="${this._escapeAttr((sop.tags || []).join(', '))}" ${isEdit ? '' : 'disabled'} />
             </div>
-            <div class="sops-field" style="flex:1;min-width:240px;">
+            <div class="sops-field sops-field-span-2">
               <label>摘要</label>
-              <input class="input" name="abstract" value="${this._escapeAttr(sop.abstract || '')}" ${isEdit ? '' : 'disabled'} />
+              <textarea class="input" name="abstract" rows="3" ${isEdit ? '' : 'disabled'}>${this._escape(sop.abstract || '')}</textarea>
             </div>
           </div>
-          ${isEdit ? `<div class="muted" style="margin-top:10px;font-size:12px;">編輯完成後按右上角「儲存」。</div>` : ''}
         </form>
       </div>
 
-      <div class="panel sops-card" style="padding:14px 16px;">
-        <div style="font-weight:800;margin-bottom:8px;">上傳新版本</div>
-        <form class="sops-form enterprise-form" data-action="sops-upload-version" data-sop-id="${this._escapeAttr(sopId)}">
-          <div class="sops-row">
-            <div class="sops-field" style="flex:1;min-width:260px;">
-              <label>選擇檔案（建議單檔 &lt; 8MB）</label>
-              <input class="input" name="file" type="file" />
+      <div class="sops-detail-support-board">
+        <section class="panel sops-card sops-detail-card">
+          <div class="sops-detail-card-head">
+            <div>
+              <div class="sops-detail-card-eyebrow">Version Upload</div>
+              <div class="sops-detail-card-title">上傳新版本</div>
             </div>
-            <div class="sops-field" style="flex:1;min-width:260px;">
-              <label>變更說明（可空）</label>
-              <input class="input" name="changeLog" placeholder="例如：新增安全檢查步驟" />
-            </div>
+            <div class="muted">支援檔案上傳或手動貼上 WebViewLink，建立 V${this._escape(String(nextVer))}。</div>
           </div>
-
-          <details class="sops-advanced" style="margin-top:10px;">
-            <summary>進階：手動貼上 WebViewLink（無法上傳時使用）</summary>
-            <div class="sops-row" style="margin-top:10px;">
-              <div class="sops-field" style="flex:1;min-width:260px;">
-                <label>WebViewLink</label>
-                <input class="input" name="webViewLink" placeholder="https://drive.google.com/file/d/.../view" />
+          <form class="sops-form enterprise-form" data-action="sops-upload-version" data-sop-id="${this._escapeAttr(sopId)}">
+            <div class="sops-row sops-row-detail-main">
+              <div class="sops-field sops-field-span-2">
+                <label>選擇檔案</label>
+                <input class="input" name="file" type="file" />
+              </div>
+              <div class="sops-field sops-field-span-2">
+                <label>變更說明</label>
+                <input class="input" name="changeLog" placeholder="例如：新增安全檢查步驟" />
               </div>
             </div>
-            <div class="muted" style="margin-top:6px;font-size:12px;line-height:1.5;">
-              若未選檔案，系統將以此連結建立版本（不會執行上傳）。
+
+            <details class="sops-advanced sops-advanced-tight">
+              <summary>手動貼上版本連結（無法上傳時使用）</summary>
+              <div class="sops-row" style="margin-top:10px;">
+                <div class="sops-field sops-field-span-2">
+                  <label>WebViewLink</label>
+                  <input class="input" name="webViewLink" placeholder="https://drive.google.com/file/d/.../view" />
+                </div>
+              </div>
+              <div class="muted sops-inline-help">若未選檔案，系統將以此連結建立版本，不執行檔案上傳。</div>
+            </details>
+
+            <div class="sops-actions sops-actions-inline">
+              <div class="muted">版本附件請保持單一正式檔案來源，避免 SOP 主檔與附件版本失去對應。</div>
+              <button class="btn primary" type="button" data-action="sops-upload-version">上傳 V${this._escapeAttr(String(nextVer))}</button>
             </div>
-          </details>
+          </form>
+        </section>
 
-          <div class="muted" style="margin-top:10px;font-size:12px;line-height:1.5;">
-            上傳模式：使用 Apps Script Web App 將檔案上傳到 My Drive（資料夾規則：OrderSOPHub/SOP/{category}）。
-            若要使用上傳，請在 <code>core/config.js</code> 設定 <code>AppConfig.integration.gas.uploadUrl</code> 與 <code>token</code>。
+        <section class="panel sops-card sops-detail-card">
+          <div class="sops-detail-card-head">
+            <div>
+              <div class="sops-detail-card-eyebrow">Version History</div>
+              <div class="sops-detail-card-title">版本列表</div>
+            </div>
+            <div class="muted">版本歷史維持唯讀，避免主檔編輯與版本追溯互相干擾。</div>
           </div>
-
-          <div class="sops-actions" style="margin-top:12px;">
-            <button class="btn primary" type="button" data-action="sops-upload-version">上傳 V${this._escapeAttr(nextVer)}</button>
-            ${msgHtml}
-          </div>
-        </form>
-      </div>
-
-      <div class="panel sops-card" style="padding:14px 16px;">
-        <div style="font-weight:800;margin-bottom:8px;">版本列表</div>
-        <div id="sops-versions-wrap" class="muted">載入中…</div>
+          <div id="sops-versions-wrap" class="muted">載入中…</div>
+        </section>
       </div>
     `;
   }

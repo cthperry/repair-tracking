@@ -892,7 +892,7 @@ class QuotesUI {
           <h3>從維修單建立報價</h3>
           <button class="modal-close" type="button" onclick="QuotesUI.closeModal()">✕</button>
         </div>
-        <form class="modal-body enterprise-form quote-create-form business-create-form" onsubmit="QuotesUI.handleCreateFromRepair(event)">
+        <form class="modal-body enterprise-form quote-create-form business-create-form" onsubmit="event.preventDefault(); event.stopPropagation(); QuotesUI.handleCreateFromRepair(event); return false;">
           <section class="business-form-intro">
             <div class="business-form-intro-title">報價建立</div>
             <div class="business-form-intro-copy">先指定來源維修單，再由系統帶入 repairParts 用料資料，維持維修 → 報價的商務節奏一致。</div>
@@ -978,7 +978,7 @@ class QuotesUI {
           </div>
         </div>
 
-        <form class="modal-body enterprise-form quote-form" id="quote-detail-form-${idSafe}" onsubmit="QuotesUI.handleSaveQuote(event)">
+        <form class="modal-body enterprise-form quote-form" id="quote-detail-form-${idSafe}" onsubmit="event.preventDefault(); event.stopPropagation(); QuotesUI.handleSaveQuote(event); return false;">
           <input type="hidden" name="id" value="${this._escapeAttr(q.id)}" />
 
           <section class="enterprise-detail-hero" style="--module-accent:${this._escapeAttr(statusAccent)}; --module-accent-soft:${this._escapeAttr(statusSoft)};">
@@ -1082,20 +1082,12 @@ class QuotesUI {
                 <label class="form-label">幣別</label>
                 <input class="input" name="currency" value="${this._escapeAttr(q.currency)}" oninput="QuotesUI.recalcTotals('${idSafe}')" />
               </div>
-              <div class="form-group">
-                <label class="form-label">客戶代號</label>
-                <input class="input" name="customerCode" value="${this._escapeAttr(q.customerCode || '')}" placeholder="例如 C000321" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">交貨天數（下單日起）</label>
-                <input class="input" name="deliveryDays" type="number" min="1" step="1" value="${this._escapeAttr(String(q.deliveryDays ?? 60))}" placeholder="60" />
-              </div>
             </div>
           </div>
 
           <div class="form-section">
             <div class="quote-items-head">
-              <div class="form-section-head"><h4 class="form-section-title">項目</h4><p class="form-section-desc">項目欄位固定為名稱、MPN、Vendor、單位、數量、單價，避免每版位置漂移。</p></div>
+              <div class="form-section-head"><h4 class="form-section-title">項目</h4><p class="form-section-desc">項目欄位固定為品名、規格、品號、單位、數量、單價，與範例一致。</p></div>
               <div class="quote-items-toolbar">
                 <div class="quote-items-toolbar-left">
                   <button class="btn sm" type="button" onclick="QuotesUI.addItem('${idSafe}')">＋ 新增零件</button>
@@ -1111,9 +1103,9 @@ class QuotesUI {
               <table class="table zebra quote-items-table">
                 <thead>
                   <tr>
-                    <th style="width:30%;">名稱</th>
-                    <th style="width:16%;">MPN</th>
-                    <th style="width:14%;">Vendor</th>
+                    <th style="width:30%;">品名</th>
+                    <th style="width:16%;">規格</th>
+                    <th style="width:14%;">品號</th>
                     <th style="width:8%;">單位</th>
                     <th class="right" style="width:8%;">數量</th>
                     <th class="right" style="width:10%;">單價</th>
@@ -1132,13 +1124,13 @@ class QuotesUI {
                     return `
                       <tr>
                         <td>
-                          <input class="input quote-text-input" name="name_${i}" value="${this._escapeAttr(it.name || '')}" placeholder="零件名稱 / 描述" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'name', event)" />
+                          <input class="input quote-text-input" name="name_${i}" value="${this._escapeAttr(it.name || '')}" placeholder="品名 / 描述" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'name', event)" />
                         </td>
                         <td>
-                          <input class="input quote-mpn-input" name="mpn_${i}" value="${this._escapeAttr(it.mpn || '')}" placeholder="MPN / P/N" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'mpn', event)" />
+                          <input class="input quote-mpn-input" name="mpn_${i}" value="${this._escapeAttr(it.mpn || '')}" placeholder="規格 / 型號" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'mpn', event)" />
                         </td>
                         <td>
-                          <input class="input quote-vendor-input" name="vendor_${i}" value="${this._escapeAttr(it.vendor || '')}" placeholder="Vendor / 品牌" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'vendor', event)" />
+                          <input class="input quote-vendor-input" name="vendor_${i}" value="${this._escapeAttr(it.vendor || '')}" placeholder="品號 / Vendor" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'vendor', event)" />
                         </td>
                         <td>
                           <input class="input quote-unit-input" name="unit_${i}" value="${this._escapeAttr(it.unit || 'pcs')}" placeholder="pcs" oninput="QuotesUI.onItemInput('${idSafe}', ${i}, 'unit', event)" />
@@ -1219,6 +1211,8 @@ class QuotesUI {
 const quotesUI = new QuotesUI();
 if (typeof window !== 'undefined') {
   window.quotesUI = quotesUI;
+  window.QuotesUI = QuotesUI;
+  try { window.AppRegistry?.register?.('QuotesUI', quotesUI); } catch (_) {}
 }
 
 Object.assign(QuotesUI, {
@@ -1765,41 +1759,107 @@ async exportQuotePdf(quoteId) {
     const wrapTextByWidth = (text, maxWidth, size = 9, maxLines = 2) => {
       const raw = String(text || '').replace(/\r/g, '');
       if (!raw.trim()) return [];
-      const parts = raw.split(/\n/);
+
+      const tokenize = (part) => {
+        const tokens = [];
+        let asciiBuf = '';
+        const flushAscii = () => {
+          if (!asciiBuf) return;
+          tokens.push(asciiBuf);
+          asciiBuf = '';
+        };
+
+        for (const ch of String(part || '')) {
+          if (/\s/.test(ch)) {
+            flushAscii();
+            if (!tokens.length || tokens[tokens.length - 1] !== ' ') tokens.push(' ');
+            continue;
+          }
+          if (/[\u3400-\u9fff\uf900-\ufaff\u3040-\u30ff]/.test(ch)) {
+            flushAscii();
+            tokens.push(ch);
+            continue;
+          }
+          if (/[A-Za-z0-9#%&+.,:;_\-/()\[\]]/.test(ch)) {
+            asciiBuf += ch;
+            continue;
+          }
+          flushAscii();
+          tokens.push(ch);
+        }
+
+        flushAscii();
+        return tokens;
+      };
+
+      const splitTokenByWidth = (token) => {
+        const pieces = [];
+        let cur = '';
+        for (const ch of String(token || '')) {
+          if (!cur) {
+            cur = ch;
+            continue;
+          }
+          if (measureText(cur + ch, size) <= maxWidth) {
+            cur += ch;
+          } else {
+            pieces.push(cur);
+            cur = ch;
+          }
+        }
+        if (cur) pieces.push(cur);
+        return pieces;
+      };
+
       const lines = [];
       let overflow = false;
-
       const push = (value) => {
-        if (lines.length < maxLines) lines.push(String(value || ''));
+        const next = String(value || '').replace(/^\s+/g, '').replace(/\s+$/g, '');
+        if (lines.length < maxLines) lines.push(next);
         else overflow = true;
       };
 
       outer:
-      for (let pi = 0; pi < parts.length; pi++) {
-        const part = String(parts[pi] || '');
+      for (const part of raw.split(/\n/)) {
         if (part === '') {
           push('');
-          if (lines.length >= maxLines) {
-            overflow = overflow || (pi < parts.length - 1);
-            break;
-          }
+          if (lines.length >= maxLines) { overflow = true; break; }
           continue;
         }
 
+        const tokens = tokenize(part);
         let cur = '';
-        for (let ci = 0; ci < part.length; ci++) {
-          const ch = part.charAt(ci);
-          if (!cur) { cur = ch; continue; }
-          if (measureText(cur + ch, size) <= maxWidth) { cur += ch; continue; }
+
+        for (const token of tokens) {
+          const normalized = (!cur && token === ' ') ? '' : token;
+          const candidate = `${cur}${normalized}`;
+          if (!cur || measureText(candidate, size) <= maxWidth) {
+            cur = candidate;
+            continue;
+          }
+
           push(cur);
-          cur = ch;
+          cur = token === ' ' ? '' : token.replace(/^\s+/g, '');
+
+          if (cur && measureText(cur, size) > maxWidth) {
+            const pieces = splitTokenByWidth(cur);
+            cur = '';
+            for (let i = 0; i < pieces.length; i++) {
+              if (i < pieces.length - 1) {
+                push(pieces[i]);
+                if (lines.length >= maxLines) { overflow = true; break outer; }
+              } else {
+                cur = pieces[i];
+              }
+            }
+          }
+
           if (lines.length >= maxLines) { overflow = true; break outer; }
         }
 
-        push(cur);
-
+        if (cur) push(cur);
         if (lines.length >= maxLines) {
-          overflow = overflow || (pi < parts.length - 1);
+          overflow = true;
           break;
         }
       }
@@ -1873,12 +1933,8 @@ async exportQuotePdf(quoteId) {
     drawText(quoteNo, 73.3, 169.0, 9);          // 報價單號（貼近「：」後）
     drawText(quoteDate, 73.3, 181.0, 9);        // 報價日期
     drawText(ownerName, 335.9, 182.0, 9);       // 業務經辦（僅姓名）
-    drawText(trim(q.customerCode || ''), 73.3, 193.0, 9); // 客戶代號
     drawWrappedText(customerName, 73.3, 204.0, 242, 9, 2, 2); // 客戶全名：超長時自動換行
-    const pdfDeliveryDays = Number.isFinite(Number(q.deliveryDays)) ? Math.round(Number(q.deliveryDays)) : 60;
     drawWrappedText(contactLine, 92.0, 227.0, 235, 9, 2, 2);    // 連絡人與電話：超長時自動換行
-    // 交貨日：值區起 x=344.6（標籤「交 貨 日:」結束），「天」預印於 x=407.4 y=229.0
-    drawText(`下單日起 ${pdfDeliveryDays} `, 345.5, 229.0, 9);  // 交貨日（「天」已印在模版 x=407.4）
     // 幣別
     drawText(currency === 'TWD' ? 'NTD' : currency, 335.9, 252.6, 9);
 
@@ -1928,19 +1984,42 @@ async exportQuotePdf(quoteId) {
 
     const startY1 = 396.5;   // 第一行（序號/品號/數量/單價/金額/專案）
     const startY2 = 409.9;   // 第二行（品名/單位/失效日）
-    // 模版實際列高：由 PDF 橫線座標量測 = 48pt（原 46 會累積偏移，導致文字往上跑出格子）
-    const rowStep = 48;      // 每筆資料（兩行）高度（對齊模版格線 y≈393.2/441.5/489.4…）
-    const maxPerPage = 6;    // 模版只有 6 格資料列（第 7 格會壓到合計欄）
+    const rowStep = 48;      // 每筆資料列高度（依母版橫線實測 48pt）
+    const maxPerPage = 6;    // 母版單頁固定 6 列，避免第 7 列超出表格
 
     let qtySum = 0;
     let subtotal = 0;
 
+    const fitSingleLineByWidth = (text, maxWidth, size = 9) => {
+      const raw = String(text || '').replace(/\s+/g, ' ').trim();
+      if (!raw) return '';
+      if (measureText(raw, size) <= maxWidth) return raw;
+      const ell = '…';
+      let out = raw;
+      while (out && measureText(out + ell, size) > maxWidth) out = out.slice(0, -1);
+      return out ? `${out}${ell}` : ell;
+    };
+
+    const buildItemCellLines = (item) => {
+      // 母版左側大欄位是固定三層：
+      // 1. 品號（Vendor）
+      // 2. 品名（name）
+      // 3. 規格（MPN）
+      // 若品號為空，第一層固定補預設品號 MAREEXP000。
+      const vendorCode = trim(item?.vendor || '') || 'MAREEXP000';
+      return [
+        fitSingleLineByWidth(vendorCode, 228, 8.4),
+        fitSingleLineByWidth(trim(item?.name || ''), 228, 8.4),
+        fitSingleLineByWidth(trim(item?.mpn || ''), 228, 8.4),
+      ];
+    };
+
     const take = items.slice(0, maxPerPage);
+    if (items.length > maxPerPage) {
+      console.warn(`[QuotesUI] PDF template supports ${maxPerPage} rows per page; extra items are omitted in current single-page export.`);
+    }
     take.forEach((it, idx) => {
       const seq = String(idx + 1).padStart(4, '0');
-      const mpn = trim(it.mpn || '');
-      const name = trim(it.name || '');
-      const vendor = trim(it.vendor || '');
       const qty = Number(it.qty);
       const qv = Number.isFinite(qty) ? qty : 0;
       const unit = trim(it.unit || 'PCS').toUpperCase();
@@ -1965,10 +2044,14 @@ async exportQuotePdf(quoteId) {
       drawText(project, 463.3, y1, 9);
       drawText(expiryDate, 463.3, y1 + 16, 9);
 
-      // 左側大欄位改為符合範例的三層資訊：Vendor / 品名 / MPN
-      // 長文字統一在欄寬內換行，不再硬切單行導致跑版。
-      const itemCellText = [vendor, name, mpn].filter(Boolean).join('\n');
-      drawWrappedText(itemCellText, 55.3, y1 - 0.5, 228, 8.4, 3, 2);
+      // 左側大欄位固定依母版欄位語意輸出：品號 / 品名 / 規格
+      // 三層一律對準母版既定欄位；若品號為空，第一層固定輸出 MAREEXP000，不讓品名上移。
+      const itemCellLines = buildItemCellLines(it);
+      const itemLineTops = [y1 - 0.5, y1 + 16.0, y1 + 32.0];
+      itemCellLines.forEach((line, lineIndex) => {
+        if (!line) return;
+        drawText(line, 55.3, itemLineTops[lineIndex] || (y1 + lineIndex * 16), 8.4);
+      });
     });
 
     // ====== Totals ======
@@ -2019,6 +2102,7 @@ async exportQuotePdf(quoteId) {
 
   async handleCreateFromRepair(event) {
     event.preventDefault();
+    try { event.stopPropagation(); } catch (_) {}
     const form = event.target;
     const data = Object.fromEntries(new FormData(event.target).entries());
     const rid = (data.repairId || '').trim();
@@ -2053,8 +2137,13 @@ async exportQuotePdf(quoteId) {
 
   async handleSaveQuote(event) {
     event.preventDefault();
+    try { event.stopPropagation(); } catch (_) {}
     const form = event.target;
-    this._prepareFormValidation(form);
+    const ui = window.quotesUI;
+    if (!ui) {
+      throw new Error('quotesUI 尚未初始化');
+    }
+    QuotesUI._prepareFormValidation(form);
     const data = Object.fromEntries(new FormData(event.target).entries());
     const id = (data.id || '').trim();
     const q = window._svc('QuoteService').get(id);
@@ -2062,7 +2151,7 @@ async exportQuotePdf(quoteId) {
 
     const countNum = Number(data.itemsCount ?? (q.items || []).length);
     const count = Number.isFinite(countNum) ? Math.max(0, Math.floor(countNum)) : (q.items || []).length;
-    const items = this._validateItemsForm(form, count, '報價');
+    const items = QuotesUI._validateItemsForm(form, count, '報價');
     if (!Array.isArray(items)) return;
 
     try {
@@ -2071,8 +2160,6 @@ async exportQuotePdf(quoteId) {
         ...q,
         status: (data.status || q.status || '').toString(),
         currency: (data.currency || q.currency || '').toString(),
-        customerCode: (data.customerCode != null ? data.customerCode : (q.customerCode || '')).toString(),
-        deliveryDays: (data.deliveryDays !== undefined && data.deliveryDays !== '') ? Number(data.deliveryDays) : (q.deliveryDays ?? 60),
         items,
         note: (data.note || '').toString()
       });

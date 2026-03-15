@@ -237,7 +237,6 @@ if (typeof window !== 'undefined') {
       (typeof window._svc === 'function') ? window._svc('QuoteService') : null,
       (typeof window._svc === 'function') ? window._svc('OrderService') : null,
       (typeof window._svc === 'function') ? window._svc('KBService') : null,
-      (typeof window._svc === 'function') ? window._svc('MaintenanceService') : null,
       (typeof window._svc === 'function') ? window._svc('WeeklyService') : null,
       (typeof window._svc === 'function') ? window._svc('SettingsService') : null
     ].filter(Boolean);

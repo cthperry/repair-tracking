@@ -61,7 +61,7 @@
 - [ ] 中文字型與排版未跑版
 
 ## 8. FAB / Modal / Footer
-- [ ] `settings` / `guide` / `sops` 頁不顯示 FAB
+- [ ] `settings` / `sops` 頁不顯示 FAB
 - [ ] modal 開啟時 FAB 隱藏
 - [ ] 接近頁尾時 FAB 會避讓或隱藏
 - [ ] sticky footer 不會被 FAB 遮住

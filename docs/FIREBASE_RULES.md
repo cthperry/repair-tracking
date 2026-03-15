@@ -56,29 +56,6 @@ data/$uid/...
 - `mpn`
 - `name`
 
-### maintenance/equipments
-- `updatedAt`
-- `createdAt`
-- `equipmentNo`
-- `name`
-- `model`
-- `location`
-- `owner`
-- `cycleUnit`
-- `cycleEvery`
-- `_search`
-
-### maintenance/records
-- `updatedAt`
-- `createdAt`
-- `performedAt`
-- `equipmentId`
-- `equipmentNo`
-- `equipmentName`
-- `_search`
-
-### maintenance/settings
-- `updatedAt`
 
 ### workLogs
 - `workDate`

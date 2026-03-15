@@ -36,6 +36,9 @@ class PartsUI {
     this.visibleCount = this.pageSize;
     this._renderToken = 0;
     this._querySig = '';
+    this._domBound = false;
+    this._containerId = '';
+    this._boundContainerId = '';
   }
 
   // Phase 1：統一 Service 存取走 _svc（registry-first），避免直接 window.XxxService
@@ -91,7 +94,7 @@ class PartsUI {
 
   _applyFiltersPanelVisibility() {
     const panel = document.getElementById('parts-filters-panel');
-    if (panel) panel.style.display = this.filtersPanelOpen ? 'block' : 'none';
+    if (panel) panel.hidden = !this.filtersPanelOpen;
     this._updateFiltersToggleButton();
   }
 
@@ -118,7 +121,11 @@ class PartsUI {
   _isOverdueRepairPart(item, today = '') {
     const it = item || {};
     const st = (it.status || '').toString().trim();
-    if (st === '已到貨' || st === '已更換' || st === '取消') return false;
+    try {
+      if (window.AppConfig && typeof window.AppConfig.isTerminalBusinessStatus === 'function' && window.AppConfig.isTerminalBusinessStatus('part', st)) {
+        return false;
+      }
+    } catch (_) {}
     const expected = (it.expectedDate || '').toString().trim();
     if (!expected) return false;
     const t = today || this._todayTaipei();
@@ -126,13 +133,11 @@ class PartsUI {
   }
 
   _accentForPartStatus(status) {
-    const s = (status || '').toString().trim();
-    if (s === '已更換') return { accent: '#16a34a', soft: 'rgba(22,163,74,.14)' };
-    if (s === '已到貨') return { accent: '#d97706', soft: 'rgba(217,119,6,.15)' };
-    if (s === '已下單') return { accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' };
-    if (s === '已報價') return { accent: '#2563eb', soft: 'rgba(37,99,235,.12)' };
-    if (s === '需求提出') return { accent: '#7c3aed', soft: 'rgba(124,58,237,.12)' };
-    if (s === '取消') return { accent: '#dc2626', soft: 'rgba(220,38,38,.12)' };
+    try {
+      if (window.AppConfig && typeof window.AppConfig.getStatusAccent === 'function') {
+        return window.AppConfig.getStatusAccent('part', status);
+      }
+    } catch (_) {}
     return { accent: 'var(--module-accent)', soft: 'var(--module-accent-soft)' };
   }
 
@@ -160,51 +165,129 @@ class PartsUI {
     return this._escapeHtml(input).split('\n').join(' ').split('\r').join(' ');
   }
 
+  _sectionHeaderHtml(title, desc = '', options = {}) {
+    const opts = options || {};
+    const eyebrow = (opts.eyebrow || '').toString().trim();
+    const actionsHtml = (opts.actionsHtml || '').toString();
+    try {
+      if (window.UI && typeof window.UI.enterpriseSectionHeaderHTML === 'function') {
+        return window.UI.enterpriseSectionHeaderHTML({
+          eyebrow,
+          title,
+          desc,
+          actionsHtml,
+          className: ['parts-enterprise-section-head', (opts.className || '').toString().trim()].filter(Boolean).join(' ')
+        });
+      }
+    } catch (_) {}
+    return `
+      <div class="parts-form-section-head">
+        <div>
+          ${eyebrow ? `<div class="enterprise-section-eyebrow">${this._escapeHtml(eyebrow)}</div>` : ''}
+          <h4 class="form-section-title">${this._escapeHtml(title)}</h4>
+          ${desc ? `<div class="muted">${this._escapeHtml(desc)}</div>` : ''}
+        </div>
+        ${actionsHtml ? `<div class="enterprise-section-actions">${actionsHtml}</div>` : ''}
+      </div>
+    `;
+  }
+
+  _chipHtml(label, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.chipHTML === 'function') {
+        return window.UI.chipHTML(label, options);
+      }
+    } catch (_) {}
+    const tone = (options.tone || '').toString().trim();
+    const className = ['chip', options.static ? 'static' : '', options.active ? 'active' : '', tone ? `tone-${tone}` : '', (options.className || '').toString().trim()].filter(Boolean).join(' ');
+    const tagName = (options.tagName || 'button').toString().toLowerCase() === 'span' ? 'span' : 'button';
+    const attrs = (options.attrs || '').toString().trim();
+    const typeAttr = tagName === 'button' && !/\btype=/.test(attrs) ? 'type="button"' : '';
+    return `<${tagName} class="${className}"${[typeAttr, attrs].filter(Boolean).join(' ') ? ` ${[typeAttr, attrs].filter(Boolean).join(' ')}` : ''}>${options.allowHtml ? String(label || '—') : this._escapeHtml(label || '—')}</${tagName}>`;
+  }
+
+  _toneForCatalogQuick(key = '') {
+    const value = (key || '').toString().trim().toUpperCase();
+    if (value === 'ACTIVE') return 'success';
+    if (value === 'INACTIVE') return 'neutral';
+    if (value === 'ZERO') return 'danger';
+    if (value === 'LOW') return 'warning';
+    return 'primary';
+  }
+
+  _toneForPartStatus(status = '') {
+    const value = (status || '').toString().trim();
+    if (value === '已更換') return 'success';
+    if (value === '已到貨') return 'info';
+    if (value === '已下單') return 'secondary';
+    if (value === '已報價' || value === '待報價' || value === '待下單') return 'warning';
+    if (value === '已取消') return 'neutral';
+    return 'primary';
+  }
+
+  _statsToneClass(key = '') {
+    const value = (key || '').toString().trim().toUpperCase();
+    if (value === 'ACTIVE' || value === '已更換') return 'tone-success';
+    if (value === 'INACTIVE') return 'tone-neutral';
+    if (value === 'ZERO') return 'tone-danger';
+    if (value === 'LOW' || value === 'OVERDUE' || value === 'OPEN') return value === 'OPEN' ? 'tone-accent' : 'tone-warning';
+    if (value === '已報價') return 'tone-primary';
+    if (value === '已下單') return 'tone-info';
+    if (value === '已到貨') return 'tone-warning';
+    return '';
+  }
+
   render(containerId) {
-    const el = document.getElementById(containerId);
+    const mountId = (containerId || '').toString().trim();
+    const el = mountId ? document.getElementById(mountId) : null;
     if (!el) return;
+
+    if (this._containerId !== mountId) {
+      this._containerId = mountId;
+      if (this._boundContainerId !== mountId) this._domBound = false;
+    }
 
     const searchPlaceholder = (this.view === 'catalog')
       ? '搜尋：零件 / MPN / 廠商'
       : '搜尋：零件 / MPN / 狀態 / 維修單';
 
     el.innerHTML = `
-      <div class="parts-module">
-        <div class="module-toolbar">
-          <div class="module-toolbar-left">
+      <div class="parts-module ops-module-shell">
+        <div class="module-toolbar parts-toolbar-surface">
+          <div class="module-toolbar-left ops-toolbar-title">
             <div class="page-title">
               <h2>🧩 零件管理</h2>
-              <span class="muted" id="parts-subtitle">載入中...</span>
+              <span class="muted ops-toolbar-summary" id="parts-subtitle">載入中...</span>
             </div>
           </div>
-          <div class="module-toolbar-right">
+          <div class="module-toolbar-right ops-actions">
             <div class="segmented" role="tablist" aria-label="Parts Views">
-              <button class="seg-btn" id="tab-tracker" onclick="PartsUI.setView('tracker')">用料追蹤</button>
-              <button class="seg-btn" id="tab-catalog" onclick="PartsUI.setView('catalog')">零件主檔</button>
+              <button class="seg-btn" id="tab-tracker" data-action="setView" data-view="tracker">用料追蹤</button>
+              <button class="seg-btn" id="tab-catalog" data-action="setView" data-view="catalog">零件主檔</button>
             </div>
 
             <div class="parts-search">
-              <input class="input" type="text" placeholder="${this._escapeAttr(searchPlaceholder)}" value="${this._escapeAttr(this.searchDraft)}" oninput="PartsUI.onSearchDraft(event)" onkeydown="PartsUI.onSearchKeydown(event)" />
+              <input class="input" id="parts-search-input" type="text" placeholder="${this._escapeAttr(searchPlaceholder)}" value="${this._escapeAttr(this.searchDraft)}" />
             </div>
 
-            <button class="btn primary" onclick="PartsUI.applyAll()">搜尋</button>
-            <button class="btn" onclick="PartsUI.clearAll()">清除</button>
+            <button class="btn primary" data-action="applyAll">搜尋</button>
+            <button class="btn" data-action="clearAll">清除</button>
 
-            <button class="btn" id="parts-toggle-filters-btn" onclick="PartsUI.toggleFilters()">🔍 ${this.filtersPanelOpen ? '▾ 收合篩選' : '▸ 開啟篩選'}${this._activeFiltersCount() ? ` (${this._activeFiltersCount()})` : ''}</button>
+            <button class="btn" id="parts-toggle-filters-btn" data-action="toggleFilters">🔍 ${this.filtersPanelOpen ? '▾ 收合篩選' : '▸ 開啟篩選'}${this._activeFiltersCount() ? ` (${this._activeFiltersCount()})` : ''}</button>
 
-            <button class="btn primary" onclick="PartsUI.openCreate()">➕ 新增</button>
+            <button class="btn primary" data-action="openCreate">➕ 新增</button>
           </div>
         </div>
 
         <div class="parts-summary" id="parts-summary"></div>
-        <div class="parts-filters-panel panel compact" id="parts-filters-panel" style="display:${this.filtersPanelOpen ? 'block' : 'none'};">
+        <div class="parts-filters-panel panel compact ops-filter-panel" id="parts-filters-panel" ${this.filtersPanelOpen ? '' : 'hidden'}>
           <div class="panel-row">
             <div class="panel-left">
-              <div class="panel-title"><strong>篩選</strong><span class="muted" style="margin-left:10px;">可多條件組合</span></div>
+              <div class="panel-title"><strong>篩選</strong><span class="muted parts-panel-note">可多條件組合</span></div>
             </div>
             <div class="panel-right">
-              <button class="btn primary" onclick="PartsUI.applyAll()">搜尋</button>
-              <button class="btn" onclick="PartsUI.clearAll()">清除</button>
+              <button class="btn primary" data-action="applyAll">搜尋</button>
+              <button class="btn" data-action="clearAll">清除</button>
             </div>
           </div>
           <div class="parts-filters-body" id="parts-filters"></div>
@@ -212,12 +295,13 @@ class PartsUI {
         <div class="parts-list" id="parts-list">${this._renderLoading()}</div>
       </div>
 
-      <div id="parts-modal" class="modal" style="display:none;">
-        <div class="modal-backdrop" onclick="PartsUI.closeModal()"></div>
+      <div id="parts-modal" class="modal" hidden>
+        <div class="modal-backdrop" data-action="closeModal"></div>
         <div class="modal-content" id="parts-modal-content"></div>
       </div>
     `;
 
+    this._ensureDomHandlers();
     this._applyViewButtons();
 
     // 同步搜尋框 placeholder（切換 tab 時不會重建 DOM）
@@ -229,6 +313,74 @@ class PartsUI {
       }
     } catch (_) {}
     this.update();
+  }
+
+  _ensureDomHandlers() {
+    const mountId = (this._containerId || '').toString().trim();
+    if (!mountId) return false;
+    this._bindDomHandlers(mountId);
+    return true;
+  }
+
+  _bindDomHandlers(containerId) {
+    const mountId = (containerId || '').toString().trim();
+    const root = mountId ? document.getElementById(mountId) : null;
+    if (!root) return;
+    if (this._domBound && this._boundContainerId === mountId) return;
+    this._domBound = true;
+    this._boundContainerId = mountId;
+
+    root.addEventListener('click', (e) => {
+      const actionEl = e.target?.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = (actionEl.getAttribute('data-action') || '').toString();
+      switch (action) {
+        case 'setView': PartsUI.setView(actionEl.getAttribute('data-view') || 'tracker'); return;
+        case 'applyAll': PartsUI.applyAll(); return;
+        case 'clearAll': PartsUI.clearAll(); return;
+        case 'toggleFilters': PartsUI.toggleFilters(); return;
+        case 'openCreate': PartsUI.openCreate(); return;
+        case 'closeModal': PartsUI.closeModal(); return;
+        case 'quickFilter': PartsUI.setQuickFilter(actionEl.getAttribute('data-filter') || ''); return;
+        case 'clearRepairFilter': PartsUI.clearRepairFilter(); PartsUI.applyAll(); return;
+        case 'loadMore': PartsUI.loadMore(); return;
+        case 'addBatchRow': PartsUI.addBatchRow(); return;
+        case 'removeBatchRow': PartsUI.removeBatchRow(actionEl); return;
+        default: return;
+      }
+    });
+
+    root.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.id === 'parts-search-input') PartsUI.onSearchDraft(e);
+    });
+
+    root.addEventListener('keydown', (e) => {
+      const t = e.target;
+      if (t && t.id === 'parts-search-input') PartsUI.onSearchKeydown(e);
+    });
+
+    root.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t) return;
+      const role = (t.getAttribute('data-filter-role') || '').toString();
+      if (role === 'status') return PartsUI.setStatusFilter(e);
+      if (role === 'catalogStatus') return PartsUI.setCatalogStatusFilter(e);
+      if (role === 'sort') return PartsUI.setSort(e);
+      if (role === 'repair') return PartsUI.setRepairFilter(e);
+      if (role === 'batchRepair') return PartsUI.onBatchRepairChange(e);
+    });
+
+    root.addEventListener('submit', (e) => {
+      try { e.preventDefault(); } catch (_) {}
+      try { e.stopPropagation(); } catch (_) {}
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      const submitAction = (form.getAttribute('data-submit-action') || '').toString();
+      if (submitAction === 'handleCreate') return PartsUI.handleCreate(e);
+      if (submitAction === 'handleBatchSave') return PartsUI.handleBatchSave(e);
+      return undefined;
+    });
   }
 
   _renderLoading() {
@@ -298,6 +450,7 @@ class PartsUI {
     const PartService = this._svc('PartService');
     const RepairPartsService = this._svc('RepairPartsService');
 
+    this._ensureDomHandlers();
     this._applyViewButtons();
 
     // 切換 Tab 時更新 placeholder（不重建整頁）
@@ -448,7 +601,9 @@ class PartsUI {
       for (const it of rows) {
         const st = norm(it?.status);
         if (st === '已更換' || st === '取消') continue;
-        const r = stage[st] || 1;
+        const r = (window.AppConfig && typeof window.AppConfig.getBusinessStatusRank === 'function')
+          ? window.AppConfig.getBusinessStatusRank('part', st)
+          : 1;
         if (r < minRank) { minRank = r; caseStatus = st; }
       }
     }
@@ -497,24 +652,24 @@ class PartsUI {
       const lowCount = rows.filter(p => p && p.isActive !== false && Number(p.stockQty) > 0 && Number(p.stockQty) <= 2).length;
 
       host.innerHTML = `
-        <div class="stats-grid parts-stats">
-          <div class="stat-card clickable" onclick="PartsUI.setQuickFilter('')" title="顯示全部">
+        <div class="stats-grid parts-stats parts-stats-surface">
+          <div class="stat-card clickable" data-action="quickFilter" data-filter="" title="顯示全部">
             <div class="stat-value">${rows.length}</div>
             <div class="stat-label">全部</div>
           </div>
-          <div class="stat-card clickable" style="--accent:#16a34a;" onclick="PartsUI.setQuickFilter('ACTIVE')" title="僅顯示啟用">
+          <div class="stat-card clickable tone-success" data-action="quickFilter" data-filter="ACTIVE" title="僅顯示啟用">
             <div class="stat-value">${activeCount}</div>
             <div class="stat-label">啟用</div>
           </div>
-          <div class="stat-card clickable" style="--accent:#64748b;" onclick="PartsUI.setQuickFilter('INACTIVE')" title="僅顯示停用">
+          <div class="stat-card clickable tone-neutral" data-action="quickFilter" data-filter="INACTIVE" title="僅顯示停用">
             <div class="stat-value">${inactiveCount}</div>
             <div class="stat-label">停用</div>
           </div>
-          <div class="stat-card clickable" style="--accent:#dc2626;" onclick="PartsUI.setQuickFilter('ZERO')" title="庫存為 0（啟用）">
+          <div class="stat-card clickable tone-danger" data-action="quickFilter" data-filter="ZERO" title="庫存為 0（啟用）">
             <div class="stat-value">${zeroCount}</div>
             <div class="stat-label">缺料</div>
           </div>
-          <div class="stat-card clickable" style="--accent:#b45309;" onclick="PartsUI.setQuickFilter('LOW')" title="低庫存（≤ 2，啟用）">
+          <div class="stat-card clickable tone-warning" data-action="quickFilter" data-filter="LOW" title="低庫存（≤ 2，啟用）">
             <div class="stat-value">${lowCount}</div>
             <div class="stat-label">低庫存</div>
           </div>
@@ -530,32 +685,32 @@ class PartsUI {
     const overdueCount = rows.filter(c => !!c?.isOverdue).length;
 
     host.innerHTML = `
-      <div class="stats-grid parts-stats">
-        <div class="stat-card clickable" onclick="PartsUI.setQuickFilter('')" title="顯示全部">
+      <div class="stats-grid parts-stats parts-stats-surface">
+        <div class="stat-card clickable" data-action="quickFilter" data-filter="" title="顯示全部">
           <div class="stat-value">${rows.length}</div>
           <div class="stat-label">全部</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#7c3aed;" onclick="PartsUI.setQuickFilter('OPEN')" title="未完成/未取消">
+        <div class="stat-card clickable tone-accent" data-action="quickFilter" data-filter="OPEN" title="未完成/未取消">
           <div class="stat-value">${openCount}</div>
           <div class="stat-label">待處理</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#2563eb;" onclick="PartsUI.setQuickFilter('已報價')">
+        <div class="stat-card clickable tone-primary" data-action="quickFilter" data-filter="已報價">
           <div class="stat-value">${countBy('已報價')}</div>
           <div class="stat-label">已報價</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#0ea5e9;" onclick="PartsUI.setQuickFilter('已下單')">
+        <div class="stat-card clickable tone-info" data-action="quickFilter" data-filter="已下單">
           <div class="stat-value">${countBy('已下單')}</div>
           <div class="stat-label">已下單</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#d97706;" onclick="PartsUI.setQuickFilter('已到貨')">
+        <div class="stat-card clickable tone-warning" data-action="quickFilter" data-filter="已到貨">
           <div class="stat-value">${countBy('已到貨')}</div>
           <div class="stat-label">已到貨</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#16a34a;" onclick="PartsUI.setQuickFilter('已更換')">
+        <div class="stat-card clickable tone-success" data-action="quickFilter" data-filter="已更換">
           <div class="stat-value">${countBy('已更換')}</div>
           <div class="stat-label">已更換</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#b45309;" onclick="PartsUI.setQuickFilter('OVERDUE')" title="預計日早於今日且未到貨/未更換">
+        <div class="stat-card clickable tone-warning" data-action="quickFilter" data-filter="OVERDUE" title="預計日早於今日且未到貨/未更換">
           <div class="stat-value">${overdueCount}</div>
           <div class="stat-label">逾期</div>
         </div>
@@ -574,17 +729,17 @@ class PartsUI {
       host.innerHTML = `
         <div class="parts-filters-inner">
           <div class="chip-row" aria-label="快速篩選">
-            <button class="chip ${allActive ? 'active' : ''}" onclick="PartsUI.setQuickFilter('')">全部</button>
-            <button class="chip ${isActive('ACTIVE') ? 'active' : ''}" style="--chip-color:#16a34a" onclick="PartsUI.setQuickFilter('ACTIVE')">啟用</button>
-            <button class="chip ${isActive('INACTIVE') ? 'active' : ''}" style="--chip-color:#64748b" onclick="PartsUI.setQuickFilter('INACTIVE')">停用</button>
-            <button class="chip ${isActive('ZERO') ? 'active' : ''}" style="--chip-color:#dc2626" onclick="PartsUI.setQuickFilter('ZERO')">缺料</button>
-            <button class="chip ${isActive('LOW') ? 'active' : ''}" style="--chip-color:#b45309" onclick="PartsUI.setQuickFilter('LOW')">低庫存</button>
+            ${this._chipHtml('全部', { active: allActive, tone: 'primary', attrs: 'data-action="quickFilter" data-filter=""' })}
+            ${this._chipHtml('啟用', { active: isActive('ACTIVE'), tone: 'success', attrs: 'data-action="quickFilter" data-filter="ACTIVE"' })}
+            ${this._chipHtml('停用', { active: isActive('INACTIVE'), tone: 'neutral', attrs: 'data-action="quickFilter" data-filter="INACTIVE"' })}
+            ${this._chipHtml('缺料', { active: isActive('ZERO'), tone: 'danger', attrs: 'data-action="quickFilter" data-filter="ZERO"' })}
+            ${this._chipHtml('低庫存', { active: isActive('LOW'), tone: 'warning', attrs: 'data-action="quickFilter" data-filter="LOW"' })}
           </div>
 
           <div class="filter-row">
             <div class="filter-group">
               <label class="form-label">狀態</label>
-              <select class="input" onchange="PartsUI.setCatalogStatusFilter(event)">
+              <select class="input" data-filter-role="catalogStatus">
                 <option value="" ${this.catalogQuick ? '' : 'selected'}>全部</option>
                 <option value="ACTIVE" ${this.catalogQuick === 'ACTIVE' ? 'selected' : ''}>啟用</option>
                 <option value="INACTIVE" ${this.catalogQuick === 'INACTIVE' ? 'selected' : ''}>停用</option>
@@ -592,7 +747,7 @@ class PartsUI {
             </div>
             <div class="filter-group">
               <label class="form-label">排序</label>
-              <select class="input" onchange="PartsUI.setSort(event)">
+              <select class="input" data-filter-role="sort">
                 <option value="updatedAt_desc" ${this.sortKey === 'updatedAt_desc' ? 'selected' : ''}>最近更新</option>
                 <option value="stockQty_asc" ${this.sortKey === 'stockQty_asc' ? 'selected' : ''}>庫存（少→多）</option>
                 <option value="stockQty_desc" ${this.sortKey === 'stockQty_desc' ? 'selected' : ''}>庫存（多→少）</option>
@@ -616,20 +771,19 @@ class PartsUI {
     host.innerHTML = `
       <div class="parts-filters-inner">
         <div class="chip-row" aria-label="快速篩選">
-          <button class="chip ${isAll ? 'active' : ''}" onclick="PartsUI.setQuickFilter('')">全部</button>
-          <button class="chip ${this.filterOpenOnly ? 'active' : ''}" style="--chip-color:#7c3aed" onclick="PartsUI.setQuickFilter('OPEN')">待處理</button>
+          ${this._chipHtml('全部', { active: isAll, tone: 'primary', attrs: 'data-action="quickFilter" data-filter=""' })}
+          ${this._chipHtml('待處理', { active: this.filterOpenOnly, tone: 'accent', attrs: 'data-action="quickFilter" data-filter="OPEN"' })}
           ${statuses.map(v => {
             const active = isStatus(v);
-            const c = this._accentForPartStatus(v).accent;
-            return `<button class="chip ${active ? 'active' : ''}" style="--chip-color:${this._escapeAttr(c)}" onclick="PartsUI.setQuickFilter('${this._escapeAttr(v)}')">${this._escapeHtml(v)}</button>`;
+            return this._chipHtml(v, { active, tone: this._toneForPartStatus(v), attrs: `data-action="quickFilter" data-filter="${this._escapeAttr(v)}"` });
           }).join('')}
-          <button class="chip ${this.filterOverdue ? 'active' : ''}" style="--chip-color:#b45309" onclick="PartsUI.setQuickFilter('OVERDUE')">逾期</button>
+          ${this._chipHtml('逾期', { active: this.filterOverdue, tone: 'warning', attrs: 'data-action="quickFilter" data-filter="OVERDUE"' })}
         </div>
 
         <div class="filter-row">
           <div class="filter-group">
             <label class="form-label">狀態（詳細）</label>
-            <select class="input" onchange="PartsUI.setStatusFilter(event)">
+            <select class="input" data-filter-role="status">
               <option value="" ${this.filterStatus ? '' : 'selected'}>全部</option>
               ${statuses.map(v => `<option value="${this._escapeAttr(v)}" ${this.filterStatus === v ? 'selected' : ''}>${this._escapeHtml(v)}</option>`).join('')}
             </select>
@@ -637,14 +791,14 @@ class PartsUI {
 
           <div class="filter-group">
             <label class="form-label">關聯維修單</label>
-            <select class="input" onchange="PartsUI.setRepairFilter(event)">
+            <select class="input" data-filter-role="repair">
               ${this._renderRepairFilterOptions()}
             </select>
           </div>
 
           <div class="filter-group">
             <label class="form-label">排序</label>
-            <select class="input" onchange="PartsUI.setSort(event)">
+            <select class="input" data-filter-role="sort">
               <option value="updatedAt_desc" ${this.sortKey === 'updatedAt_desc' ? 'selected' : ''}>最近更新</option>
               <option value="expectedDate_asc" ${this.sortKey === 'expectedDate_asc' ? 'selected' : ''}>預計（近→遠）</option>
               <option value="status_asc" ${this.sortKey === 'status_asc' ? 'selected' : ''}>狀態（A→Z）</option>
@@ -653,7 +807,7 @@ class PartsUI {
           </div>
 
           <div class="filter-group" style="align-self:end;">
-            ${this.contextRepairId ? `<button class="btn" onclick="PartsUI.clearRepairFilter()">清除維修單篩選</button>` : ''}
+            ${this.contextRepairId ? `<button class="btn" data-action="clearRepairFilter">清除維修單篩選</button>` : ''}
           </div>
         </div>
 
@@ -697,7 +851,7 @@ class PartsUI {
 
     rows = this._sortTrackerRows(rows);
 
-    if (!rows.length) return `<div class="empty-state">目前沒有資料</div>`;
+    if (!rows.length) return this._renderEmptyState('目前沒有符合條件的零件主檔資料。', '🧰');
 
     // 若查詢條件改變，重置分頁顯示數量
     const sig = `${this.view}|${this.filterStatus}|${this.filterOverdue ? '1' : '0'}|${this.filterOpenOnly ? '1' : '0'}|${this.sortKey}|${this.contextRepairId || ''}`;
@@ -718,10 +872,10 @@ class PartsUI {
     const shell = `
       <div class="parts-tracker-shell">
         <div class="card-list parts-tracker-cards is-rendering" id="parts-tracker-cards">${this._renderLoadingCards()}</div>
-        <div class="parts-list-footer" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;">
+        <div class="parts-list-footer">
           <div class="muted">已顯示 <span class="mono">${visible.length}</span> / <span class="mono">${total}</span></div>
           <div>
-            ${hasMore ? `<button class="btn" onclick="PartsUI.loadMore()">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
+            ${hasMore ? `<button class="btn" data-action="loadMore">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
           </div>
         </div>
       </div>
@@ -946,7 +1100,7 @@ class PartsUI {
 
     rows = this._sortCatalogRows(rows);
 
-    if (!rows.length) return `<div class="empty-state">目前沒有資料</div>`;
+    if (!rows.length) return this._renderEmptyState('目前沒有符合條件的用料追蹤案件。', '📦');
 
     return `
       <div class="card-list">
@@ -1025,7 +1179,7 @@ class PartsUI {
     const content = document.getElementById('parts-modal-content');
     if (!modal || !content) return;
     content.innerHTML = html;
-    modal.style.display = 'flex';
+    modal.hidden = false;
     try { content.scrollTop = 0; } catch (_) {}
 
     // P3：必填欄位即時驗證（modal 開啟時綁定一次，並清除舊的 invalid 狀態）
@@ -1044,26 +1198,89 @@ class PartsUI {
     const modal = document.getElementById('parts-modal');
     const content = document.getElementById('parts-modal-content');
     if (content) content.innerHTML = '';
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.hidden = true;
   }
 
-  renderCreateModal() {
-    const title = this.view === 'catalog' ? '新增零件主檔' : '新增用料/更換追蹤';
+  _renderFormDialog({ title = '', contextHtml = '', bodyHtml = '', submitLabel = '儲存', width = '960px', submitAction = 'PartsUI.handleCreate(event)' } = {}) {
     return `
-      <div class="modal-dialog">
+      <div class="modal-dialog parts-editor-dialog" style="max-width:${this._escapeAttr(width)};">
         <div class="modal-header">
-          <h3>${title}</h3>
-          <button class="modal-close" onclick="PartsUI.closeModal()">✕</button>
+          <h3>${this._escapeHtml(title)}</h3>
+          <button class="modal-close" data-action="closeModal">✕</button>
         </div>
-        <form class="modal-body" onsubmit="PartsUI.handleCreate(event)">
-          ${this.view === 'catalog' ? this._renderPartForm() : this._renderRepairPartForm()}
-          <div class="modal-footer" style="padding:0;border:0;">
-            <button class="btn" type="button" onclick="PartsUI.closeModal()">取消</button>
-            <button class="btn primary" type="submit">儲存</button>
+        <form class="modal-body modal-body-has-sticky-footer parts-editor-form" data-submit-action="handleCreate">
+          ${contextHtml}
+          <div class="parts-editor-sections">${bodyHtml}</div>
+          <div class="modal-footer sticky">
+            <button class="btn" type="button" data-action="closeModal">取消</button>
+            <button class="btn primary" type="submit">${this._escapeHtml(submitLabel)}</button>
           </div>
         </form>
       </div>
     `;
+  }
+
+  _renderCatalogEditorContext(part = null, mode = 'create') {
+    const p = part ? PartModel.normalize(part) : PartModel.normalize({});
+    const qty = Number(p.stockQty);
+    const stockState = p.isActive === false
+      ? '已停用'
+      : (!Number.isFinite(qty) ? '待建檔' : (qty <= 0 ? '缺料' : (qty <= 2 ? '低庫存' : '正常')));
+    const vendor = String(p.vendor || '').trim() || '未指定廠商';
+    const unit = String(p.unit || '').trim() || '未指定單位';
+    return `
+      <div class="form-context-bar parts-editor-context" aria-label="零件主檔摘要">
+        <div class="context-item"><span class="context-label">模式</span><strong class="context-value">${mode === 'edit' ? '編輯零件主檔' : '新增零件主檔'}</strong></div>
+        <div class="context-item"><span class="context-label">庫存狀態</span><strong class="context-value">${this._escapeHtml(stockState)}</strong></div>
+        <div class="context-item"><span class="context-label">廠商</span><strong class="context-value">${this._escapeHtml(vendor)}</strong></div>
+        <div class="context-item"><span class="context-label">單位</span><strong class="context-value">${this._escapeHtml(unit)}</strong></div>
+      </div>
+    `;
+  }
+
+  _renderTrackerEditorContext(item = null, mode = 'create') {
+    const it = item ? RepairPartModel.normalize(item.repairId, item) : RepairPartModel.normalize(this.contextRepairId || '', {});
+    const repairLabel = String(it.repairId || this.contextRepairId || '').trim() || '尚未指定維修單';
+    const statusMeta = (window.AppConfig && typeof window.AppConfig.getBusinessStatusMeta === 'function')
+      ? window.AppConfig.getBusinessStatusMeta('part', it.status)
+      : null;
+    const statusLabel = statusMeta?.label || it.status || '待確認';
+    const expected = String(it.expectedDate || '').trim() || '未設定';
+    return `
+      <div class="form-context-bar parts-editor-context" aria-label="用料追蹤摘要">
+        <div class="context-item"><span class="context-label">模式</span><strong class="context-value">${mode === 'edit' ? '編輯用料追蹤' : '新增用料追蹤'}</strong></div>
+        <div class="context-item"><span class="context-label">維修單</span><strong class="context-value">${this._escapeHtml(repairLabel)}</strong></div>
+        <div class="context-item"><span class="context-label">狀態</span><strong class="context-value">${this._escapeHtml(statusLabel)}</strong></div>
+        <div class="context-item"><span class="context-label">預計節點</span><strong class="context-value">${this._escapeHtml(expected)}</strong></div>
+      </div>
+    `;
+  }
+
+  _renderBatchEditorContext(repairId = '') {
+    const rid = String(repairId || '').trim() || '尚未指定';
+    return `
+      <div class="form-context-bar parts-editor-context" aria-label="批次編輯摘要">
+        <div class="context-item"><span class="context-label">模式</span><strong class="context-value">批次編輯用料 / 更換</strong></div>
+        <div class="context-item"><span class="context-label">維修單</span><strong class="context-value">${this._escapeHtml(rid)}</strong></div>
+        <div class="context-item"><span class="context-label">儲存策略</span><strong class="context-value">空白列自動忽略</strong></div>
+        <div class="context-item"><span class="context-label">用途</span><strong class="context-value">需求 → 報價 → 下單 → 到貨 → 更換</strong></div>
+      </div>
+    `;
+  }
+
+  renderCreateModal() {
+    const isCatalog = this.view === 'catalog';
+    const title = isCatalog ? '新增零件主檔' : '新增用料 / 更換追蹤';
+    const contextHtml = isCatalog
+      ? this._renderCatalogEditorContext(null, 'create')
+      : this._renderTrackerEditorContext(null, 'create');
+    const bodyHtml = isCatalog ? this._renderPartForm() : this._renderRepairPartForm();
+    return this._renderFormDialog({
+      title,
+      contextHtml,
+      bodyHtml,
+      width: isCatalog ? '980px' : '1040px'
+    });
   }
 
   // tracker：批次新增/編輯（同一維修單可多筆）
@@ -1084,42 +1301,41 @@ class PartsUI {
     this._batchState = { repairId: rid, deletedIds: [] };
 
     return `
-      <div class="modal-dialog" style="max-width:1080px;">
+      <div class="modal-dialog parts-editor-dialog" style="max-width:1180px;">
         <div class="modal-header">
-          <h3>編輯用料/更換（多筆）</h3>
-          <button class="modal-close" onclick="PartsUI.closeModal()">✕</button>
+          <h3>編輯用料 / 更換（多筆）</h3>
+          <button class="modal-close" data-action="closeModal">✕</button>
         </div>
 
-        <form class="modal-body" onsubmit="PartsUI.handleBatchSave(event)">
-          <div class="form-section">
-            <h4 class="form-section-title">關聯維修單</h4>
-            <div class="form-grid">
-              <div class="form-group" style="grid-column:1/-1;">
-                <label class="form-label required">維修單</label>
-                <select class="input" id="parts-batch-repair" name="repairId" required onchange="PartsUI.onBatchRepairChange(event)">
-                  <option value="">請選擇</option>
-                  ${repairOptions}
-                </select>
-                <div class="muted" style="margin-top:6px;">同一張維修單可同時新增/編輯多筆用料追蹤；空白列會自動忽略。</div>
-              </div>
-            </div>
-          </div>
+        <form class="modal-body modal-body-has-sticky-footer parts-editor-form" data-submit-action="handleBatchSave">
+          ${this._renderBatchEditorContext(rid)}
 
-          <div class="form-section">
-            <div class="rparts-batch-head">
-              <h4 class="form-section-title" style="margin:0;">用料/更換清單</h4>
-              <div class="rparts-batch-actions">
-                <button class="btn" type="button" onclick="PartsUI.addBatchRow()">＋ 新增一項</button>
+          <div class="parts-editor-sections">
+            <div class="form-section parts-form-section">
+              ${this._sectionHeaderHtml('關聯維修單', '批次編輯以單一維修單為單位，避免多案例交叉覆寫。', { eyebrow: 'Batch Scope' })}
+              <div class="form-grid">
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label class="form-label required">維修單</label>
+                  <select class="input" id="parts-batch-repair" name="repairId" required data-filter-role="batchRepair">
+                    <option value="">請選擇</option>
+                    ${repairOptions}
+                  </select>
+                  <div class="muted parts-inline-help">同一張維修單可同時新增、修改與刪除多筆用料追蹤；空白列會自動忽略。</div>
+                </div>
               </div>
             </div>
 
-            <div id="parts-batch-rows" class="rparts-batch-rows"></div>
+            <div class="form-section parts-form-section">
+              ${this._sectionHeaderHtml('用料 / 更換清單', '狀態、日期與備註集中在同一張批次表單維護，避免單筆進出多次 modal。', { eyebrow: 'Batch Detail', className: 'has-actions', actionsHtml: '<div class="rparts-batch-actions"><button class="btn" type="button" data-action="addBatchRow">＋ 新增一項</button></div>' })}
+
+              <div id="parts-batch-rows" class="rparts-batch-rows"></div>
+            </div>
           </div>
 
           <input type="hidden" id="parts-batch-focus" value="${escape(focusItemId)}" />
 
-          <div class="modal-footer" style="padding:0;border:0;">
-            <button class="btn" type="button" onclick="PartsUI.closeModal()">取消</button>
+          <div class="modal-footer sticky">
+            <button class="btn" type="button" data-action="closeModal">取消</button>
             <button class="btn primary" type="submit">儲存</button>
           </div>
         </form>
@@ -1139,7 +1355,7 @@ class PartsUI {
         <div class="rparts-line-head">
           <div class="rparts-line-title">${this._escapeHtml(it.partName || (item ? '(未命名零件)' : '新零件'))}</div>
           <div class="rparts-line-actions">
-            <button class="btn sm danger" type="button" onclick="PartsUI.removeBatchRow(this)">刪除</button>
+            <button class="btn sm danger" type="button" data-action="removeBatchRow">刪除</button>
           </div>
         </div>
 
@@ -1234,10 +1450,10 @@ class PartsUI {
     return `
       <input type="hidden" name="kind" value="catalog" />
       <input type="hidden" name="id" value="${escape(p.id)}" />
-      <div class="form-section">
-        <h4 class="form-section-title">基本資料</h4>
+      <div class="form-section parts-form-section">
+        ${this._sectionHeaderHtml('基本資料', '建立零件主檔時先確認名稱、MPN 與廠商，後續庫存與報價才不會分裂成多筆名稱相近資料。', { eyebrow: 'Catalog Base' })}
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group" style="grid-column:1/-1;">
             <label class="form-label required">零件名稱</label>
             <input class="input" name="name" value="${escape(p.name)}" required />
           </div>
@@ -1253,6 +1469,12 @@ class PartsUI {
             <label class="form-label">單位</label>
             <input class="input" name="unit" value="${escape(p.unit)}" placeholder="pcs" />
           </div>
+        </div>
+      </div>
+
+      <div class="form-section parts-form-section">
+        ${this._sectionHeaderHtml('庫存與價格', '庫存與單價作為後續零件追蹤與採購估算的基底資料。', { eyebrow: 'Inventory' })}
+        <div class="form-grid">
           <div class="form-group">
             <label class="form-label">單價</label>
             <input class="input" name="unitPrice" type="number" step="1" min="0" inputmode="numeric" value="${escape(p.unitPrice)}" />
@@ -1262,7 +1484,11 @@ class PartsUI {
             <input class="input" name="stockQty" type="number" step="1" value="${escape(p.stockQty)}" />
           </div>
         </div>
-        <div class="form-group" style="margin-top:12px;">
+      </div>
+
+      <div class="form-section parts-form-section">
+        ${this._sectionHeaderHtml('備註', '可記錄採購來源、替代料號或安裝注意事項。', { eyebrow: 'Note' })}
+        <div class="form-group">
           <label class="form-label">備註</label>
           <textarea class="input" name="note" rows="3">${this._escapeHtml(p.note || '')}</textarea>
         </div>
@@ -1288,8 +1514,8 @@ class PartsUI {
     return `
       <input type="hidden" name="kind" value="tracker" />
       <input type="hidden" name="id" value="${escape(it.id)}" />
-      <div class="form-section">
-        <h4 class="form-section-title">關聯維修單</h4>
+      <div class="form-section parts-form-section">
+        ${this._sectionHeaderHtml('關聯維修單', '先確認對應維修單，再填寫零件、交期與更換節點，避免同一零件掛錯案件。', { eyebrow: 'Repair Scope' })}
         <div class="form-grid">
           <div class="form-group" style="grid-column:1/-1;">
             <label class="form-label required">維修單</label>
@@ -1301,10 +1527,10 @@ class PartsUI {
         </div>
       </div>
 
-      <div class="form-section">
-        <h4 class="form-section-title">用料/更換</h4>
+      <div class="form-section parts-form-section">
+        ${this._sectionHeaderHtml('零件與流程節點', '零件名稱、狀態與日期放在同一區塊，讓需求 → 到貨 → 更換可在首屏直接追蹤。', { eyebrow: 'Workflow' })}
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group" style="grid-column:1/-1;">
             <label class="form-label required">零件名稱</label>
             <input class="input" name="partName" value="${escape(it.partName)}" required />
           </div>
@@ -1343,8 +1569,14 @@ class PartsUI {
             <input class="input" name="replacedDate" value="${escape(it.replacedDate)}" placeholder="YYYY-MM-DD" />
           </div>
         </div>
+      </div>
 
-        <div class="form-group" style="margin-top:12px;">
+      <div class="form-section parts-form-section">
+        <div class="parts-form-section-head">
+          <h4 class="form-section-title">備註</h4>
+          <div class="muted">可補充替代料、採購限制或現場安裝狀況。</div>
+        </div>
+        <div class="form-group">
           <label class="form-label">備註</label>
           <textarea class="input" name="note" rows="3">${this._escapeHtml(it.note || '')}</textarea>
         </div>
@@ -1734,18 +1966,12 @@ Object.assign(PartsUI, {
     const p = PartService?.get?.(partId);
     if (!p) return;
     window.partsUI.view = 'catalog';
-    window.partsUI.openModal(`
-      <div class="modal-dialog">
-        <div class="modal-header"><h3>編輯零件主檔</h3><button class="modal-close" onclick="PartsUI.closeModal()">✕</button></div>
-        <form class="modal-body" onsubmit="PartsUI.handleCreate(event)">
-          ${window.partsUI._renderPartForm(p)}
-          <div class="modal-footer" style="padding:0;border:0;">
-            <button class="btn" type="button" onclick="PartsUI.closeModal()">取消</button>
-            <button class="btn primary" type="submit">儲存</button>
-          </div>
-        </form>
-      </div>
-    `);
+    window.partsUI.openModal(window.partsUI._renderFormDialog({
+      title: '編輯零件主檔',
+      contextHtml: window.partsUI._renderCatalogEditorContext(p, 'edit'),
+      bodyHtml: window.partsUI._renderPartForm(p),
+      width: '980px'
+    }));
   },
 
   async confirmDeactivate(partId) {

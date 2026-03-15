@@ -86,7 +86,7 @@
   }
 
   function _shouldHideForRoute(route) {
-    return ['settings', 'guide', 'sops'].includes(route);
+    return ['settings', 'sops'].includes(route);
   }
 
   function _queueUpdatePosition() {

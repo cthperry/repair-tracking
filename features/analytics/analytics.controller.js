@@ -16,7 +16,7 @@ class AnalyticsController {
   async _ensureServicesReady() {
     try {
       if (window.AppRegistry && typeof window.AppRegistry.ensureReady === 'function') {
-        await window.AppRegistry.ensureReady(['RepairService', 'MaintenanceService'], { silent: true });
+        await window.AppRegistry.ensureReady(['RepairService', 'QuoteService', 'OrderService'], { silent: true });
       }
     } catch (e) {
       // silent: analytics 不應阻斷
@@ -97,6 +97,10 @@ class AnalyticsController {
 
   _compute(periodMonths = 6) {
     const repairs = this._allRepairs();
+    const quoteSvc = this._getSvc('QuoteService');
+    const orderSvc = this._getSvc('OrderService');
+    const quotes = quoteSvc && typeof quoteSvc.getAll === 'function' ? (quoteSvc.getAll() || []).filter(q => q && !q.isDeleted) : [];
+    const orders = orderSvc && typeof orderSvc.getAll === 'function' ? (orderSvc.getAll() || []).filter(o => o && !o.isDeleted) : [];
     const months = this._lastNMonths(periodMonths);
 
     // 1) 月別建立/完成
@@ -188,22 +192,29 @@ class AnalyticsController {
       ordered: 0,
       notOrdered: 0,
       unknownOrder: 0,
-      reasonCount: { price: 0, budget: 0, internal: 0, other: 0, unknown: 0 }
+      stageCount: { quote_pending: 0, procurement: 0, reviewing: 0, budget_review: 0, on_hold: 0, other: 0, unknown: 0 },
+      reasonCount: { price: 0, budget: 0, internal: 0, spec: 0, other: 0, unknown: 0 }
     };
     for (const r of repairs) {
       const b = (r.billing && typeof r.billing === 'object') ? r.billing : {};
-      if (b.chargeable === true) {
+      const flow = (window.AppConfig && typeof window.AppConfig.getBillingFlowMeta === 'function')
+        ? window.AppConfig.getBillingFlowMeta(b)
+        : null;
+      if (flow ? flow.isChargeable : b.chargeable === true) {
         billingStats.chargeable++;
-        if (b.orderStatus === 'ordered') billingStats.ordered++;
-        else if (b.orderStatus === 'not_ordered') {
+        if (flow ? flow.isOrdered : b.orderStatus === 'ordered') billingStats.ordered++;
+        else if (flow ? flow.isNotOrdered : b.orderStatus === 'not_ordered') {
           billingStats.notOrdered++;
-          const key = (((b.notOrdered && typeof b.notOrdered === 'object') ? b.notOrdered.reasonCode : b.notOrderedReason) || 'unknown').toString().toLowerCase();
-          if (billingStats.reasonCount[key] !== undefined) billingStats.reasonCount[key]++;
+          const stageKey = (flow ? flow.stageCode : (((b.notOrdered && typeof b.notOrdered === 'object') ? b.notOrdered.stageCode : '') || 'unknown')).toString().toLowerCase() || 'unknown';
+          const reasonKey = (flow ? flow.reasonCode : (((b.notOrdered && typeof b.notOrdered === 'object') ? b.notOrdered.reasonCode : b.notOrderedReason) || 'unknown')).toString().toLowerCase() || 'unknown';
+          if (billingStats.stageCount[stageKey] !== undefined) billingStats.stageCount[stageKey]++;
+          else billingStats.stageCount.other++;
+          if (billingStats.reasonCount[reasonKey] !== undefined) billingStats.reasonCount[reasonKey]++;
           else billingStats.reasonCount.other++;
         } else {
           billingStats.unknownOrder++;
         }
-      } else if (b.chargeable === false) {
+      } else if (flow ? flow.isFree : b.chargeable === false) {
         billingStats.free++;
       } else {
         billingStats.undecided++;
@@ -212,6 +223,84 @@ class AnalyticsController {
     billingStats.conversionRate = (billingStats.chargeable > 0)
       ? Math.round((billingStats.ordered / billingStats.chargeable) * 100)
       : 0;
+
+    // 6.6) 主流程漏斗 / 交期 / 風險
+    const activeNeedsParts = active.filter(r => r.status === '需要零件').length;
+    const quoteDraft = quotes.filter(q => q.status === '草稿').length;
+    const quoteSubmitted = quotes.filter(q => q.status === '已送出').length;
+    const quoteApproved = quotes.filter(q => q.status === '已核准').length;
+    const orderCreated = orders.filter(o => o.status === '建立').length;
+    const orderOrdered = orders.filter(o => o.status === '已下單').length;
+    const orderArrived = orders.filter(o => o.status === '已到貨').length;
+    const orderClosed = orders.filter(o => o.status === '已結案').length;
+
+    const funnelStats = {
+      activeRepairs: totalActive,
+      needParts: activeNeedsParts,
+      quoteDraft,
+      quoteSubmitted,
+      quoteApproved,
+      orderCreated,
+      orderOrdered,
+      orderArrived,
+      orderClosed,
+      chargeable: billingStats.chargeable,
+      billingOrdered: billingStats.ordered,
+      billingPending: billingStats.notOrdered + billingStats.unknownOrder
+    };
+
+    const agingBuckets = { d0_3: 0, d4_7: 0, d8_14: 0, d15p: 0 };
+    const staleRepairs = [];
+    let repairOverdue = 0;
+    const todayIso = new Date().toISOString();
+    for (const r of active) {
+      const age = this._daysBetween(r.createdAt || r.createdDate, todayIso);
+      if (age <= 3) agingBuckets.d0_3++;
+      else if (age <= 7) agingBuckets.d4_7++;
+      else if (age <= 14) agingBuckets.d8_14++;
+      else agingBuckets.d15p++;
+      if (age >= 14) repairOverdue++;
+
+      const updatedAge = this._daysBetween(r.updatedAt || r.createdAt || r.createdDate, todayIso);
+      if (updatedAge >= 3) {
+        staleRepairs.push({
+          id: r.id,
+          repairNo: r.repairNo || r.id || '',
+          customer: r.customer || '',
+          machine: r.machine || '',
+          staleDays: updatedAge
+        });
+      }
+    }
+    staleRepairs.sort((a, b) => b.staleDays - a.staleDays);
+
+    let orderOverdue = 0;
+    let orderDueSoon = 0;
+    let orderMissingEta = 0;
+    for (const o of orders) {
+      const status = o.status || '';
+      const isTerminal = (window.AppConfig && typeof window.AppConfig.isTerminalBusinessStatus === 'function')
+        ? window.AppConfig.isTerminalBusinessStatus('order', status)
+        : (status === '已結案' || status === '已取消');
+      if (isTerminal || status === '已到貨') continue;
+      if (!o.expectedAt) {
+        orderMissingEta++;
+        continue;
+      }
+      const etaDays = this._daysBetween(todayIso, o.expectedAt);
+      if (etaDays < 0) orderOverdue++;
+      else if (etaDays <= 7) orderDueSoon++;
+    }
+
+    const riskStats = {
+      repairOverdue,
+      needParts: activeNeedsParts,
+      quotePending: quoteSubmitted,
+      businessPending: billingStats.undecided + billingStats.unknownOrder,
+      orderOverdue,
+      orderDueSoon,
+      orderMissingEta
+    };
 
     // 7) 工程師負載 Top 10（依 ownerName）
     const ownerCount = {};
@@ -244,24 +333,6 @@ class AnalyticsController {
     const momDelta = thisMoCount - prevMoCount;
     const momPct = prevMoCount > 0 ? Math.round((momDelta / prevMoCount) * 100) : null;
 
-    // 10) 保養合規率（若可用）
-    let maintenanceStats = null;
-    try {
-      const ms = this._getSvc('MaintenanceService');
-      if (ms && typeof ms.getEquipments === 'function' && typeof ms.getDueInfo === 'function') {
-        const eqs = ms.getEquipments() || [];
-        let onTime = 0, overdue = 0, dueSoon = 0;
-        for (const eq of eqs) {
-          const info = ms.getDueInfo(eq) || {};
-          const st = (info.status || '').toString();
-          if (st === 'overdue') overdue++;
-          else if (st.startsWith('dueSoon')) dueSoon++;
-          else onTime++;
-        }
-        maintenanceStats = { total: eqs.length, onTime, overdue, dueSoon };
-      }
-    } catch (_) {}
-
     return {
       trend,
       avgTrend,
@@ -278,7 +349,11 @@ class AnalyticsController {
       totalAll,
       overallAvgDays,
       billingStats,
-      maintenanceStats,
+      funnelStats,
+      agingBuckets,
+      staleRepairs: staleRepairs.slice(0, 6),
+      staleRepairCount: staleRepairs.length,
+      riskStats,
       periodMonths
     };
   }

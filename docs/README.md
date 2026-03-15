@@ -1,9 +1,15 @@
-# 維修追蹤系統 V161.303（完整包 / full_nolegacy）
+# 維修追蹤系統 V161.333（完整包 / full_nolegacy / flat-zip-root）
 
 ## 目前穩定基底
-- V161.303
-- BUILD_NUMBER：303
-- 日期：2026-03-13（Asia/Taipei）
+- V161.333
+- BUILD_NUMBER：333
+- 日期：2026-03-14（Asia/Taipei）
+
+## 本版整體收斂重點（V161.333）
+- Repairs 首屏改為單一 `repairs-main-stack` 結構，KPI 與列表共用同一層穩定版面，不再混用舊 flex shell 與新 ops grid。
+- `#repairs-stats` 改回明確 grid 版型，移除模組本地 flex 與 shared grid grammar 互相打架的結構衝突。
+- Repairs 列表 header / 搜尋 / cards 補上 `min-width: 0` 與桌機欄寬約束，避免桌機首屏在寬度計算時被擠成異常垂直堆疊。
+- 新增 `CHANGELOG_V161.333.md`、`VALIDATION_V161.333_REPAIRS_LAYOUT_ZIP.md`、`ZIP_STRUCTURE_RULES.md`。
 
 ## 入口
 - 建議：Index_V161.html
@@ -17,7 +23,6 @@
 4. 訂單追蹤
 5. 客戶管理
 6. 週報
-7. 使用者指南
 8. 設定
 
 ## 整體風格
@@ -56,6 +61,12 @@
 - 本週工作：從維修單（更新時間落在本週）自動彙整（只讀）
 - 下週計畫：可編輯（新增插入最上方；刪除不做 confirm）
 - 唯一動作：📧 寄送（mailto）
+
+## 週報（V161.319）
+- 週報維持以登入者自己的案件產出，不再重複輸出負責工程師資訊。
+- 週報移除摘要統計區，保留單一「本週案件總覽」詳細區塊。
+- 案件明細不再輸出建立 / 更新日期行。
+- 本週處置改為支援長文字自動換行，預覽與 mail 文字輸出一致。
 
 ## 設定
 - 週報收件人：可編輯（內建名單預設載入）

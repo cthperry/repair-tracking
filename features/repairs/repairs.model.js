@@ -290,9 +290,11 @@ class RepairModel {
    * 驗證電話格式
    */
   static isValidPhone(phone) {
-    // 允許：0912345678, 02-12345678, +886-912-345-678
+    // 允許：0912345678, 02-12345678, +886-912-345-678、分機/短碼
+    // 與表單 submit 驗證保持一致：只要是合理電話字元，且數字長度介於 6~20 即可。
     const pattern = /^[\d\s\-\+\(\)]+$/;
-    return pattern.test(phone) && phone.replace(/\D/g, '').length >= 8;
+    const digits = String(phone || '').replace(/\D/g, '');
+    return pattern.test(phone) && digits.length >= 6 && digits.length <= 20;
   }
   
   /**

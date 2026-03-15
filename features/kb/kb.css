@@ -26,3 +26,38 @@
   .kb-card-footer{flex-direction:column;align-items:stretch;}
   .kb-card-actions{justify-content:flex-start;}
 }
+
+
+.kb-modal-shell{
+  width:min(1080px, 94vw);
+  max-height:min(90vh, calc(100dvh - 18px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.kb-modal-body{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.kb-form-shell{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+.kb-form-shell .modal-body.enterprise-form{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+  overscroll-behavior:contain;
+  padding:18px 18px 22px;
+}
+.kb-view-sections{display:flex;flex-direction:column;gap:12px;}
+.kb-view-section{margin:0;}
+.kb-view-copy{white-space:pre-wrap;line-height:1.7;color:var(--color-text);word-break:break-word;}
+@media (max-width: 860px){
+  .kb-modal-shell{width:min(100vw, 96vw);}
+}
+@media (max-width: 640px){
+  .kb-form-shell .modal-body.enterprise-form{padding:14px 14px 18px;}
+}

@@ -46,33 +46,64 @@
   // ─── Billing / Conversion ───
   function _renderBilling(stats) {
     if (!stats) return '';
-    const total = (stats.chargeable || 0) + (stats.free || 0) + (stats.undecided || 0);
     const conv = stats.conversionRate || 0;
-    const reasonMap = { price: '價格過高', budget: '客戶預算不足', internal: '客戶內部流程/延後', other: '其他', unknown: '未填' };
-    const reasons = Object.entries(stats.reasonCount || {})
+    const resolveLabel = (type, code) => {
+      const normalized = (code || '').toString().trim().toLowerCase();
+      if (!normalized || normalized === 'unknown') return '未填';
+      try {
+        if (window.AppConfig && typeof window.AppConfig.getBusinessStatusMeta === 'function') {
+          return window.AppConfig.getBusinessStatusMeta(type, normalized)?.label || normalized;
+        }
+      } catch (_) {}
+      return normalized;
+    };
+
+    const stageRows = Object.entries(stats.stageCount || {})
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `${reasonMap[k] || k}：${v}`)
-      .join('、');
+      .slice(0, 5)
+      .map(([k, v]) => `<div class="ana-billing-breakdown-row"><span>${esc(resolveLabel('billing_stage', k))}</span><strong>${v}</strong></div>`)
+      .join('');
+
+    const reasonRows = Object.entries(stats.reasonCount || {})
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k, v]) => `<div class="ana-billing-breakdown-row"><span>${esc(resolveLabel('billing_reason', k))}</span><strong>${v}</strong></div>`)
+      .join('');
 
     return `
-      <div class="card ana-chart-card">
-        <div class="ana-chart-title">💰 收費 / 轉單</div>
-        <div class="ana-billing-grid">
-          <div class="ana-billing-kpi">
+      <div class="card ana-chart-card ana-billing-card-enterprise">
+        <div class="ana-chart-title">💰 收費 / 請款追蹤</div>
+        <div class="ana-billing-grid-enterprise">
+          <section class="ana-billing-pane ana-billing-pane-kpi">
             <div class="ana-billing-kpi-val">${conv}%</div>
             <div class="ana-billing-kpi-label">需收費 → 已下單轉單率</div>
-          </div>
-          <div class="ana-billing-list">
-            <div class="ana-billing-row"><span class="muted">需收費</span><b>${stats.chargeable}</b></div>
-            <div class="ana-billing-row"><span class="muted">不需收費</span><b>${stats.free}</b></div>
-            <div class="ana-billing-row"><span class="muted">未決定</span><b>${stats.undecided}</b></div>
-            <div class="ana-billing-row"><span class="muted">已下單</span><b>${stats.ordered}</b></div>
-            <div class="ana-billing-row"><span class="muted">未下單</span><b>${stats.notOrdered}</b></div>
-            <div class="ana-billing-row"><span class="muted">下單未確認</span><b>${stats.unknownOrder}</b></div>
-          </div>
+            <div class="ana-billing-kpi-meta">用於追蹤需收費案件是否已進入下單流程。</div>
+          </section>
+          <section class="ana-billing-pane">
+            <div class="ana-billing-pane-title">收費判定</div>
+            <div class="ana-billing-list ana-billing-list-enterprise">
+              <div class="ana-billing-row"><span class="muted">需收費</span><b>${stats.chargeable}</b></div>
+              <div class="ana-billing-row"><span class="muted">不需收費</span><b>${stats.free}</b></div>
+              <div class="ana-billing-row"><span class="muted">未決定</span><b>${stats.undecided}</b></div>
+              <div class="ana-billing-row"><span class="muted">下單未確認</span><b>${stats.unknownOrder}</b></div>
+            </div>
+          </section>
+          <section class="ana-billing-pane">
+            <div class="ana-billing-pane-title">流程節點</div>
+            <div class="ana-billing-list ana-billing-list-enterprise">
+              <div class="ana-billing-row"><span class="muted">已下單</span><b>${stats.ordered}</b></div>
+              <div class="ana-billing-row"><span class="muted">未下單</span><b>${stats.notOrdered}</b></div>
+            </div>
+            <div class="ana-billing-breakdown-title">未下單狀態</div>
+            <div class="ana-billing-breakdown">${stageRows || '<div class="ana-billing-empty">目前沒有未下單狀態分布。</div>'}</div>
+          </section>
+          <section class="ana-billing-pane">
+            <div class="ana-billing-pane-title">未下單原因</div>
+            <div class="ana-billing-breakdown">${reasonRows || '<div class="ana-billing-empty">目前沒有未下單原因。</div>'}</div>
+          </section>
         </div>
-        ${reasons ? `<div class="muted" style="margin-top:10px;">未下單原因：${esc(reasons)}</div>` : ''}
       </div>
     `;
   }
@@ -200,35 +231,6 @@
     `;
   }
 
-  // ─── Maintenance Card ───
-  function _renderMaintenance(stats) {
-    if (!stats) return '';
-    const compliance = stats.total ? Math.round((stats.onTime / stats.total) * 100) : 0;
-    return `
-      <div class="card ana-chart-card">
-        <div class="ana-chart-title">🛠️ 保養合規率</div>
-        <div class="ana-maint-grid">
-          <div class="ana-maint-ring">
-            <svg viewBox="0 0 120 120" class="ana-ring-svg">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-border, #e2e8f0)" stroke-width="10" />
-              <circle cx="60" cy="60" r="50" fill="none" stroke="#10b981" stroke-width="10"
-                stroke-dasharray="${Math.round(compliance * 3.14)} 314"
-                stroke-linecap="round" transform="rotate(-90 60 60)" />
-              <text x="60" y="56" text-anchor="middle" font-size="22" font-weight="800" fill="var(--color-text)">${compliance}%</text>
-              <text x="60" y="72" text-anchor="middle" font-size="10" fill="var(--color-text-muted)">合規率</text>
-            </svg>
-          </div>
-          <div class="ana-maint-stats">
-            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#10b981"></span>正常 <b>${stats.onTime}</b></div>
-            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#f59e0b"></span>即將到期 <b>${stats.dueSoon}</b></div>
-            <div class="ana-maint-row"><span class="ana-maint-dot" style="background:#ef4444"></span>逾期 <b>${stats.overdue}</b></div>
-            <div class="ana-maint-row muted">共 ${stats.total} 台設備</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   // ─── Horizontal Ranking ───
   function _renderRanking(title, items, icon) {
     if (!items.length) return '';
@@ -326,22 +328,133 @@
     `;
   }
 
+  function _renderWarroomHero(data, activePeriod) {
+    const periodLabel = activePeriod === 3 ? '近 3 個月' : activePeriod === 12 ? '近 12 個月' : '近 6 個月';
+    const businessPending = (data.riskStats?.businessPending || 0) + (data.riskStats?.quotePending || 0);
+    return `
+      <section class="ana-warroom-hero">
+        <div class="ana-warroom-copy">
+          <div class="ana-warroom-overline">Analytics Command Center</div>
+          <h2 class="ana-title">📊 資料分析</h2>
+          <div class="ana-subtitle">${periodLabel}維修、商務與交期的管理視角，集中在同一個決策版面。</div>
+          <div class="ana-warroom-chip-row">
+            <span class="ana-warroom-chip">進行中 ${data.totalActive}</span>
+            <span class="ana-warroom-chip">待決策 ${businessPending}</span>
+            <span class="ana-warroom-chip">待更新 ${data.staleRepairCount || 0}</span>
+          </div>
+        </div>
+        <div class="ana-warroom-meta-grid">
+          <div class="ana-warroom-meta-card"><span>本月新增</span><strong>${data.thisMoCount ?? '—'}</strong></div>
+          <div class="ana-warroom-meta-card"><span>平均處理</span><strong>${data.overallAvgDays ?? 0} 天</strong></div>
+          <div class="ana-warroom-meta-card"><span>已完成</span><strong>${data.totalCompleted}</strong></div>
+          <div class="ana-warroom-meta-card"><span>需收費轉單率</span><strong>${data.billingStats?.conversionRate || 0}%</strong></div>
+        </div>
+      </section>
+    `;
+  }
+
+  function _renderFunnelBoard(funnel) {
+    if (!funnel) return '';
+    const cards = [
+      { title: '維修入口', value: funnel.activeRepairs, meta: `需要零件 ${funnel.needParts}` },
+      { title: '報價決策', value: funnel.quoteSubmitted, meta: `草稿 ${funnel.quoteDraft} · 已核准 ${funnel.quoteApproved}` },
+      { title: '訂單交期', value: funnel.orderOrdered, meta: `建立 ${funnel.orderCreated} · 已到貨 ${funnel.orderArrived}` },
+      { title: '收費 / 下單', value: funnel.chargeable, meta: `已下單 ${funnel.billingOrdered} · 未閉環 ${funnel.billingPending}` }
+    ];
+    return `
+      <div class="card ana-chart-card ana-warroom-card">
+        <div class="ana-chart-title">🧭 主流程漏斗</div>
+        <div class="ana-warroom-funnel-grid">
+          ${cards.map(card => `
+            <div class="ana-warroom-funnel-card">
+              <div class="ana-warroom-funnel-title">${esc(card.title)}</div>
+              <div class="ana-warroom-funnel-value">${card.value}</div>
+              <div class="ana-warroom-funnel-meta">${esc(card.meta)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderRiskBoard(risk) {
+    if (!risk) return '';
+    const rows = [
+      { label: '維修逾期（>14 天）', value: risk.repairOverdue, tone: 'danger' },
+      { label: '需要零件', value: risk.needParts, tone: 'warn' },
+      { label: '待核准報價', value: risk.quotePending, tone: 'info' },
+      { label: '收費 / 下單未決', value: risk.businessPending, tone: 'warn' },
+      { label: '訂單交期逾期', value: risk.orderOverdue, tone: 'danger' },
+      { label: '7 天內到貨', value: risk.orderDueSoon, tone: 'info' },
+      { label: '未設定 ETA', value: risk.orderMissingEta, tone: 'neutral' }
+    ];
+    return `
+      <div class="card ana-chart-card ana-warroom-card">
+        <div class="ana-chart-title">⚠️ 風險雷達</div>
+        <div class="ana-risk-list">
+          ${rows.map(row => `
+            <div class="ana-risk-row tone-${row.tone}">
+              <span>${esc(row.label)}</span>
+              <strong>${row.value}</strong>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderAgingBoard(buckets, staleRepairs) {
+    if (!buckets) return '';
+    const items = [
+      { label: '0–3 天', value: buckets.d0_3 || 0 },
+      { label: '4–7 天', value: buckets.d4_7 || 0 },
+      { label: '8–14 天', value: buckets.d8_14 || 0 },
+      { label: '15 天以上', value: buckets.d15p || 0 }
+    ];
+    const max = Math.max(...items.map(item => item.value || 1), 1);
+    return `
+      <div class="card ana-chart-card ana-warroom-card">
+        <div class="ana-chart-title">⏳ 案件 Aging</div>
+        <div class="ana-aging-list">
+          ${items.map(item => `
+            <div class="ana-aging-row">
+              <div class="ana-aging-copy"><span>${esc(item.label)}</span><strong>${item.value}</strong></div>
+              <div class="ana-aging-bar-wrap"><div class="ana-aging-bar" style="width:${Math.round((item.value / max) * 100)}%"></div></div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="ana-aging-subtitle">超過 3 天未更新的案件</div>
+        <div class="ana-stale-list">
+          ${(staleRepairs && staleRepairs.length) ? staleRepairs.map(item => `
+            <div class="ana-stale-row">
+              <div class="ana-stale-main"><div class="ana-stale-title">${esc(item.repairNo || item.id || '未命名')}</div><div class="ana-stale-meta">${esc(item.customer || '')}${item.machine ? ` · ${esc(item.machine)}` : ''}</div></div>
+              <span class="ana-stale-tag">${item.staleDays} 天</span>
+            </div>
+          `).join('') : '<div class="ana-billing-empty">目前沒有超過 3 天未更新的案件。</div>'}
+        </div>
+      </div>
+    `;
+  }
+
   // ─── Main Render ───
   function render(data, activePeriod = 6) {
-    const periodLabel = activePeriod === 3 ? '近 3 個月' : activePeriod === 12 ? '近 12 個月' : '近 6 個月';
     return `
       <div class="analytics-root" id="analytics-root" data-period="${activePeriod}">
         <div class="ana-header">
-          <div>
-            <h2 class="ana-title">📊 資料分析</h2>
-            <div class="ana-subtitle">${periodLabel}維修數據總覽</div>
-          </div>
+          <div></div>
           ${_renderPeriodSelector(activePeriod)}
         </div>
 
+        ${_renderWarroomHero(data, activePeriod)}
         ${_renderKPIs(data)}
-
         ${_renderBilling(data.billingStats)}
+
+        <div class="ana-grid-2">
+          ${_renderFunnelBoard(data.funnelStats)}
+          ${_renderRiskBoard(data.riskStats)}
+        </div>
+
+        ${_renderAgingBoard(data.agingBuckets, data.staleRepairs)}
 
         <div class="ana-grid-2">
           ${_renderBarChart('維修趨勢（月別）', data.trend)}
@@ -350,18 +463,15 @@
 
         <div class="ana-grid-2">
           ${_renderBarChart('平均處理天數', data.avgTrend)}
-          ${_renderMaintenance(data.maintenanceStats)}
-        </div>
-
-        <div class="ana-grid-2">
-          ${_renderEngineerWorkload(data.topEngineers)}
           ${_renderPriorityDist(data.priorityCount)}
         </div>
 
         <div class="ana-grid-2">
+          ${_renderEngineerWorkload(data.topEngineers)}
           ${_renderRanking('客戶 Top 10（維修單數）', data.topCustomers, '👥')}
-          ${_renderRanking('設備 Top 10（維修單數）', data.topMachines, '🖥️')}
         </div>
+
+        ${_renderRanking('設備 Top 10（維修單數）', data.topMachines, '🖥️')}
       </div>
     `;
   }

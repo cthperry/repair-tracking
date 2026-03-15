@@ -637,28 +637,35 @@ Object.assign(RepairUI.prototype, {
     const safeNotes = escapeHtml(repair.notes || '').replace(/\n/g, '<br>');
     const safeCreatedDate = escapeHtml((repair.createdDate || '').toString());
 
-    // 收費/下單狀態顯示
+    // 收費/下單狀態顯示（統一走 AppConfig billing flow helper）
     const b = (repair.billing && typeof repair.billing === 'object') ? repair.billing : {};
-    const chargeableLabel = (b.chargeable === true) ? '需收費' : (b.chargeable === false ? '不需收費' : '尚未決定');
-    const orderLabel = (b.chargeable === true)
-      ? ((b.orderStatus === 'ordered') ? '已下單' : (b.orderStatus === 'not_ordered' ? '未下單' : '尚未確認'))
-      : '';
-    const stageMap = { quote_pending: '待報價', procurement: '請購中', reviewing: '客戶評估中', budget_review: '預算確認中', on_hold: '暫緩', other: '其他' };
-    const reasonMap = { price: '價格過高', budget: '客戶預算不足', internal: '客戶內部流程/延後', spec: '規格/內容待確認', other: '其他' };
-    const stageCode = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.stageCode || '') : '';
-    const reasonCode = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.reasonCode || '') : (b.notOrderedReason || '');
-    const reasonNote = (b.notOrdered && typeof b.notOrdered === 'object') ? (b.notOrdered.note || '') : '';
-    const stageLabel = (b.chargeable === true && b.orderStatus === 'not_ordered')
-      ? (stageMap[(stageCode || '').toString().toLowerCase()] || '')
-      : '';
-    const reasonLabel = (b.chargeable === true && b.orderStatus === 'not_ordered')
-      ? (reasonMap[(reasonCode || '').toString().toLowerCase()] || '')
-      : '';
+    const billingFlow = (window.AppConfig && typeof window.AppConfig.getBillingFlowMeta === 'function')
+      ? window.AppConfig.getBillingFlowMeta(b)
+      : {
+          chargeableMeta: null,
+          orderDecisionMeta: null,
+          stageMeta: null,
+          reasonMeta: null,
+          note: '',
+          isChargeable: b.chargeable === true,
+          isNotOrdered: b.chargeable === true && b.orderStatus === 'not_ordered',
+          isOrdered: b.chargeable === true && b.orderStatus === 'ordered',
+          isOrderUnknown: b.chargeable === true && b.orderStatus !== 'ordered' && b.orderStatus !== 'not_ordered'
+        };
+    const chargeableLabel = billingFlow.chargeableMeta?.label || '尚未決定';
+    const orderLabel = billingFlow.orderDecisionMeta?.label || '';
+    const stageLabel = billingFlow.stageMeta?.label || '';
+    const reasonLabel = billingFlow.reasonMeta?.label || '';
+    const reasonNote = billingFlow.note || '';
     const safeChargeableLabel = escapeHtml(chargeableLabel);
     const safeOrderLabel = escapeHtml(orderLabel);
     const safeStageLabel = escapeHtml(stageLabel);
     const safeReasonLabel = escapeHtml(reasonLabel);
     const safeReasonNote = escapeHtml(reasonNote);
+    const billingSummaryTone = billingFlow.isChargeable
+      ? (billingFlow.isOrdered ? 'tone-info' : (billingFlow.isNotOrdered ? 'tone-warning' : 'tone-primary'))
+      : (billingFlow.isFree ? 'tone-success' : '');
+    const billingSummaryLabel = escapeHtml((billingFlow.summaryLabel || chargeableLabel).toString());
     const safePriorityLabel = escapeHtml(display.priorityLabel || '一般');
     const safeOwnerName = escapeHtml(repair.ownerName || '—');
     const safeCreatedAt = escapeHtml(display.createdAtFormatted || '—');
@@ -671,9 +678,66 @@ Object.assign(RepairUI.prototype, {
     if (repair.partsOrdered) overviewSignals.push('<span class="repair-overview-chip tone-info">已訂購</span>');
     if (repair.partsArrived) overviewSignals.push('<span class="repair-overview-chip tone-success">已到貨</span>');
     if (repair.partsReplaced) overviewSignals.push('<span class="repair-overview-chip tone-success">已更換</span>');
-    if (b.chargeable === true) overviewSignals.push('<span class="repair-overview-chip tone-primary">需收費</span>');
-    if (b.chargeable === false) overviewSignals.push('<span class="repair-overview-chip">不需收費</span>');
+    if (billingFlow.isChargeable || billingFlow.isFree || billingFlow.isUndecided) {
+      overviewSignals.push('<span class="repair-overview-chip ' + billingSummaryTone + '">' + billingSummaryLabel + '</span>');
+    }
     const overviewSignalsHtml = overviewSignals.length ? overviewSignals.join('') : '<span class="repair-overview-chip">尚未建立延伸標記</span>';
+    const statHTML = (window.UI && typeof window.UI.enterpriseStatHTML === 'function')
+      ? window.UI.enterpriseStatHTML
+      : (label, value) => `<div class="enterprise-mini-stat"><span>${escapeHtml(label)}</span><strong>${value || '—'}</strong></div>`;
+    const itemHTML = (window.UI && typeof window.UI.enterpriseOverviewItemHTML === 'function')
+      ? window.UI.enterpriseOverviewItemHTML
+      : (label, value, options = {}) => `<div class="enterprise-detail-overview-item"><span>${escapeHtml(label)}</span><strong>${options.allowHtml ? (value || '—') : escapeHtml(value || '—')}</strong></div>`;
+    const noteHTML = (window.UI && typeof window.UI.enterpriseOverviewNoteHTML === 'function')
+      ? window.UI.enterpriseOverviewNoteHTML
+      : (label, value, options = {}) => `<div class="enterprise-detail-overview-note"><span>${escapeHtml(label)}</span><div>${options.allowHtml ? (value || '—') : escapeHtml(value || '—')}</div></div>`;
+    const sectionHeaderHTML = (window.UI && typeof window.UI.enterpriseSectionHeaderHTML === 'function')
+      ? window.UI.enterpriseSectionHeaderHTML
+      : (options = {}) => `
+          <div class="enterprise-section-head">
+            <div class="enterprise-section-copy">
+              ${options.eyebrow ? `<div class="enterprise-section-eyebrow">${escapeHtml(options.eyebrow)}</div>` : ''}
+              ${options.title ? `<div class="enterprise-section-title">${escapeHtml(options.title)}</div>` : ''}
+              ${options.desc ? `<div class="enterprise-section-desc">${escapeHtml(options.desc)}</div>` : ''}
+            </div>
+            ${options.actionsHtml ? `<div class="enterprise-section-actions">${options.actionsHtml}</div>` : ''}
+          </div>
+        `.trim();
+    const heroStatsHtml = [
+      statHTML('進度', `${repair.progress}%`),
+      statHTML('維修天數', `${display.ageInDays} 天`),
+      statHTML('工作記錄', String(workLogCount)),
+      statHTML('變更記錄', String(historyCount))
+    ].join('');
+    const repairOverviewHtml = [
+      itemHTML('處理狀態', escapeHtml(display.statusLabel), { allowHtml: true }),
+      itemHTML('優先級', safePriorityLabel, { allowHtml: true }),
+      itemHTML('負責人', safeOwnerName, { allowHtml: true }),
+      itemHTML('維修日期', safeCreatedDate || escapeHtml(display.createdAtFormatted.slice(0, 10)), { allowHtml: true }),
+      itemHTML('建立時間', safeCreatedAt, { allowHtml: true }),
+      itemHTML('最後更新', safeUpdatedAt, { allowHtml: true }),
+      itemHTML('維修天數', `${display.ageInDays} 天`),
+      itemHTML('進度', `${repair.progress}%`)
+    ].join('');
+    const customerOverviewHtml = [
+      itemHTML('客戶名稱', safeCustomer, { allowHtml: true }),
+      itemHTML('聯絡人', contactDisplay, { allowHtml: true }),
+      itemHTML('電話', phoneDisplay, { allowHtml: true }),
+      itemHTML('Email', emailDisplay, { allowHtml: true })
+    ].join('');
+    const machineOverviewHtml = [
+      itemHTML('設備名稱', safeMachine, { allowHtml: true }),
+      itemHTML('產品線', safeProductLine || '—', { allowHtml: true }),
+      itemHTML('序號', safeSerial || '—', { allowHtml: true }),
+      itemHTML('案件識別', safeId, { allowHtml: true })
+    ].join('');
+    const billingOverviewHtml = [
+      itemHTML('收費判定', safeChargeableLabel, { allowHtml: true }),
+      itemHTML('下單決策', safeOrderLabel || '—', { allowHtml: true }),
+      itemHTML('未下單狀態', safeStageLabel || '—', { allowHtml: true }),
+      itemHTML('未下單原因', safeReasonLabel || '—', { allowHtml: true })
+    ].join('');
+    const billingNoteHtml = safeReasonNote ? noteHTML('商務備註', safeReasonNote, { allowHtml: true }) : '';
 
     return `
       <div class="modal-dialog modal-wide">
@@ -691,108 +755,88 @@ Object.assign(RepairUI.prototype, {
         <div class="modal-body">
           <!-- 標籤（P3：變更記錄） -->
           <div class="detail-tabbar chip-row" role="tablist" aria-label="維修詳情標籤">
-            <button type="button" class="chip active" id="repair-detail-tab-btn-main" data-action="repairs.switchDetailTab" data-value="main">總覽</button>
-            <button type="button" class="chip" id="repair-detail-tab-btn-history" data-action="repairs.switchDetailTab" data-value="history">${historyTabLabel}</button>
+            <button type="button" class="chip active" id="repair-detail-tab-btn-main" data-action="repairs.switchDetailTab" data-value="main" aria-selected="true">總覽</button>
+            <button type="button" class="chip" id="repair-detail-tab-btn-history" data-action="repairs.switchDetailTab" data-value="history" aria-selected="false">${historyTabLabel}</button>
           </div>
 
           <div id="repair-detail-tab-main">
-            <section class="repair-detail-hero">
-              <div class="repair-detail-hero-copy">
-                <div class="repair-detail-overline">Repair Job Center</div>
-                <div class="repair-detail-title-row">
-                  <h4 class="repair-detail-title">${safeCustomer}｜${safeMachine}</h4>
+            <section class="enterprise-detail-hero repair-detail-hero repair-detail-hero-enterprise">
+              <div class="enterprise-detail-hero-copy repair-detail-hero-copy">
+                <div class="enterprise-detail-overline repair-detail-overline">Repair Job Center</div>
+                <div class="enterprise-detail-title-row repair-detail-title-row">
+                  <h4 class="enterprise-detail-title repair-detail-title">${safeCustomer}｜${safeMachine}</h4>
                   <span class="status-badge custom" style="--badge-color:${display.statusColor};">${display.statusLabel}</span>
                 </div>
-                <div class="repair-detail-subtitle">${safeIssue}</div>
-                <div class="repair-detail-chip-row">
-                  <span class="repair-detail-chip">單號 ${safeId}</span>
-                  ${safeProductLine ? `<span class="repair-detail-chip">產品線 ${safeProductLine}</span>` : ''}
-                  ${safeSerial ? `<span class="repair-detail-chip">序號 ${safeSerial}</span>` : ''}
-                  <span class="repair-detail-chip">負責人 ${escapeHtml(repair.ownerName || '—')}</span>
+                <div class="enterprise-detail-subtitle repair-detail-subtitle">${safeIssue}</div>
+                <div class="enterprise-detail-chip-row repair-detail-chip-row">
+                  <span class="enterprise-detail-chip repair-detail-chip is-muted">案件識別 ${safeId}</span>
+                  ${safeProductLine ? `<span class="enterprise-detail-chip repair-detail-chip">產品線 ${safeProductLine}</span>` : ''}
+                  ${safeSerial ? `<span class="enterprise-detail-chip repair-detail-chip">序號 ${safeSerial}</span>` : ''}
+                  <span class="enterprise-detail-chip repair-detail-chip">負責人 ${escapeHtml(repair.ownerName || '—')}</span>
                 </div>
               </div>
-              <div class="repair-detail-hero-stats">
-                <div class="repair-mini-stat"><span>進度</span><strong>${repair.progress}%</strong></div>
-                <div class="repair-mini-stat"><span>維修天數</span><strong>${display.ageInDays} 天</strong></div>
-                <div class="repair-mini-stat"><span>工作記錄</span><strong>${workLogCount}</strong></div>
-                <div class="repair-mini-stat"><span>變更記錄</span><strong>${historyCount}</strong></div>
-              </div>
+              <div class="enterprise-detail-hero-stats repair-detail-hero-stats">${heroStatsHtml}</div>
             </section>
 
-            <section class="repair-overview-board">
-              <article class="repair-overview-card repair-overview-card-primary">
-                <div class="repair-overview-card-head">
+            <section class="enterprise-detail-overview-board repair-overview-board">
+              <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary repair-overview-card repair-overview-card-primary">
+                <div class="enterprise-detail-overview-card-head repair-overview-card-head">
                   <div>
-                    <div class="repair-overview-eyebrow">案件總覽</div>
-                    <div class="repair-overview-title">維修作業總覽</div>
+                    <div class="enterprise-detail-overview-eyebrow repair-overview-eyebrow">案件總覽</div>
+                    <div class="enterprise-detail-overview-title repair-overview-title">維修作業總覽</div>
                   </div>
-                  <div class="repair-overview-signal-row">${overviewSignalsHtml}</div>
+                  <div class="enterprise-detail-overview-signal-row repair-overview-signal-row">${overviewSignalsHtml}</div>
                 </div>
-                <div class="repair-overview-grid repair-overview-grid-4">
-                  <div class="repair-overview-item"><span>處理狀態</span><strong>${display.statusLabel}</strong></div>
-                  <div class="repair-overview-item"><span>優先級</span><strong>${safePriorityLabel}</strong></div>
-                  <div class="repair-overview-item"><span>負責人</span><strong>${safeOwnerName}</strong></div>
-                  <div class="repair-overview-item"><span>維修日期</span><strong>${safeCreatedDate || display.createdAtFormatted.slice(0, 10)}</strong></div>
-                  <div class="repair-overview-item"><span>建立時間</span><strong>${safeCreatedAt}</strong></div>
-                  <div class="repair-overview-item"><span>最後更新</span><strong>${safeUpdatedAt}</strong></div>
-                  <div class="repair-overview-item"><span>維修天數</span><strong>${display.ageInDays} 天</strong></div>
-                  <div class="repair-overview-item"><span>進度</span><strong>${repair.progress}%</strong></div>
-                </div>
+                <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-4 repair-overview-grid repair-overview-grid-4">${repairOverviewHtml}</div>
               </article>
 
-              <article class="repair-overview-card">
-                <div class="repair-overview-card-head">
+              <article class="enterprise-detail-overview-card repair-overview-card">
+                <div class="enterprise-detail-overview-card-head repair-overview-card-head">
                   <div>
                     <div class="repair-overview-eyebrow">Customer Profile</div>
                     <div class="repair-overview-title">客戶與聯絡資訊</div>
                   </div>
                 </div>
-                <div class="repair-overview-grid repair-overview-grid-2">
-                  <div class="repair-overview-item"><span>客戶名稱</span><strong>${safeCustomer}</strong></div>
-                  <div class="repair-overview-item"><span>聯絡人</span><strong>${contactDisplay}</strong></div>
-                  <div class="repair-overview-item"><span>電話</span><strong>${phoneDisplay}</strong></div>
-                  <div class="repair-overview-item"><span>Email</span><strong>${emailDisplay}</strong></div>
-                </div>
+                <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2 repair-overview-grid repair-overview-grid-2">${customerOverviewHtml}</div>
               </article>
 
-              <article class="repair-overview-card">
-                <div class="repair-overview-card-head">
+              <article class="enterprise-detail-overview-card repair-overview-card">
+                <div class="enterprise-detail-overview-card-head repair-overview-card-head">
                   <div>
                     <div class="repair-overview-eyebrow">Equipment Profile</div>
                     <div class="repair-overview-title">設備與機台資訊</div>
                   </div>
                 </div>
-                <div class="repair-overview-grid repair-overview-grid-2">
-                  <div class="repair-overview-item"><span>設備名稱</span><strong>${safeMachine}</strong></div>
-                  <div class="repair-overview-item"><span>產品線</span><strong>${safeProductLine || '—'}</strong></div>
-                  <div class="repair-overview-item"><span>序號</span><strong>${safeSerial || '—'}</strong></div>
-                  <div class="repair-overview-item"><span>維修單號</span><strong>${safeId}</strong></div>
-                </div>
+                <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2 repair-overview-grid repair-overview-grid-2">${machineOverviewHtml}</div>
               </article>
 
-              <article class="repair-overview-card">
-                <div class="repair-overview-card-head">
+              <article class="enterprise-detail-overview-card repair-overview-card">
+                <div class="enterprise-detail-overview-card-head repair-overview-card-head">
                   <div>
                     <div class="repair-overview-eyebrow">Commercial Tracking</div>
                     <div class="repair-overview-title">收費與下單追蹤</div>
                   </div>
+                  <div class="repair-overview-signal-row">
+                    <span class="repair-overview-chip ${billingSummaryTone}">${billingSummaryLabel}</span>
+                    ${safeStageLabel ? `<span class="repair-overview-chip tone-warning">${safeStageLabel}</span>` : ''}
+                  </div>
                 </div>
                 <div class="repair-overview-grid repair-overview-grid-2">
-                  <div class="repair-overview-item"><span>收費狀態</span><strong>${safeChargeableLabel}</strong></div>
-                  <div class="repair-overview-item"><span>下單狀態</span><strong>${safeOrderLabel || '—'}</strong></div>
+                  <div class="repair-overview-item"><span>收費判定</span><strong>${safeChargeableLabel}</strong></div>
+                  <div class="repair-overview-item"><span>下單決策</span><strong>${safeOrderLabel || '—'}</strong></div>
                   <div class="repair-overview-item"><span>未下單狀態</span><strong>${safeStageLabel || '—'}</strong></div>
                   <div class="repair-overview-item"><span>未下單原因</span><strong>${safeReasonLabel || '—'}</strong></div>
                 </div>
-                ${safeReasonNote ? `<div class="repair-overview-note"><span>補充說明</span><div>${safeReasonNote}</div></div>` : ''}
+                ${safeReasonNote ? `<div class="repair-overview-note"><span>商務備註</span><div>${safeReasonNote}</div></div>` : ''}
               </article>
             </section>
 
-            <div class="repair-detail-command-bar">
-              <div class="repair-detail-command-copy">
-                <div class="repair-detail-command-title">案件操作</div>
-                <div class="repair-detail-command-desc">總覽已整合狀態、進度、時序與商務資訊；桌機改以單一主視圖閱讀，不再保留舊版右側摘要欄。</div>
+            <div class="enterprise-detail-command-bar repair-detail-command-bar">
+              <div class="enterprise-detail-command-copy repair-detail-command-copy">
+                <div class="enterprise-detail-command-title repair-detail-command-title">案件操作</div>
+                <div class="enterprise-detail-command-desc repair-detail-command-desc">總覽已整合狀態、進度、時序與商務資訊；桌機改以單一主視圖閱讀，不再保留舊版右側摘要欄。</div>
               </div>
-              <div class="detail-buttons repair-detail-command-actions">
+              <div class="detail-buttons enterprise-detail-command-actions repair-detail-command-actions">
                 <button class="btn" data-action="repairs.openForm" data-id="${repair.id}">✏️ 編輯</button>
                 <button class="btn" type="button" data-action="repairs.duplicateRepair" data-id="${repair.id}" title="複製成新維修單">📄 複製</button>
                 <button class="btn danger" data-action="repairs.confirmDelete" data-id="${repair.id}">🗑️ 刪除</button>
@@ -802,7 +846,7 @@ Object.assign(RepairUI.prototype, {
             <div class="repair-detail-layout repair-detail-layout-enterprise">
               <div class="repair-detail-main">
                 <section class="detail-block repair-problem-card repair-problem-card-enterprise">
-                  <div class="detail-title">問題描述與處理背景</div>
+                  ${sectionHeaderHTML({ eyebrow: '案件背景', title: '問題描述與處理背景', desc: '集中閱讀異常描述、處理背景與內部補充說明。' })}
                   <div class="detail-body repair-problem-body">
                     <div class="detail-issue">${safeIssue}</div>
                     ${repair.content ? `<div class="detail-text">${safeContent}</div>` : '<div class="detail-text muted">尚未填寫補充描述</div>'}
@@ -812,34 +856,50 @@ Object.assign(RepairUI.prototype, {
 
                 ${window.WorkLogUI ? window.WorkLogUI.renderSection(repair.id) : `
                   <section class="detail-block worklog-section" id="repair-worklog-section">
-                    <div class="detail-title">📝 工作記錄</div>
+                    ${sectionHeaderHTML({ eyebrow: '工作記錄', title: '工作記錄', desc: '統整本案處置歷程，方便快速回顧執行內容。' })}
                     <div class="detail-body"><div class="muted">載入中...</div></div>
                   </section>
                 `}
 
                 <section class="detail-block" id="repair-activity-timeline-block">
-                  <div class="detail-title">🕒 活動時間軸</div>
+                  ${sectionHeaderHTML({ eyebrow: '活動追蹤', title: '活動時間軸', desc: '依時間序檢視本案的重要更新與操作紀錄。' })}
                   <div class="detail-body">
                     <div id="repair-activity-timeline" data-repair-id="${repair.id}"><div class="muted">載入中...</div></div>
                   </div>
                 </section>
 
                 <section class="repair-support-board" aria-label="維修詳情支援模組">
-                  <section class="detail-block repair-support-card" id="repair-maintenance-mini">
-                    <div class="detail-title">🛠️ 保養 / 結案連動</div>
+
+                  <section class="detail-block repair-support-card" id="repair-billing-mini">
+                    ${sectionHeaderHTML({ eyebrow: '商務協作', title: '請款 / 商務追蹤', desc: '集中檢視收費判定、下單決策與商務備註。' })}
                     <div class="detail-body">
-                      <div class="mini-summary" id="maintenance-summary" data-repair-id="${repair.id}">載入中...</div>
-                      <div class="chip-row repair-support-chip-row" id="maintenance-actions" data-repair-id="${repair.id}">
-                        <button class="chip" type="button" data-action="repairs.openMaintenanceFromRepair" data-id="${repair.id}">開啟保養</button>
-                        <button class="chip" type="button" data-action="repairs.createMaintenanceEquipmentFromRepair" data-id="${repair.id}">建立設備</button>
-                        <button class="chip" type="button" data-action="repairs.addMaintenanceRecordFromRepair" data-id="${repair.id}">＋建紀錄</button>
-                        <button class="chip" type="button" data-action="repairs.closeAndWriteMaintenance" data-id="${repair.id}">✅ 結案並寫入保養</button>
+                      <div class="repair-billing-mini-grid">
+                        <div class="repair-billing-mini-item">
+                          <span>收費判定</span>
+                          <strong>${safeChargeableLabel}</strong>
+                        </div>
+                        <div class="repair-billing-mini-item">
+                          <span>下單決策</span>
+                          <strong>${safeOrderLabel || '—'}</strong>
+                        </div>
+                        <div class="repair-billing-mini-item">
+                          <span>未下單狀態</span>
+                          <strong>${safeStageLabel || '—'}</strong>
+                        </div>
+                        <div class="repair-billing-mini-item">
+                          <span>未下單原因</span>
+                          <strong>${safeReasonLabel || '—'}</strong>
+                        </div>
+                      </div>
+                      ${safeReasonNote ? `<div class="repair-billing-note"><span>商務備註</span><div>${safeReasonNote}</div></div>` : '<div class="muted repair-support-desc">目前未填寫商務備註，可在編輯維修單時更新。</div>'}
+                      <div class="repair-support-button-row">
+                        <button class="btn" type="button" data-action="repairs.openForm" data-id="${repair.id}">更新商務狀態</button>
                       </div>
                     </div>
                   </section>
 
                   <section class="detail-block repair-support-card" id="repair-quote-order-mini">
-                    <div class="detail-title">報價 / 訂單</div>
+                    ${sectionHeaderHTML({ eyebrow: '商務單據', title: '報價 / 訂單', desc: '從同一區塊銜接報價與訂單建立動作。' })}
                     <div class="detail-body">
                       <div class="mini-summary" id="quote-order-summary">載入中...</div>
                       <div class="chip-row repair-support-chip-row" id="quote-order-actions">
@@ -850,7 +910,7 @@ Object.assign(RepairUI.prototype, {
                   </section>
 
                   <section class="detail-block repair-support-card" id="repair-detail-parts">
-                    <div class="detail-title">零件追蹤</div>
+                    ${sectionHeaderHTML({ eyebrow: '料件進度', title: '零件追蹤', desc: '追蹤需求、下單、到貨與更換節點。' })}
                     <div class="detail-body">
                       <div class="muted repair-support-desc">用於追蹤更換零件狀態（需求 → 報價 → 下單 → 到貨 → 更換）。</div>
                       <div id="repair-parts-mini" data-repair-id="${repair.id}"><div class="muted">載入中...</div></div>
@@ -862,7 +922,7 @@ Object.assign(RepairUI.prototype, {
                   </section>
 
                   <section class="detail-block repair-support-card" id="repair-sops-mini-block">
-                    <div class="detail-title">🧾 SOP（作業流程）</div>
+                    ${sectionHeaderHTML({ eyebrow: '作業標準', title: 'SOP（作業流程）', desc: '維持本案作業流程、關聯文件與版本脈絡。' })}
                     <div class="detail-body">
                       <div class="mini-summary" id="repair-sops-mini" data-repair-id="${repair.id}">載入中...</div>
                       <div class="chip-row repair-support-chip-row">
@@ -874,7 +934,7 @@ Object.assign(RepairUI.prototype, {
                   </section>
 
                   <section class="detail-block repair-support-card" id="repair-attachments-placeholder">
-                    <div class="detail-title">附件</div>
+                    ${sectionHeaderHTML({ eyebrow: '附件管理', title: '附件', desc: '預留附件能力與後續文件整合位置。' })}
                     <div class="detail-body">
                       <div class="muted">附件功能尚未啟用（目前僅保留占位）。</div>
                       <div class="repair-support-button-row"><button class="btn" type="button" disabled>上傳附件（尚未啟用）</button></div>
@@ -892,9 +952,9 @@ Object.assign(RepairUI.prototype, {
 
           </div><!-- /repair-detail-tab-main -->
 
-          <div id="repair-detail-tab-history" style="display:none;">
+          <div id="repair-detail-tab-history" hidden>
             <div class="detail-section" id="repair-detail-history">
-              <h4 class="detail-section-title">變更記錄</h4>
+              ${sectionHeaderHTML({ eyebrow: '歷程稽核', title: '變更記錄', desc: '保留本案調整歷程，方便回溯與交接。' })}
               ${historyCount > 0 ? `
                 <div class="detail-timeline">
                   ${history.map(h => this.renderHistoryItem(h)).join('')}
@@ -1041,6 +1101,16 @@ Object.assign(RepairUI.prototype, {
     if (this._submitting) return;
 
     const form = event.target;
+
+    // 先把畫面上的設備欄位正規化回寫到最終欄位（machine），
+    // 避免 visible control 與 hidden final input 脫鉤，造成看起來已選機型但送出仍為空值。
+    try {
+      if (typeof this._resolveMachineValue === 'function') this._resolveMachineValue(form);
+      if (typeof this._applyEquipmentRequired === 'function') this._applyEquipmentRequired();
+    } catch (e) {
+      console.warn('machine field sync failed before submit:', e);
+    }
+
     // P3：必填欄位即時驗證（僅針對既有 required 欄位）
     try {
       if (form && window.FormValidate) {
@@ -1077,6 +1147,11 @@ Object.assign(RepairUI.prototype, {
 
       const id = (data.id || '').trim();
       delete data.id;
+
+      // 顯示欄位與實際寫入欄位採單一路徑：送出時再次從畫面解出最終設備值。
+      if (typeof this._resolveMachineValue === 'function') {
+        data.machine = this._resolveMachineValue(form);
+      }
 
       // 表單輔助欄位（不寫入資料庫）
       delete data._machinePick;
@@ -1125,6 +1200,21 @@ Object.assign(RepairUI.prototype, {
       // 數值
       const p = Number(data.progress || 0);
       data.progress = Number.isFinite(p) ? p : 0;
+
+      // 設備名稱：在 submit 階段做一次結構性保底，不再依賴 hidden input 先前是否成功同步。
+      data.machine = (data.machine || '').toString().trim();
+      if (!data.machine) {
+        const msg = '設備名稱為必填';
+        if (window.UI && typeof window.UI.toast === 'function') window.UI.toast(msg, { type: 'warning' });
+        else alert(msg);
+        try {
+          const focusEl = (typeof this._getVisibleMachineField === 'function')
+            ? this._getVisibleMachineField(form)
+            : (form.querySelector('#machine-manual') || form.querySelector('#machine-select'));
+          focusEl?.focus?.();
+        } catch (_) {}
+        return;
+      }
 
       // 字串 trim（避免搜尋/顯示混亂）
       [
@@ -1175,7 +1265,9 @@ Object.assign(RepairUI.prototype, {
       // （避免新增表單出現使用者未選擇的內建值）
 
       // 成功後關閉 modal
-      if (window.RepairUI && typeof window.RepairUI.closeModal === 'function') {
+      if (typeof this.closeModal === 'function') {
+        this.closeModal();
+      } else if (window.RepairUI && typeof window.RepairUI.closeModal === 'function') {
         window.RepairUI.closeModal();
       }
     } catch (error) {
@@ -1545,6 +1637,92 @@ Object.assign(RepairUI.prototype, {
   },
 
 
+
+  _getVisibleMachineField(form = null) {
+    const root = form || document.getElementById('repair-form') || document;
+    const selectEl = root.querySelector ? root.querySelector('#machine-select') : document.getElementById('machine-select');
+    const manualEl = root.querySelector ? root.querySelector('#machine-manual') : document.getElementById('machine-manual');
+
+    const isVisible = (el) => {
+      if (!el) return false;
+      if (el.disabled) return false;
+      if (el.style && el.style.display === 'none') return false;
+      if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+        try {
+          return window.getComputedStyle(el).display !== 'none';
+        } catch (_) {
+          return true;
+        }
+      }
+      return true;
+    };
+
+    if (isVisible(manualEl)) return manualEl;
+    if (isVisible(selectEl)) return selectEl;
+    return manualEl || selectEl || null;
+  },
+
+  _resolveMachineValue(form = null) {
+    const root = form || document.getElementById('repair-form') || document;
+    const finalEl = root.querySelector ? root.querySelector('#machine-final') : document.getElementById('machine-final');
+    const selectEl = root.querySelector ? root.querySelector('#machine-select') : document.getElementById('machine-select');
+    const manualEl = root.querySelector ? root.querySelector('#machine-manual') : document.getElementById('machine-manual');
+
+    const trim = (v) => (v === null || v === undefined) ? '' : String(v).trim();
+    const isVisible = (el) => {
+      if (!el) return false;
+      if (el.disabled) return false;
+      if (el.style && el.style.display === 'none') return false;
+      if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+        try {
+          return window.getComputedStyle(el).display !== 'none';
+        } catch (_) {
+          return true;
+        }
+      }
+      return true;
+    };
+
+    let value = trim(finalEl?.value);
+
+    if (!value && isVisible(selectEl)) {
+      const picked = trim(selectEl.value);
+      if (picked && picked !== '__manual__') value = picked;
+    }
+
+    if ((!value || (isVisible(selectEl) && trim(selectEl?.value) === '__manual__')) && isVisible(manualEl)) {
+      value = trim(manualEl.value);
+    }
+
+    if (finalEl) finalEl.value = value;
+    return value;
+  },
+
+  _applyEquipmentRequired() {
+    const form = document.getElementById('repair-form');
+    if (!form) return;
+
+    const finalEl = document.getElementById('machine-final');
+    const selectEl = document.getElementById('machine-select');
+    const manualEl = document.getElementById('machine-manual');
+    const activeEl = this._getVisibleMachineField(form);
+
+    const setReq = (el, on) => {
+      if (!el) return;
+      try { el.required = !!on; } catch (_) {}
+      try {
+        if (on) el.setAttribute('aria-required', 'true');
+        else el.removeAttribute('aria-required');
+      } catch (_) {}
+    };
+
+    setReq(finalEl, false);
+    setReq(selectEl, activeEl === selectEl);
+    setReq(manualEl, activeEl === manualEl);
+
+    try { if (typeof this._resolveMachineValue === 'function') this._resolveMachineValue(form); } catch (_) {}
+  },
+
   _escapeHtml(input) {
     const s = (input === null || input === undefined) ? '' : String(input);
     return s
@@ -1624,20 +1802,17 @@ Object.assign(RepairUI, {
   },
 
   // MNT-4：維修單 ↔ 保養連動
-  openMaintenanceFromRepair: (id) => {
-    try { if (typeof window.repairUI?.openMaintenanceFromRepair === 'function') return window.repairUI.openMaintenanceFromRepair(id); }
-    catch (e) { console.warn('openMaintenanceFromRepair failed:', e); }
-  },
-  createMaintenanceEquipmentFromRepair: (id) => {
-    try { if (typeof window.repairUI?.createMaintenanceEquipmentFromRepair === 'function') return window.repairUI.createMaintenanceEquipmentFromRepair(id); }
-    catch (e) { console.warn('createMaintenanceEquipmentFromRepair failed:', e); }
-  },
-  addMaintenanceRecordFromRepair: (id) => {
-    try { if (typeof window.repairUI?.addMaintenanceRecordFromRepair === 'function') return window.repairUI.addMaintenanceRecordFromRepair(id); }
-    catch (e) { console.warn('addMaintenanceRecordFromRepair failed:', e); }
-  },
   closeAndWriteMaintenance: (id) => {
     try { if (typeof window.repairUI?.closeAndWriteMaintenance === 'function') return window.repairUI.closeAndWriteMaintenance(id); }
     catch (e) { console.warn('closeAndWriteMaintenance failed:', e); }
+  },
+  closeModal: (options) => {
+    try { if (typeof window.repairUI?.closeModal === 'function') return window.repairUI.closeModal(options); }
+    catch (e) { console.warn('closeModal failed:', e); }
+    return false;
+  },
+  isModalOpen: () => {
+    try { return !!window.repairUI?.isModalOpen?.(); }
+    catch (_) { return false; }
   }
 });

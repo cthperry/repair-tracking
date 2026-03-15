@@ -27,9 +27,6 @@ class WeeklyUI {
     const nextEnd = WeeklyModel.addDays(end, 7);
     const isPreview = this.view === 'preview';
 
-    const basis = (window._svc('SettingsService')?.settings?.weeklyThisWeekBasis === 'updated') ? 'updated' : 'created';
-    const basisLabel = (basis === 'updated') ? '更新日' : '建立日';
-
     container.innerHTML = `
       <div class="weekly-module">
         <div class="weekly-toolbar module-toolbar">
@@ -51,12 +48,8 @@ class WeeklyUI {
               <div class="weekly-card-header card-head">
                 <div>
                   <div class="weekly-card-title card-title">本週工作（只讀）</div>
-                  <div class="weekly-card-meta" id="thisweek-meta">來源：本週內${basisLabel}的維修單（負責人：登入者 UID）</div>
+                  <div class="weekly-card-meta" id="thisweek-meta">來源：本週新增維修單 + 本週新增工作紀錄（不含僅狀態變更）</div>
                 </div>
-                <select class="input" id="weekly-thisweek-basis" style="width:160px;">
-                  <option value="created" ${basis !== 'updated' ? 'selected' : ''}>建立日（預設）</option>
-                  <option value="updated" ${basis === 'updated' ? 'selected' : ''}>更新日</option>
-                </select>
                 <button class="btn" data-action="weekly-toggle-thisweek" id="btn-toggle-thisweek">展開</button>
               </div>
               <div class="weekly-card-body card-body" id="thisweek-body" style="display:none;">
@@ -189,16 +182,6 @@ class WeeklyUI {
         // 盡量不要 throw 讓 router crash
       }
     });
-
-    // change: basis selector
-    container.addEventListener('change', async (evt) => {
-      const t = evt?.target;
-      if (!t) return;
-      if (t && t.id === 'weekly-thisweek-basis') {
-        await this.setThisWeekBasis(t.value);
-      }
-    });
-
     // input/textarea: plan update（用輕量 debounce，避免每字 persist）
     const onPlanInput = (evt) => {
       const t = evt?.target;
@@ -227,35 +210,11 @@ class WeeklyUI {
   refresh() {
     const textEl = document.getElementById('thisweek-text');
     if (textEl) {
-      textEl.textContent = window._svc('WeeklyService').getThisWeekRepairsText() || '(本週無維修單更新)';
+      textEl.textContent = window._svc('WeeklyService').getThisWeekRepairsText() || '(目前無維修案件)';
     }
 
     this.renderPlans();
   }
-
-  async setThisWeekBasis(value) {
-    const v = (value === 'updated') ? 'updated' : 'created';
-
-    try {
-      if (window._svc('SettingsService') && typeof window._svc('SettingsService').update === 'function') {
-        await window._svc('SettingsService').update({ weeklyThisWeekBasis: v });
-      }
-    } catch (e) {
-      console.error('WeeklyUI setThisWeekBasis failed:', e);
-    }
-
-    // 立即更新顯示文字（不必整頁重繪）
-    const meta = document.getElementById('thisweek-meta');
-    if (meta) {
-      meta.textContent = `來源：本週內${v === 'updated' ? '更新日' : '建立日'}的維修單（負責人：登入者 UID）`;
-    }
-
-    this.refresh();
-    if (this.view === 'preview') {
-      try { await this.refreshPreview(); } catch (_) {}
-    }
-  }
-
   renderPlans() {
     const host = document.getElementById('nextplans-body');
     if (!host) return;

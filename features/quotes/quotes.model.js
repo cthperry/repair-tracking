@@ -54,10 +54,6 @@ class QuoteModel {
     const updatedAt = (q.updatedAt || '').toString().trim() || createdAt;
     const isDeleted = (typeof q.isDeleted === 'boolean') ? q.isDeleted : false;
 
-    const deliveryDaysNum = (q.deliveryDays != null && q.deliveryDays !== '') ? Number(q.deliveryDays) : NaN;
-    const deliveryDays = Number.isFinite(deliveryDaysNum) ? deliveryDaysNum : 60;
-    const customerCode = (q.customerCode || '').toString().trim();
-
     return {
       id,
       quoteNo,
@@ -84,9 +80,7 @@ class QuoteModel {
       note,
       createdAt,
       updatedAt,
-      isDeleted,
-      deliveryDays,
-      customerCode
+      isDeleted
     };
   }
 

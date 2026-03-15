@@ -16,9 +16,7 @@
     quotes:       { accent: '#4f46e5', ink: '#4338ca', soft: 'rgba(79, 70, 229, 0.12)' },
     orders:       { accent: '#d97706', ink: '#b45309', soft: 'rgba(217, 119, 6, 0.14)' },
     kb:           { accent: '#db2777', ink: '#9d174d', soft: 'rgba(219, 39, 119, 0.12)' },
-    maintenance:  { accent: '#059669', ink: '#047857', soft: 'rgba(5, 150, 105, 0.12)' },
     weekly:       { accent: '#0ea5e9', ink: '#0284c7', soft: 'rgba(14, 165, 233, 0.12)' },
-    guide:        { accent: '#0891b2', ink: '#0e7490', soft: 'rgba(8, 145, 178, 0.12)' },
     settings:     { accent: '#334155', ink: '#334155', soft: 'rgba(51, 65, 85, 0.10)' },
   };
 

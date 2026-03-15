@@ -13,6 +13,10 @@
   gap: 12px;
 }
 
+
+.settings-module[hidden],
+.settings-module [hidden]{display:none !important;}
+
 .settings-toolbar{
   /* 使儲存/狀態在長頁面時仍可隨手操作 */
   position: sticky;
@@ -209,7 +213,6 @@
 }
 
 /* ========================================
-   機台保養設定（Maintenance Settings in Settings page）
    ======================================== */
 .maint-settings-grid{
   display:grid;
@@ -602,4 +605,27 @@
 @media (max-width: 720px){
   .settings-form-shell .settings-row{padding:10px 0;}
   .settings-form-shell .settings-label{width:auto;min-width:0;padding-top:0;}
+}
+
+
+.settings-hero .enterprise-detail-subtitle{max-width:780px;}
+.settings-command-bar{
+  position:sticky;
+  top:0;
+  z-index:29;
+}
+.settings-tabbar{
+  position:sticky;
+  top:76px;
+  z-index:28;
+  padding:6px 0 2px;
+  background:linear-gradient(180deg, rgba(248,250,252,.98) 0%, rgba(248,250,252,.92) 72%, rgba(248,250,252,0) 100%);
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 860px){
+  .settings-tabbar{top:72px;}
+}
+@media (max-width: 640px){
+  .settings-command-bar{top:0;}
+  .settings-tabbar{top:98px;}
 }

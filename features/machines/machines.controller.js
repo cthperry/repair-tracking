@@ -33,8 +33,7 @@ class MachinesController {
           'RepairService',
           'RepairPartsService',
           'QuoteService',
-          'OrderService',
-          'MaintenanceService'
+          'OrderService'
         ]);
       } 
       window.MachinesUI?.render?.(containerId);
@@ -77,7 +76,7 @@ class MachinesController {
   _onDataChanged(evt) {
     const mod = evt?.detail?.module || '';
     if (!mod) return;
-    if (mod === 'repairParts' || mod === 'quotes' || mod === 'orders' || mod === 'maintenance') {
+    if (mod === 'repairParts' || mod === 'quotes' || mod === 'orders') {
       this._debouncedRefresh();
     }
   }

@@ -37,6 +37,101 @@
     }
   }
 
+  UI.emptyStateHTML = function emptyStateHTML(options) {
+    const opts = options || {};
+    const icon = (opts.icon || 'ℹ️').toString();
+    const title = (opts.title || '暫無資料').toString();
+    const text = (opts.text || '').toString();
+    const extraClass = (opts.className || '').toString().trim();
+    const actionHtml = (opts.actionHtml || '').toString();
+    const className = ['empty-state', extraClass].filter(Boolean).join(' ');
+
+    return `
+      <div class="${className}">
+        <div class="empty-icon" aria-hidden="true">${escapeHtml(icon)}</div>
+        <div class="empty-title">${escapeHtml(title)}</div>
+        ${text ? `<div class="empty-text">${nl2br(text)}</div>` : ''}
+        ${actionHtml ? `<div class="ops-actions ops-empty-actions">${actionHtml}</div>` : ''}
+      </div>
+    `.trim();
+  };
+
+
+  UI.chipHTML = function chipHTML(label, options) {
+    const opts = options || {};
+    const tagName = (opts.tagName || 'span').toString().toLowerCase() === 'button' ? 'button' : 'span';
+    const className = ['chip', opts.static ? 'static' : '', opts.active ? 'active' : '', opts.tone ? `tone-${String(opts.tone).trim()}` : '', (opts.className || '').toString().trim()].filter(Boolean).join(' ');
+    const attrs = (opts.attrs || '').toString().trim();
+    const title = (opts.title || '').toString().trim();
+    const safeLabel = (opts.allowHtml === true) ? String(label || '') : escapeHtml(label || '');
+    const attrText = [
+      tagName === 'button' && !/\btype=/.test(attrs) ? 'type="button"' : '',
+      title ? `title="${escapeHtml(title)}"` : '',
+      attrs
+    ].filter(Boolean).join(' ');
+    return `<${tagName} class="${className}"${attrText ? ` ${attrText}` : ''}>${safeLabel || '—'}</${tagName}>`;
+  };
+
+
+  UI.enterpriseStatHTML = function enterpriseStatHTML(label, value, options) {
+    const opts = options || {};
+    const className = ['enterprise-mini-stat', (opts.className || '').toString().trim()].filter(Boolean).join(' ');
+    const safeLabel = escapeHtml(label || '');
+    const safeValue = (opts.allowHtml === true) ? String(value || '') : escapeHtml(value || '—');
+    return `
+      <div class="${className}">
+        <span>${safeLabel}</span>
+        <strong>${safeValue || '—'}</strong>
+      </div>
+    `.trim();
+  };
+
+  UI.enterpriseOverviewItemHTML = function enterpriseOverviewItemHTML(label, value, options) {
+    const opts = options || {};
+    const className = ['enterprise-detail-overview-item', (opts.className || '').toString().trim()].filter(Boolean).join(' ');
+    const safeLabel = escapeHtml(label || '');
+    const safeValue = (opts.allowHtml === true) ? String(value || '') : escapeHtml(value || '—');
+    return `
+      <div class="${className}">
+        <span>${safeLabel}</span>
+        <strong>${safeValue || '—'}</strong>
+      </div>
+    `.trim();
+  };
+
+  UI.enterpriseOverviewNoteHTML = function enterpriseOverviewNoteHTML(label, value, options) {
+    const opts = options || {};
+    const className = ['enterprise-detail-overview-note', (opts.className || '').toString().trim()].filter(Boolean).join(' ');
+    const safeLabel = escapeHtml(label || '');
+    const safeValue = (opts.allowHtml === true) ? String(value || '') : nl2br(value || '—');
+    return `
+      <div class="${className}">
+        <span>${safeLabel}</span>
+        <div>${safeValue || '—'}</div>
+      </div>
+    `.trim();
+  };
+
+  UI.enterpriseSectionHeaderHTML = function enterpriseSectionHeaderHTML(options) {
+    const opts = options || {};
+    const className = ['enterprise-section-head', (opts.className || '').toString().trim()].filter(Boolean).join(' ');
+    const eyebrow = (opts.eyebrow || '').toString();
+    const title = (opts.title || '').toString();
+    const desc = (opts.desc || '').toString();
+    const actionsHtml = (opts.actionsHtml || '').toString();
+
+    return `
+      <div class="${className}">
+        <div class="enterprise-section-copy">
+          ${eyebrow ? `<div class="enterprise-section-eyebrow">${escapeHtml(eyebrow)}</div>` : ''}
+          ${title ? `<div class="enterprise-section-title">${escapeHtml(title)}</div>` : ''}
+          ${desc ? `<div class="enterprise-section-desc">${escapeHtml(desc)}</div>` : ''}
+        </div>
+        ${actionsHtml ? `<div class="enterprise-section-actions">${actionsHtml}</div>` : ''}
+      </div>
+    `.trim();
+  };
+
   function ensureToastContainer() {
     let el = document.getElementById('ui-toast-container');
     if (el) return el;
@@ -469,8 +564,39 @@
     } catch (_) {}
   };
 
+  UI.bindSpaSubmitGuard = function bindSpaSubmitGuard() {
+    try {
+      if (UI._spaSubmitGuardBound) return;
+      UI._spaSubmitGuardBound = true;
+
+      document.addEventListener('submit', (event) => {
+        try {
+          const form = event && event.target && event.target.closest ? event.target.closest('form') : null;
+          if (!form) return;
+          if (form.id === 'login-form') return;
+
+          const isSpaForm = form.matches([
+            '.enterprise-form',
+            '.worklog-form',
+            '.kb-form-shell',
+            '[data-action]',
+            '#customer-form',
+            '#company-rename-form',
+            '#repair-form',
+            '[id^=\"quote-detail-form-\"]',
+            '[id^=\"order-detail-form-\"]'
+          ].join(','));
+
+          if (!isSpaForm) return;
+          event.preventDefault();
+        } catch (_) {}
+      }, true);
+    } catch (_) {}
+  };
+
   // 自動啟用（不影響舊流程）
   try { UI.initTableEnhancer(); } catch (_) {}
+  try { UI.bindSpaSubmitGuard(); } catch (_) {}
   // 與舊程式相容：提供 UI.alert 取代原生 alert（預設 info toast）
   UI.alert = function (message, type) {
     UI.toast(message, { type: type || 'info' });
@@ -580,7 +706,101 @@
     } catch (_) {}
   };
 
+
+  UI.syncRequiredMarkers = function syncRequiredMarkers(root) {
+    try {
+      const scope = (root && root.querySelectorAll) ? root : document;
+      if (!scope || !scope.querySelectorAll) return;
+
+      const autoLabels = scope.querySelectorAll('[data-required-auto="1"]');
+      autoLabels.forEach((label) => {
+        try {
+          label.classList.remove('required');
+          label.removeAttribute('data-required-auto');
+        } catch (_) {}
+      });
+
+      const controls = scope.querySelectorAll('input[required], select[required], textarea[required], input[aria-required="true"], select[aria-required="true"], textarea[aria-required="true"], input[data-required="true"], select[data-required="true"], textarea[data-required="true"]');
+      controls.forEach((control) => {
+        try {
+          if (!control || control.disabled) return;
+          if ((control.type || '').toLowerCase() === 'hidden') return;
+
+          const labels = new Set();
+          if (control.labels && control.labels.length) {
+            Array.from(control.labels).forEach((label) => labels.add(label));
+          }
+
+          const controlId = (control.id || '').trim();
+          if (controlId) {
+            scope.querySelectorAll(`label[for="${controlId.replace(/"/g, '\\"')}"]`).forEach((label) => labels.add(label));
+          }
+
+          const wrapper = control.closest('.field, .form-group, .form-field, .quick-field, .filter-field, .machine-select-wrap, .machine-manual-wrap');
+          if (wrapper) {
+            const firstLabel = wrapper.querySelector('label, .form-label, .field-label');
+            if (firstLabel) labels.add(firstLabel);
+          }
+
+          const parentLabel = control.closest('label');
+          if (parentLabel) labels.add(parentLabel);
+
+          labels.forEach((label) => {
+            try {
+              if (!label || label.classList.contains('required')) return;
+              label.classList.add('required');
+              label.setAttribute('data-required-auto', '1');
+            } catch (_) {}
+          });
+        } catch (_) {}
+      });
+    } catch (_) {}
+  };
+
+  UI.bindRequiredMarkers = function bindRequiredMarkers() {
+    try {
+      let scheduled = false;
+      const queueSync = (root) => {
+        if (scheduled) return;
+        scheduled = true;
+        const targetRoot = (root && root.querySelectorAll) ? root : document;
+        const run = () => {
+          scheduled = false;
+          try { UI.syncRequiredMarkers(targetRoot); } catch (_) {}
+        };
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(run);
+        } else {
+          window.setTimeout(run, 0);
+        }
+      };
+
+      queueSync(document);
+      document.addEventListener('change', () => queueSync(document), true);
+      document.addEventListener('input', () => queueSync(document), true);
+
+      const observer = new MutationObserver((mutations) => {
+        let targetRoot = document;
+        for (const mutation of mutations || []) {
+          if (mutation && mutation.target && mutation.target.querySelectorAll) {
+            targetRoot = mutation.target;
+            break;
+          }
+        }
+        queueSync(targetRoot);
+      });
+
+      observer.observe(document.documentElement || document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['required', 'aria-required', 'data-required', 'id', 'for', 'class']
+      });
+    } catch (_) {}
+  };
+
   // 自動啟用（不影響舊流程）
   try { UI.bindDateInputMask(); } catch (_) {}
+  try { UI.bindRequiredMarkers(); } catch (_) {}
 
 })();

@@ -16,6 +16,25 @@
   gap: 12px;
 }
 
+
+.repairs-toolbar .module-toolbar-left{align-items:flex-start;}
+.repairs-toolbar .ops-toolbar-summary{white-space:normal;}
+.repairs-sort-select{width:150px;}
+.repairs-filters[hidden],
+.repairs-modal[hidden]{display:none !important;}
+.repairs-empty-actions{justify-content:center;}
+.repairs-kpi-card{position:relative;overflow:hidden;}
+.repairs-kpi-card::before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:4px;
+  background:var(--ops-accent, var(--module-accent));
+  opacity:.95;
+}
+.repairs-kpi-value{color:var(--ops-accent, var(--color-text));}
+.repairs-kpi-card--loading .repairs-kpi-value{color:var(--color-text-secondary);}
+
 /* ========================================
    工具列（共用 module-toolbar）
    ======================================== */
@@ -96,12 +115,25 @@
 }
 
 /* ========================================
-   統計卡片
+   首屏主堆疊 / 統計卡片
    ======================================== */
+.repairs-main-stack{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:12px;
+  min-width:0;
+}
+
 .repairs-stats {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+  min-width:0;
+  align-items:stretch;
+}
+
+.repairs-stats > *{
+  min-width:0;
 }
 
 
@@ -109,22 +141,24 @@
    維修列表
    ======================================== */
 .repairs-content {
-  flex: 1;
-  overflow-y: auto;
+  min-width:0;
+  overflow:visible;
 }
 
 .repairs-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width:0;
 }
 
 
 .repairs-list-header{
   display:grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
+  min-width:0;
 }
 
 @media (max-width: 900px){
@@ -136,7 +170,7 @@
   flex-direction: column;
   gap: 10px;
   align-items:flex-start;
-  min-width:240px;
+  min-width:0;
 }
 
 /* 右側工具列：搜尋 + 排序同列排列（寬度不足時自動換行） */
@@ -147,9 +181,10 @@
   gap: 10px;
   align-items:center;
   justify-content:flex-end;
+  min-width:0;
 }
 
-.repairs-right-block.keyword-block{flex: 1 1 420px; justify-content:flex-end;}
+.repairs-right-block.keyword-block{flex: 1 1 420px; min-width:min(420px, 100%); justify-content:flex-end;}
 .repairs-right-block.sort-block{flex: 0 0 auto; justify-content:flex-end;}
 .repairs-right-block.keyword-block,
 .repairs-right-block.sort-block{flex-wrap: nowrap;}
@@ -169,6 +204,7 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items:center;
+  min-width:0;
 }
 .repairs-list-sort {
   display: flex;
@@ -177,8 +213,8 @@
 }
 
 /* 列表關鍵字搜尋 */
-.repairs-search{display:flex;align-items:stretch;gap:6px;max-width:620px;width:100%;}
-.repairs-keyword{min-width:240px; flex: 1 1 280px;}
+.repairs-search{display:flex;align-items:stretch;gap:6px;max-width:620px;width:100%;min-width:0;}
+.repairs-keyword{min-width:0; flex: 1 1 280px;}
 .repairs-search .btn{white-space:nowrap; min-width:56px; justify-content:center;}
 .repairs-search #repairs-keyword-clear{min-width:44px;}
 
@@ -195,6 +231,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
+  min-width:0;
 }
 
 
@@ -228,6 +265,12 @@
    維修卡片（改為套用 core/ui.css 的 .card 結構）
    ======================================== */
 .repair-card{cursor:pointer;}
+.repair-card-error{
+  border-color: rgba(217, 119, 6, 0.28);
+  background: linear-gradient(180deg, rgba(255,247,237,0.95) 0%, rgba(255,251,235,0.98) 100%);
+}
+.repair-card-shell--error .repair-card-actions{display:none;}
+
 .repair-card-id{
   font-size: var(--fs-13);
   font-weight: 900;
@@ -1224,5 +1267,60 @@
   }
   .repair-overview-item {
     min-height: auto;
+  }
+}
+
+.repair-billing-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.repair-billing-mini-item {
+  min-height: 88px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted, rgba(148,163,184,.08));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repair-billing-mini-item span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.repair-billing-mini-item strong {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--color-text);
+}
+
+.repair-billing-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(37, 99, 235, .12);
+  background: rgba(37, 99, 235, .06);
+}
+
+.repair-billing-note span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.repair-billing-note div {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+@media (max-width: 760px) {
+  .repair-billing-mini-grid {
+    grid-template-columns: 1fr;
   }
 }

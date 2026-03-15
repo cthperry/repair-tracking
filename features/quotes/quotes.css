@@ -16,10 +16,10 @@
 }
 
 .quotes-filters {
-  padding: 10px 12px;
-  background: linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 .quotes-filters-inner{display:flex;flex-direction:column;gap:10px;}
@@ -223,4 +223,37 @@
 }
 .quote-form .quote-items-table thead th{
   white-space:nowrap;
+}
+
+
+.quote-command-actions{margin-left:auto;}
+.quote-detail-footer{
+  margin-top:8px;
+  padding:14px 16px;
+  justify-content:space-between;
+  align-items:flex-start;
+  border:1px solid var(--color-border);
+  border-top:1px solid var(--color-border);
+  border-radius:16px;
+  background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  box-shadow:none;
+}
+.quote-detail-footer .business-modal-footer-actions{
+  margin-left:auto;
+}
+.quote-detail-footer .btn{
+  min-width:110px;
+}
+@media (max-width: 768px){
+  .quote-detail-footer{
+    align-items:stretch;
+  }
+  .quote-detail-footer .business-modal-footer-actions{
+    margin-left:0;
+    width:100%;
+  }
+  .quote-detail-footer .btn{
+    width:100%;
+    min-width:0;
+  }
 }

@@ -20,7 +20,7 @@ class DashboardController {
       if (window.AppRegistry && typeof window.AppRegistry.ensureReady === 'function') {
         await AppRegistry.ensureReady([
           'RepairService', 'QuoteService', 'OrderService',
-          'MaintenanceService', 'CustomerService', 'RepairPartsService'
+          'CustomerService', 'RepairPartsService'
         ], { silent: true });
       }
 

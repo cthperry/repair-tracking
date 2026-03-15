@@ -80,6 +80,37 @@
       return String(key || '').trim().replace(/,/g, '.');
     }
 
+    async _syncUsersByEmail({ uid, email, displayName, role, isDisabled, mustChangePassword, now }) {
+      const e = String(email || '').trim().toLowerCase();
+      const id = String(uid || '').trim();
+      if (!e || !id) return false;
+      const key = this._safeEmailKey(e);
+      const payload = {
+        uid: id,
+        email: e,
+        displayName: String(displayName || '').trim() || e.split('@')[0],
+        updatedAt: now
+      };
+      if (role === 'admin' || role === 'engineer') payload.role = role;
+      if (typeof isDisabled === 'boolean') payload.isDisabled = isDisabled;
+      if (typeof mustChangePassword === 'boolean') payload.mustChangePassword = mustChangePassword;
+      await this.db.ref(`usersByEmail/${key}`).update(payload);
+      return true;
+    }
+
+    async _lookupUidFromUsersNode(email) {
+      const e = String(email || '').trim().toLowerCase();
+      if (!e || !e.includes('@')) return null;
+      try {
+        const snap = await this.db.ref('users').orderByChild('email').equalTo(e).limitToFirst(1).once('value');
+        const val = snap.val() || {};
+        const uid = Object.keys(val)[0] || null;
+        return uid ? String(uid) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
     async createUser({ email, displayName, role }) {
       this._assertAdmin();
       await this.init();
@@ -118,15 +149,16 @@
         // role 以單欄位寫入（若權限不足則忽略；由管理者稍後調整）
         try { await this.db.ref(`users/${uid}/role`).set(r); } catch (_) {}
 
-        // email 索引（相容舊版 + 新版）
-        const key = this._safeEmailKey(e);
-        try { await this.db.ref(`userEmailIndex/${key}`).set(uid); } catch (_) {}
+        // email 目錄：以 usersByEmail 為唯一正式索引
         try {
-          await this.db.ref(`usersByEmail/${key}`).update({
+          await this._syncUsersByEmail({
             uid,
             email: e,
             displayName: name,
-            updatedAt: now
+            role: r,
+            isDisabled: false,
+            mustChangePassword: true,
+            now
           });
         } catch (_) {}
 
@@ -242,13 +274,14 @@
         const email = (u.email || '').toString().trim().toLowerCase();
         const uid = (u.uid || '').toString().trim();
         if (!email || !uid) continue;
-        const key = this._safeEmailKey(email);
-        tasks.push(this.db.ref(`userEmailIndex/${key}`).set(uid).catch(() => null));
-        tasks.push(this.db.ref(`usersByEmail/${key}`).update({
+        tasks.push(this._syncUsersByEmail({
           uid,
           email,
           displayName: (u.displayName || email.split('@')[0] || '').toString(),
-          updatedAt: now
+          role: (u.role === 'admin') ? 'admin' : 'engineer',
+          isDisabled: (typeof u.isDisabled === 'boolean') ? !!u.isDisabled : undefined,
+          mustChangePassword: (typeof u.mustChangePassword === 'boolean') ? !!u.mustChangePassword : undefined,
+          now
         }).catch(() => null));
       }
       await Promise.all(tasks);
@@ -268,22 +301,16 @@
       if (!e || !e.includes('@')) return null;
       const key = this._safeEmailKey(e);
 
-      // 1) 舊索引：userEmailIndex
+      // 1) 正式索引：usersByEmail
       try {
-        const snap = await this.db.ref(`userEmailIndex/${key}`).once('value');
-        const uid = snap.val();
-        if (uid) return String(uid);
-      } catch (_) {}
-
-      // 2) 新索引：usersByEmail
-      try {
-        const snap2 = await this.db.ref(`usersByEmail/${key}`).once('value');
-        const row = snap2.val() || null;
+        const snap = await this.db.ref(`usersByEmail/${key}`).once('value');
+        const row = snap.val() || null;
         const uid = row && (row.uid || row);
         if (uid) return String(uid);
       } catch (_) {}
 
-      return null;
+      // 2) 結構性回補：直接以 /users.email 查詢，不再碰未授權的舊 userEmailIndex
+      return this._lookupUidFromUsersNode(e);
     }
 
     async restoreExistingUserByEmail(email, opts = {}) {
@@ -396,16 +423,16 @@
         try { await ref.child('role').set(desiredRole); } catch (_) {}
       }
 
-      // email index
-      const key = this._safeEmailKey(e);
-      try { await this.db.ref(`userEmailIndex/${key}`).set(uid); } catch (_) {}
+      // email 目錄：以 usersByEmail 為唯一正式索引
       try {
-        await this.db.ref(`usersByEmail/${key}`).update({
+        await this._syncUsersByEmail({
           uid,
           email: e,
           displayName: name,
           role: desiredRole,
-          updatedAt: now
+          isDisabled: patch.isDisabled,
+          mustChangePassword: patch.mustChangePassword,
+          now
         });
       } catch (_) {}
 

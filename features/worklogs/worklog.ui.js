@@ -423,6 +423,8 @@ class WorkLogUI {
     });
 
     sectionEl.addEventListener('submit', (e) => {
+      try { e.preventDefault(); } catch (_) {}
+      try { e.stopPropagation(); } catch (_) {}
       const form = e.target && e.target.closest ? e.target.closest('form[data-action="worklog-submit-form"]') : null;
       if (!form || !sectionEl.contains(form)) return;
       return WorkLogUI.handleSubmit(e);

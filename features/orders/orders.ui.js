@@ -69,7 +69,11 @@ class OrdersUI {
   _isOverdue(order, today = '') {
     const o = order || {};
     const st = (o.status || '').toString().trim();
-    if (st === '已到貨' || st === '已結案' || st === '已取消') return false;
+    try {
+      if (window.AppConfig && typeof window.AppConfig.isTerminalBusinessStatus === 'function' && window.AppConfig.isTerminalBusinessStatus('order', st)) {
+        return false;
+      }
+    } catch (_) {}
     const expected = (o.expectedAt || '').toString().trim();
     if (!expected) return false;
     const t = today || this._todayTaipei();
@@ -124,6 +128,14 @@ class OrdersUI {
     return m ? m[1] : '';
   }
 
+
+  _isoToDateTime(v) {
+    const s = (v || '').toString().trim();
+    if (!s) return '—';
+    const x = s.replace('T', ' ');
+    return x.length >= 19 ? x.slice(0, 19) : x;
+  }
+
   _toNumberOrNull(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -139,13 +151,6 @@ class OrdersUI {
         return window.AppConfig.getStatusBadgeClass('order', status);
       }
     } catch (_) {}
-
-    const s = (status || '').toString().trim();
-    if (s === '已結案') return 'badge-success';
-    if (s === '已到貨') return 'badge-warning';
-    if (s === '已下單') return 'badge-info';
-    if (s === '已取消') return 'badge-error';
-    if (s === '建立') return 'badge-primary';
     return '';
   }
 
@@ -155,13 +160,6 @@ class OrdersUI {
         return window.AppConfig.getStatusAccent('order', status);
       }
     } catch (_) {}
-
-    const s = (status || '').toString().trim();
-    if (s === '已結案') return { accent: '#16a34a', soft: 'rgba(22,163,74,.14)' };
-    if (s === '已到貨') return { accent: '#d97706', soft: 'rgba(217,119,6,.15)' };
-    if (s === '已下單') return { accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' };
-    if (s === '已取消') return { accent: '#dc2626', soft: 'rgba(220,38,38,.12)' };
-    if (s === '建立') return { accent: '#2563eb', soft: 'rgba(37,99,235,.12)' };
     return { accent: 'var(--module-accent)', soft: 'var(--module-accent-soft)' };
   }
 
@@ -170,8 +168,8 @@ class OrdersUI {
     if (!el) return;
 
     el.innerHTML = `
-      <div class="orders-module">
-        <div class="module-toolbar">
+      <div class="orders-module ops-module-shell business-module-shell">
+        <div class="module-toolbar business-module-toolbar">
           <div class="module-toolbar-left">
             <div class="page-title">
               <h2>訂單/採購追蹤</h2>
@@ -188,9 +186,9 @@ class OrdersUI {
           </div>
         </div>
 
-        <div class="orders-summary" id="orders-summary"></div>
-        <div class="orders-filters" id="orders-filters"></div>
-        <div class="orders-list" id="orders-list"><div class="muted" style="padding:16px;">載入中...</div></div>
+        <div class="orders-summary business-summary" id="orders-summary"></div>
+        <div class="panel orders-filters ops-filter-panel business-filter-panel" id="orders-filters"></div>
+        <div class="panel orders-list business-list-panel" id="orders-list"><div class="muted" style="padding:16px;">載入中...</div></div>
       </div>
 
       <div id="orders-modal" class="modal" style="display:none;">
@@ -507,6 +505,14 @@ class OrdersUI {
     return rows;
   }
 
+  _sortLabel() {
+    const key = this.sortKey || 'updatedAt_desc';
+    if (key === 'orderedAt_desc') return '下單日（新→舊）';
+    if (key === 'expectedAt_asc') return '預計到貨（近→遠）';
+    if (key === 'totalAmount_desc') return '金額（高→低）';
+    return '最近更新';
+  }
+
   renderLoadingCards() {
     const isMobile = (window.AppConfig && window.AppConfig.device && typeof window.AppConfig.device.isMobile === 'function')
       ? window.AppConfig.device.isMobile()
@@ -646,13 +652,22 @@ class OrdersUI {
     const hasMore = visible.length < total;
 
     host.innerHTML = `
-      <div class="card-list orders-cards is-rendering">
-        ${this.renderLoadingCards()}
-      </div>
-      <div class="orders-list-footer">
-        <div class="muted">已顯示 <span class="mono">${visible.length}</span> / <span class="mono">${total}</span></div>
-        <div class="orders-list-footer-actions">
-          ${hasMore ? `<button class="btn" data-action="orders.loadMore">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
+      <div class="business-list-shell">
+        <div class="business-panel-head">
+          <div class="business-panel-heading">
+            <div class="business-panel-eyebrow">Order Queue</div>
+            <div class="business-panel-title">訂單採購清單</div>
+          </div>
+          <div class="business-panel-meta">排序：${this._escapeHtml(this._sortLabel())} ・ 共 ${total} 筆</div>
+        </div>
+        <div class="card-list orders-cards is-rendering">
+          ${this.renderLoadingCards()}
+        </div>
+        <div class="orders-list-footer">
+          <div class="muted">已顯示 <span class="mono">${visible.length}</span> / <span class="mono">${total}</span></div>
+          <div class="orders-list-footer-actions">
+            ${hasMore ? `<button class="btn" data-action="orders.loadMore">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
+          </div>
         </div>
       </div>
     `;
@@ -946,18 +961,46 @@ class OrdersUI {
       return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0);
     }, 0);
 
+    let statusAccent = 'var(--module-accent)';
+    let statusSoft = 'var(--module-accent-soft)';
+    try {
+      const accent = window.AppConfig?.getStatusAccent?.('order', o.status);
+      statusAccent = accent?.accent || statusAccent;
+      statusSoft = accent?.soft || statusSoft;
+    } catch (_) {}
+
+    const safeCustomer = this._escapeHtml(customer || '—');
+    const safeSupplier = this._escapeHtml(supplier || '—');
+    const safeMachine = this._escapeHtml(machine || '—');
+    const safeRepair = this._escapeHtml(repairLabel || '—');
+    const safeCurrency = this._escapeHtml(o.currency || 'TWD');
+    const safeOrderNo = this._escapeHtml(o.orderNo || '未編號訂單');
+    const safeStatus = this._escapeHtml(o.status || '新建');
+    const safeAmount = this._escapeHtml(String(draftTotal));
+    const safeItemCount = this._escapeHtml(String(draftItems.length));
+    const safeOrderedAt = this._escapeHtml(this._isoYmd(o.orderedAt) || '—');
+    const safeExpectedAt = this._escapeHtml(this._isoYmd(o.expectedAt) || '—');
+    const safeReceivedAt = this._escapeHtml(this._isoYmd(o.receivedAt) || '—');
+    const safeUpdatedAt = this._escapeHtml(this._isoToDateTime(o.updatedAt));
+    const safeNote = this._escapeHtml((o.note || '').toString().trim());
+    const headerSub = metaLine ? this._escapeHtml(metaLine) : '採購狀態、供應商與到貨節點已整合在同一總覽層。';
+    const isOverdue = this._isOverdue(o);
+    const overviewSignals = [
+      `<span class="enterprise-detail-overview-chip ${o.receivedAt ? 'tone-success' : 'tone-warning'}">${o.receivedAt ? '已收貨' : '待收貨'}</span>`,
+      supplier ? '<span class="enterprise-detail-overview-chip tone-primary">已指定供應商</span>' : '<span class="enterprise-detail-overview-chip">尚未指定供應商</span>',
+      isOverdue ? '<span class="enterprise-detail-overview-chip tone-warning">交期逾期</span>' : '<span class="enterprise-detail-overview-chip">交期正常</span>'
+    ].join('');
+
     return `
       <div class="modal-dialog modal-xlarge order-detail-modal">
         <div class="modal-header">
           <div class="detail-header-left">
             <div class="orders-detail-title">
-              <h3>${this._escapeHtml(o.orderNo || '訂單明細')}</h3>
-              ${metaLine ? `<div class="muted orders-detail-sub">${this._escapeHtml(metaLine)}</div>` : ''}
+              <h3>${safeOrderNo}</h3>
+              <div class="muted orders-detail-sub">${headerSub}</div>
             </div>
           </div>
           <div class="detail-header-right">
-            <span class="badge ${this._badgeClassForOrderStatus(o.status)}">${this._escapeHtml(o.status || '')}</span>
-            <span class="badge" id="orderHeaderTotal_${idSafe}">$ ${this._escapeHtml(draftTotal)} ${this._escapeHtml(o.currency || 'TWD')}</span>
             <button class="modal-close" type="button" data-action="orders.closeModal">✕</button>
           </div>
         </div>
@@ -965,18 +1008,87 @@ class OrdersUI {
         <form class="modal-body enterprise-form order-form" id="order-detail-form-${idSafe}" data-action="orders.handleSaveOrder">
           <input type="hidden" name="id" value="${this._escapeAttr(o.id)}" />
 
-          <div class="form-context-bar order-form-context">
-            <div class="form-context-main">
-              <span class="form-context-title">訂單表單</span>
-              <div class="form-context-pills">
-                <span class="form-context-pill is-strong">${this._escapeHtml(o.orderNo || '未編號')}</span>
-                <span class="form-context-pill">狀態：${this._escapeHtml(o.status || '新建')}</span>
-                ${customer ? `<span class="form-context-pill">客戶：${this._escapeHtml(customer)}</span>` : ''}
-                ${supplier ? `<span class="form-context-pill">供應商：${this._escapeHtml(supplier)}</span>` : ''}
-                <span class="form-context-pill">項目：${this._escapeHtml(String(draftItems.length))} 筆</span>
+          <section class="enterprise-detail-hero" style="--module-accent:${this._escapeAttr(statusAccent)}; --module-accent-soft:${this._escapeAttr(statusSoft)};">
+            <div class="enterprise-detail-hero-copy">
+              <div class="enterprise-detail-overline">Order Command Center</div>
+              <div class="enterprise-detail-title-row">
+                <h4 class="enterprise-detail-title">${safeOrderNo}</h4>
+                <div class="enterprise-detail-title-aside">
+                  <span class="badge ${this._badgeClassForOrderStatus(o.status)}">${safeStatus}</span>
+                </div>
+              </div>
+              <p class="enterprise-detail-subtitle">${headerSub}</p>
+              <div class="enterprise-detail-chip-row">
+                ${customer ? `<span class="enterprise-detail-chip">客戶 ${safeCustomer}</span>` : ''}
+                ${supplier ? `<span class="enterprise-detail-chip">供應商 ${safeSupplier}</span>` : '<span class="enterprise-detail-chip is-muted">尚未指定供應商</span>'}
+                ${machine ? `<span class="enterprise-detail-chip">設備 ${safeMachine}</span>` : ''}
+                ${repairLabel ? `<span class="enterprise-detail-chip">維修單 ${safeRepair}</span>` : ''}
               </div>
             </div>
-            <p class="form-context-note">採購狀態、供應商、到貨日期與品項明細固定分段，避免收貨資訊散落在備註或列表欄位。</p>
+            <div class="enterprise-detail-hero-stats">
+              <div class="enterprise-mini-stat"><span>採購總額</span><strong>$ ${safeAmount}</strong></div>
+              <div class="enterprise-mini-stat"><span>項目筆數</span><strong>${safeItemCount} 筆</strong></div>
+              <div class="enterprise-mini-stat"><span>預計到貨</span><strong>${safeExpectedAt}</strong></div>
+              <div class="enterprise-mini-stat"><span>最後更新</span><strong>${safeUpdatedAt}</strong></div>
+            </div>
+          </section>
+
+          <section class="enterprise-detail-overview-board">
+            <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Procurement Overview</div>
+                  <div class="enterprise-detail-overview-title">訂單採購總覽</div>
+                </div>
+                <div class="enterprise-detail-overview-signal-row">${overviewSignals}</div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-4">
+                <div class="enterprise-detail-overview-item"><span>訂單狀態</span><strong>${safeStatus}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>幣別</span><strong>${safeCurrency}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>採購總額</span><strong>$ ${safeAmount}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>項目數量</span><strong>${safeItemCount} 筆</strong></div>
+                <div class="enterprise-detail-overview-item"><span>下單日期</span><strong>${safeOrderedAt}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>預計到貨</span><strong>${safeExpectedAt}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>收貨日期</span><strong>${safeReceivedAt}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>最後修改</span><strong>${safeUpdatedAt}</strong></div>
+              </div>
+            </article>
+
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Relation Context</div>
+                  <div class="enterprise-detail-overview-title">關聯案件與供應商</div>
+                </div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+                <div class="enterprise-detail-overview-item"><span>客戶名稱</span><strong>${safeCustomer}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>供應商</span><strong>${safeSupplier}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>設備名稱</span><strong>${safeMachine}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>維修單</span><strong>${safeRepair}</strong></div>
+              </div>
+            </article>
+
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Delivery Note</div>
+                  <div class="enterprise-detail-overview-title">收貨與備註摘要</div>
+                </div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+                <div class="enterprise-detail-overview-item"><span>交期狀態</span><strong>${isOverdue ? '逾期待追蹤' : '正常'}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>收貨節點</span><strong>${o.receivedAt ? '已收貨' : '尚未收貨'}</strong></div>
+              </div>
+              <div class="enterprise-detail-overview-note"><span>採購備註</span><div>${safeNote || '尚未填寫採購備註或收貨說明'}</div></div>
+            </article>
+          </section>
+
+          <div class="enterprise-detail-command-bar enterprise-detail-command-bar-compact">
+            <div class="enterprise-detail-command-title">訂單操作</div>
+            <div class="enterprise-detail-command-actions">
+              <button class="btn" type="button" data-action="orders.closeModal">關閉</button>
+            </div>
           </div>
 
           <div class="form-section">
@@ -1100,8 +1212,11 @@ class OrdersUI {
           </div>
 
           <div class="modal-footer sticky">
-            <button class="btn" type="button" data-action="orders.closeModal">關閉</button>
-            <button class="btn primary" type="submit">儲存</button>
+            <div class="business-modal-footer-copy">供應商、交期與項目已統一在同一份訂單明細內維護，避免資料散落在多個彈窗。</div>
+            <div class="business-modal-footer-actions">
+              <button class="btn" type="button" data-action="orders.closeModal">關閉</button>
+              <button class="btn primary" type="submit">儲存</button>
+            </div>
           </div>
         </form>
       </div>
@@ -1112,6 +1227,8 @@ class OrdersUI {
 const ordersUI = new OrdersUI();
 if (typeof window !== 'undefined') {
   window.ordersUI = ordersUI;
+  window.OrdersUI = OrdersUI;
+  try { window.AppRegistry?.register?.('OrdersUI', ordersUI); } catch (_) {}
 }
 
 Object.assign(OrdersUI, {
@@ -1579,6 +1696,9 @@ OrdersUI.bindDelegatedEvents = function bindDelegatedEvents() {
       if (!form) return;
       if (!inOrders(form)) return;
 
+      try { e.preventDefault(); } catch (_) {}
+      try { e.stopPropagation(); } catch (_) {}
+
       const act = (form.getAttribute('data-action') || '').toString();
       try {
         if (act === 'orders.handleCreateFromQuote') return OrdersUI.handleCreateFromQuote(e);
@@ -1586,6 +1706,7 @@ OrdersUI.bindDelegatedEvents = function bindDelegatedEvents() {
       } catch (err) {
         console.error('[OrdersUI] delegated submit failed:', err);
       }
+      return undefined;
     }, true);
 
   } catch (e) {

@@ -4,7 +4,7 @@
  *
  * 設計原則：
  * - 純前端計算，不新增 Firebase 節點（讀取既有 Service 資料即可）
- * - 每次 refresh 從 RepairService/QuoteService/OrderService/MaintenanceService 彙算
+ * - 每次 refresh 從 RepairService/QuoteService/OrderService 彙算
  * - 通知的「已讀」狀態存 localStorage（輕量）
  * - Dashboard / Header badge 皆可讀取
  */
@@ -167,36 +167,6 @@
     return out;
   }
 
-  function _genMaintenanceDue() {
-    var svc = _svc('MaintenanceService');
-    if (!svc || typeof svc.getDueList !== 'function') return [];
-
-    var list = svc.getDueList() || [];
-    var out = [];
-
-    for (var i = 0; i < list.length; i++) {
-      var row = list[i];
-      var eq = row.equipment || {};
-      var due = row.due || {};
-
-      if (due.status !== 'overdue' && due.status !== 'dueSoon1') continue;
-
-      var label = due.status === 'overdue' ? '已逾期' : '即將到期';
-      out.push({
-        id: 'maint-due-' + (eq.id || i),
-        type: 'maintenance-due',
-        severity: due.status === 'overdue' ? 'high' : 'medium',
-        icon: '🛠️',
-        text: '設備 ' + (eq.equipmentNo || '') + ' ' + (eq.name || '') + ' 保養' + label + (due.nextDue ? '（到期 ' + due.nextDue + '）' : ''),
-        createdAt: new Date().toISOString(),
-        timeLabel: due.nextDue || '',
-        route: 'maintenance',
-        targetId: eq.id
-      });
-    }
-    return out;
-  }
-
   function _genPartsNeeded() {
     var svc = _svc('RepairPartsService');
     if (!svc || typeof svc.getAll !== 'function') return [];
@@ -301,7 +271,6 @@
     try { all = all.concat(_genRepairOverdue()); } catch (_) {}
     try { all = all.concat(_genQuotePending()); } catch (_) {}
     try { all = all.concat(_genOrderWaiting()); } catch (_) {}
-    try { all = all.concat(_genMaintenanceDue()); } catch (_) {}
     try { all = all.concat(_genPartsNeeded()); } catch (_) {}
     try { all = all.concat(_genChargeableNotOrdered()); } catch (_) {}
 
@@ -425,7 +394,7 @@
     });
 
     // 也監聽各模組就緒
-    var events = ['repairs:ready', 'quotes:ready', 'orders:ready', 'machines:ready', 'maintenance:ready'];
+    var events = ['repairs:ready', 'quotes:ready', 'orders:ready', 'machines:ready'];
     for (var i = 0; i < events.length; i++) {
       window.addEventListener(events[i], function () {
         setTimeout(refresh, 200);

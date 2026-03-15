@@ -48,38 +48,6 @@
             "name"
           ]
         },
-        "maintenance": {
-          "equipments": {
-            ".indexOn": [
-              "updatedAt",
-              "createdAt",
-              "equipmentNo",
-              "name",
-              "model",
-              "location",
-              "owner",
-              "cycleUnit",
-              "cycleEvery",
-              "_search"
-            ]
-          },
-          "records": {
-            ".indexOn": [
-              "updatedAt",
-              "createdAt",
-              "performedAt",
-              "equipmentId",
-              "equipmentNo",
-              "equipmentName",
-              "_search"
-            ]
-          },
-          "settings": {
-            ".indexOn": [
-              "updatedAt"
-            ]
-          }
-        },
         "repairLogs": {
           "$rid": {
             ".indexOn": [

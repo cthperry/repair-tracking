@@ -414,7 +414,6 @@ class CustomerUI {
       </div>
     `;
 
-    this._domBound = false; // Reset so handlers rebind to the newly rendered container
     this._bindDomHandlers(container);
     this.updateList();
   }
@@ -532,19 +531,21 @@ class CustomerUI {
 
     // Submit delegation for modal forms
     container.addEventListener('submit', (e) => {
-      e.preventDefault();
+      try { e.preventDefault(); } catch (_) {}
+      try { e.stopPropagation(); } catch (_) {}
       const form = e.target;
       if (!form || !form.id) return;
       if (form.id === 'customer-form') {
         const formsApi = this._getFormsApi();
         if (formsApi && typeof formsApi.handleSubmit === 'function') {
-          formsApi.handleSubmit(e);
+          return formsApi.handleSubmit(e);
         }
       } else if (form.id === 'company-rename-form') {
         if (window.CustomerUI && typeof window.CustomerUI.handleRenameCompany === 'function') {
-          window.CustomerUI.handleRenameCompany(e);
+          return window.CustomerUI.handleRenameCompany(e);
         }
       }
+      return undefined;
     });
   }
 
@@ -787,33 +788,6 @@ class CustomerUI {
     const content = document.getElementById('customer-modal-content');
     if (!modal || !content) return;
     content.innerHTML = html;
-
-    // 直接綁定 #customer-form submit，不依賴事件冒泡穿越 modal 遮罩
-    // 此做法在 position:fixed modal 中最可靠，避免事件委派中斷問題
-    try {
-      const customerForm = content.querySelector('#customer-form');
-      console.log('[openModal] customerForm found:', !!customerForm, customerForm?.id);
-      if (customerForm) {
-        customerForm.addEventListener('submit', (e) => {
-          console.log('[submit] fired on form:', e.target?.id);
-          e.preventDefault();
-          e.stopPropagation();
-          const formsApi = this._getFormsApi();
-          console.log('[submit] formsApi:', formsApi, 'handleSubmit:', typeof formsApi?.handleSubmit);
-          if (formsApi && typeof formsApi.handleSubmit === 'function') {
-            formsApi.handleSubmit(e);
-          } else {
-            console.error('[submit] customerUIFormsApi not available for submit');
-          }
-        });
-        console.log('[openModal] submit listener added to #customer-form');
-      } else {
-        console.warn('[openModal] #customer-form NOT found in content');
-      }
-    } catch (e) {
-      console.warn('openModal: failed to bind customer-form submit:', e);
-    }
-
     // 必須使用 flex，才能套用 core/ui.css 的置中與遮罩排版
     // （先前使用 block 會導致視窗位置偏移，尤其在新增聯絡人/編輯時更明顯）
     modal.hidden = false;
@@ -828,6 +802,18 @@ class CustomerUI {
       if (form && window.FormValidate) {
         window.FormValidate.bindForm(form);
         window.FormValidate.resetForm(form);
+      }
+      if (form && !form.dataset.directSubmitBound) {
+        const directSubmit = (e) => {
+          try { e.preventDefault(); } catch (_) {}
+          try { e.stopPropagation(); } catch (_) {}
+          try { e.stopImmediatePropagation?.(); } catch (_) {}
+          if (form.id === 'customer-form' && window.CustomerUIForms?.handleSubmit) return window.CustomerUIForms.handleSubmit(e);
+          if (form.id === 'company-rename-form' && window.CustomerUI?.handleRenameCompany) return window.CustomerUI.handleRenameCompany(e);
+          return undefined;
+        };
+        form.addEventListener('submit', directSubmit);
+        form.dataset.directSubmitBound = '1';
       }
 
       // 桌機開表單時聚焦第一個可編輯欄位；手機避免一開 modal 就彈出鍵盤
@@ -858,7 +844,7 @@ class CustomerUI {
           <button class="modal-close" data-action="closeModal">✕</button>
         </div>
 
-        <form id="company-rename-form" class="modal-body">
+        <form id="company-rename-form" class="modal-body" onsubmit="event.preventDefault(); event.stopPropagation(); window.CustomerUI.handleRenameCompany(event); return false;">
           <div class="form-section">
             <h4 class="form-section-title">更名設定</h4>
             <div class="form-grid">
@@ -899,6 +885,8 @@ class CustomerUI {
 const customerUI = new CustomerUI();
 if (typeof window !== 'undefined') {
   window.customerUI = customerUI;
+  window.CustomerUI = CustomerUI;
+  try { window.AppRegistry?.register?.('CustomerUI', customerUI); } catch (_) {}
 }
 
 // 靜態方法（由 HTML onclick 呼叫）

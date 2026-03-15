@@ -31,9 +31,13 @@
 }
 
 .serial-item {
+  width:100%;
   padding: 12px;
+  border:0;
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
+  background:transparent;
+  text-align:left;
 }
 
 .serial-item:hover {
@@ -214,4 +218,21 @@
   .summary-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* V161.321 - Machines 與全站共用收斂規格對齊 */
+.machine-panel-header{display:flex;gap:8px;align-items:center;}
+.machines-empty-state{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+
+.machine-enterprise-detail{display:flex;flex-direction:column;gap:14px;}
+.machine-detail-hero-enterprise{margin-bottom:0;}
+.machine-detail-overview-board .enterprise-detail-overview-card{min-height:100%;}
+.machine-detail-actions{display:flex;flex-wrap:wrap;gap:10px;}
+.machine-detail-actions .btn{min-width:140px;}
+.machine-history.enterprise-detail-overview-card{margin-top:0;}
+.history-card{width:100%;text-align:left;}
+.history-card .history-no{color:var(--color-text-primary);}
+@media (max-width: 640px){
+  .machine-detail-actions .btn{width:100%;}
 }

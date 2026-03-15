@@ -242,11 +242,22 @@
 
 
 .customer-form-dialog{
-  width:min(1080px, 96vw);
+  width:min(1040px, 94vw);
   max-height:min(92vh, calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   display:flex;
   flex-direction:column;
   overflow:hidden;
+}
+
+.customer-form-intro{
+  margin:0 0 12px;
+  font-size:12px;
+  line-height:1.6;
+  color:var(--color-text-secondary);
+}
+
+.customer-detail-intro{
+  margin-bottom:14px;
 }
 
 .customer-detail-dialog{
@@ -493,5 +504,88 @@
   .customer-detail-pair{
     grid-template-columns:1fr;
     gap:4px;
+  }
+}
+
+
+/* ========================================
+   Customers Team Convergence（V161.323）
+   ======================================== */
+.customers-toolbar-surface{margin-bottom:0;}
+.customers-filters[hidden],
+#customer-modal[hidden]{display:none !important;}
+.customers-search{width:min(280px, 42vw);}
+.customers-stats{margin:0;}
+.customers-empty-state{grid-column:1/-1;}
+.company-card{
+  padding:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98) 0%, rgba(248,250,252,.96) 100%);
+}
+.company-header{margin-bottom:12px;}
+.company-name{font-weight:800;font-size:17px;letter-spacing:.2px;}
+.company-sub{display:flex;gap:10px;flex-wrap:wrap;line-height:1.6;}
+.company-actions{gap:10px;}
+.contact-row{
+  padding:12px;
+  border-radius:12px;
+  background:linear-gradient(180deg, rgba(248,250,252,.92) 0%, rgba(255,255,255,.98) 100%);
+}
+.contact-badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+@media (max-width: 768px){
+  .customers-module{padding:14px;}
+  .customers-search{width:100%;min-width:0;}
+  .company-cards{grid-template-columns:1fr;}
+}
+
+
+/* ========================================
+   Customers Detail Surface（V161.324）
+   ======================================== */
+.customer-detail-surface{
+  width:min(1080px, 96vw);
+  max-height:min(92vh, calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.customer-detail-body-enterprise{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding-bottom:calc(132px + env(safe-area-inset-bottom));
+}
+.customer-detail-hero-enterprise{
+  margin-bottom:0;
+}
+.customer-detail-overview-board{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+.customer-detail-overview-card-full{
+  grid-column:1 / -1;
+}
+.customer-detail-overview-grid-4 strong,
+.customer-detail-overview-grid-2 strong{
+  line-height:1.6;
+}
+.customer-detail-overview-grid-4 a,
+.customer-detail-overview-grid-2 a{
+  color:inherit;
+  text-decoration:none;
+  border-bottom:1px dashed rgba(37,99,235,.32);
+}
+.customer-detail-overview-grid-4 a:hover,
+.customer-detail-overview-grid-2 a:hover{
+  color:#1d4ed8;
+  border-bottom-color:rgba(37,99,235,.55);
+}
+.customer-detail-footer{
+  justify-content:space-between;
+}
+@media (max-width: 960px){
+  .customer-detail-overview-board{
+    grid-template-columns:1fr;
+  }
+  .customer-detail-overview-card-full{
+    grid-column:auto;
   }
 }

@@ -18,7 +18,7 @@ Wayne_chang<wayne_chang@premtek.com.tw>;`;
       weeklyRecipients: SettingsModel.DEFAULT_WEEKLY_RECIPIENTS,
 
       // 週報『本週工作』資料依據：created=建立日（createdDate/createdAt），updated=更新日（updatedAt）
-      weeklyThisWeekBasis: 'created',
+      weeklyThisWeekBasis: 'updated',
 
       signature: '',
       uiDensity: 'comfortable', // comfortable / compact
@@ -92,7 +92,7 @@ Wayne_chang<wayne_chang@premtek.com.tw>;`;
 
     return {
       weeklyRecipients: String(raw.weeklyRecipients ?? d.weeklyRecipients ?? '').trim(),
-      weeklyThisWeekBasis: (raw.weeklyThisWeekBasis === 'updated') ? 'updated' : 'created',
+      weeklyThisWeekBasis: (raw.weeklyThisWeekBasis === 'created') ? 'created' : 'updated',
       signature: String(raw.signature ?? d.signature ?? '').trim(),
       uiDensity: (raw.uiDensity === 'compact') ? 'compact' : 'comfortable',
       simpleMode: !!(raw.simpleMode),

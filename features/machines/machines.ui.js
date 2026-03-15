@@ -34,37 +34,132 @@ class MachinesUI {
     this.selectedSerial = '';
   }
 
+  _emptyState(title, text, icon='ℹ️') {
+    try {
+      if (window.UI && typeof window.UI.emptyStateHTML === 'function') {
+        return window.UI.emptyStateHTML({ icon, title, text, className: 'machines-empty-state' });
+      }
+    } catch (_) {}
+    return `
+      <div class="empty-state machines-empty-state">
+        <div class="empty-icon" aria-hidden="true">${escapeHtml(icon)}</div>
+        <div class="empty-title">${escapeHtml(title)}</div>
+        <div class="empty-text">${escapeHtml(text)}</div>
+      </div>
+    `.trim();
+  }
+
+  _enterpriseStatHtml(label, value, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.enterpriseStatHTML === 'function') {
+        return window.UI.enterpriseStatHTML(label, value, options);
+      }
+    } catch (_) {}
+    return `<div class="enterprise-mini-stat"><span>${escapeHtml(label || '')}</span><strong>${options.allowHtml ? String(value || '—') : escapeHtml(value || '—')}</strong></div>`;
+  }
+
+  _enterpriseOverviewItemHtml(label, value, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.enterpriseOverviewItemHTML === 'function') {
+        return window.UI.enterpriseOverviewItemHTML(label, value, options);
+      }
+    } catch (_) {}
+    return `<div class="enterprise-detail-overview-item"><span>${escapeHtml(label || '')}</span><strong>${options.allowHtml ? String(value || '—') : escapeHtml(value || '—')}</strong></div>`;
+  }
+
+  _enterpriseOverviewNoteHtml(label, value, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.enterpriseOverviewNoteHTML === 'function') {
+        return window.UI.enterpriseOverviewNoteHTML(label, value, options);
+      }
+    } catch (_) {}
+    return `<div class="enterprise-detail-overview-note"><span>${escapeHtml(label || '')}</span><div>${options.allowHtml ? String(value || '—') : escapeHtml(value || '—')}</div></div>`;
+  }
+
+  _enterpriseSectionHeaderHtml(options = {}) {
+    try {
+      if (window.UI && typeof window.UI.enterpriseSectionHeaderHTML === 'function') {
+        return window.UI.enterpriseSectionHeaderHTML(options);
+      }
+    } catch (_) {}
+    const title = (options.title || '').toString();
+    const desc = (options.desc || '').toString();
+    const eyebrow = (options.eyebrow || '').toString();
+    const actionsHtml = (options.actionsHtml || '').toString();
+    return `<div class="enterprise-section-head"><div class="enterprise-section-copy">${eyebrow ? `<div class="enterprise-section-eyebrow">${escapeHtml(eyebrow)}</div>` : ''}${title ? `<div class="enterprise-section-title">${escapeHtml(title)}</div>` : ''}${desc ? `<div class="enterprise-section-desc">${escapeHtml(desc)}</div>` : ''}</div>${actionsHtml ? `<div class="enterprise-section-actions">${actionsHtml}</div>` : ''}</div>`;
+  }
+
+  _chipHtml(label, options = {}) {
+    try {
+      if (window.UI && typeof window.UI.chipHTML === 'function') {
+        return window.UI.chipHTML(label, options);
+      }
+    } catch (_) {}
+    const tone = (options.tone || '').toString().trim();
+    const extra = (options.className || '').toString().trim();
+    const className = ['chip', options.static ? 'static' : '', options.active ? 'active' : '', tone ? `tone-${tone}` : '', extra].filter(Boolean).join(' ');
+    const tagName = (options.tagName || 'span').toString().toLowerCase() === 'button' ? 'button' : 'span';
+    const attrs = (options.attrs || '').toString().trim();
+    return `<${tagName} class="${className}"${attrs ? ` ${attrs}` : ''}>${options.allowHtml ? String(label || '—') : escapeHtml(label || '—')}</${tagName}>`;
+  }
+
+  _toneForRepairStatus(status = '') {
+    const value = (status || '').toString().trim();
+    if (value === '已完成') return 'success';
+    if (value === '需要零件') return 'warning';
+    return 'primary';
+  }
+
+  _toneForPartsStage(label = '') {
+    const value = (label || '').toString().trim();
+    if (value === '已結案') return 'success';
+    if (value === '待到貨') return 'info';
+    if (value === '待更換') return 'secondary';
+    if (value === '待報價' || value === '待下單') return 'warning';
+    return 'primary';
+  }
+
+  _toneForBusinessStatus(label = '') {
+    const value = (label || '').toString().trim();
+    if (value === '已核准' || value === '已結案') return 'success';
+    if (value === '已送出' || value === '已下單' || value === '已到貨') return 'info';
+    if (value === '草稿' || value === '建立') return 'warning';
+    if (value === '已取消') return 'neutral';
+    return 'primary';
+  }
+
   render(containerId = 'main-content') {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     container.innerHTML = `
-      <div class="machines-module">
+      <div class="machines-module ops-module-shell">
         <div class="machines-header module-toolbar">
           <div class="module-toolbar-left">
-            <div class="page-title">
-              <h2>機台歷史</h2>
-              <span class="muted">依序號快速檢視維修、零件、報價、訂單狀態（Desktop + Mobile 相容）</span>
+            <div>
+              <div class="ops-toolbar-title">
+                <div class="ops-toolbar-heading">機台歷史</div>
+              </div>
+              <div class="ops-toolbar-summary">依序號快速檢視維修、零件、報價、訂單狀態（Desktop + Mobile 相容）</div>
             </div>
           </div>
-          <div class="module-toolbar-right">
-            <button class="btn" onclick="MachinesUI.reload()">重新整理</button>
+          <div class="module-toolbar-right ops-actions">
+            <button class="btn" data-action="reload">重新整理</button>
           </div>
         </div>
 
         <div class="machines-layout">
           <div class="machine-panel card">
-            <div class="machine-panel-header" style="display:flex;gap:8px;align-items:center;">
+            <div class="machine-panel-header ops-actions">
               <input
                 class="input"
                 id="machines-serial-query"
                 placeholder="搜尋序號（支援模糊搜尋）"
                 value="${escapeHtml(this.queryDraft || '')}"
-                oninput="MachinesUI.onQueryDraft(this.value)"
-                onkeydown="MachinesUI.onQueryKeydown(event)"
+
               />
-              <button class="btn" type="button" onclick="MachinesUI.applyQuery()">搜尋</button>
-              <button class="btn ghost" type="button" onclick="MachinesUI.clearQuery()">清除</button>
+              <button class="btn" type="button" data-action="applyQuery">搜尋</button>
+              <button class="btn ghost" type="button" data-action="clearQuery">清除</button>
             </div>
             <div class="serial-list" id="machines-serial-list"></div>
           </div>
@@ -76,8 +171,38 @@ class MachinesUI {
       </div>
     `;
 
+    this._bindDomHandlers(container);
     this.renderSerialList();
     this.renderDetail();
+  }
+
+  _bindDomHandlers(container) {
+    if (!container || container.__machinesDomBound) return;
+    container.__machinesDomBound = true;
+
+    container.addEventListener('click', (event) => {
+      const actionEl = event.target?.closest?.('[data-action]');
+      if (!actionEl || !container.contains(actionEl)) return;
+      const action = (actionEl.getAttribute('data-action') || '').toString();
+      if (!action) return;
+      if (action === 'reload') return MachinesUI.reload();
+      if (action === 'applyQuery') return MachinesUI.applyQuery();
+      if (action === 'clearQuery') return MachinesUI.clearQuery();
+      if (action === 'selectSerial') return MachinesUI.selectSerial(actionEl.getAttribute('data-serial') || '');
+      if (action === 'openRepair') return MachinesUI.openRepair(actionEl.getAttribute('data-repair-id') || '');
+    });
+
+    container.addEventListener('input', (event) => {
+      if (event.target?.id === 'machines-serial-query') {
+        MachinesUI.onQueryDraft(event.target.value);
+      }
+    });
+
+    container.addEventListener('keydown', (event) => {
+      if (event.target?.id === 'machines-serial-query') {
+        MachinesUI.onQueryKeydown(event);
+      }
+    });
   }
 
   getAllRepairsWithSerial() {
@@ -124,13 +249,7 @@ class MachinesUI {
       .sort((a, b) => a.localeCompare(b));
 
     if (serials.length === 0) {
-      listEl.innerHTML = `
-        <div class="machines-empty">
-          <div style="font-size:40px;margin-bottom:10px;">🔎</div>
-          <div style="font-weight:700;margin-bottom:6px;">找不到序號</div>
-          <div class="muted">請調整搜尋條件，或確認維修單已填寫「序號」欄位。</div>
-        </div>
-      `;
+      listEl.innerHTML = this._emptyState('找不到序號', '請調整搜尋條件，或確認維修單已填寫「序號」欄位。', '🔎');
       return;
     }
 
@@ -153,16 +272,16 @@ class MachinesUI {
 
       const active = (serial === this.selectedSerial) ? 'active' : '';
       return `
-        <div class="serial-item ${active}" onclick="MachinesUI.selectSerial('${escapeJsString(serial)}')">
+        <button class="serial-item ${active}" type="button" data-action="selectSerial" data-serial="${escapeHtml(serial)}">
           <div class="serial-top">
             <div class="serial-no">${escapeHtml(serial)}</div>
-            <span class="chip static" style="--chip-color: var(--module-accent);">${escapeHtml(statusText)}</span>
+            ${this._chipHtml(statusText, { static: true, tone: this._toneForRepairStatus(latestStatus || "進行中") })}
           </div>
           <div class="serial-sub">
             <span>維修單：${arr.length} 筆</span>
             ${updatedText ? `<span>更新：${escapeHtml(updatedText)}</span>` : ''}
           </div>
-        </div>
+        </button>
       `;
     }).join('');
   }
@@ -173,13 +292,7 @@ class MachinesUI {
 
     const serial = (this.selectedSerial || '').toString().trim();
     if (!serial) {
-      detailEl.innerHTML = `
-        <div class="machines-empty">
-          <div style="font-size:42px;margin-bottom:10px;">🧾</div>
-          <div style="font-weight:700;margin-bottom:6px;">請先選擇序號</div>
-          <div class="muted">左側清單選取序號後，即可查看狀態總覽與維修履歷。</div>
-        </div>
-      `;
+      detailEl.innerHTML = this._emptyState('請先選擇序號', '左側清單選取序號後，即可查看狀態總覽與維修履歷。', '🧾');
       return;
     }
 
@@ -191,7 +304,6 @@ class MachinesUI {
     });
 
     const latest = repairs[0] || null;
-
     const sum = (window.LinkageHelper && typeof window.LinkageHelper.getForSerial === 'function')
       ? window.LinkageHelper.getForSerial(serial, repairs)
       : null;
@@ -204,51 +316,108 @@ class MachinesUI {
 
     const lastTime = latest ? (latest.completedAt || latest.updatedAt || latest.createdAt || '') : '';
     const lastTimeText = lastTime ? (window.RepairModel?.formatDateTime?.(lastTime) || lastTime) : '';
+    const historyFocusText = latest ? '已整合維修、零件、報價與訂單節點' : '尚無維修履歷';
+
+    const heroStatsHtml = [
+      this._enterpriseStatHtml('維修單數', `${repairs.length} 筆`),
+      this._enterpriseStatHtml('最新進度', `${latestProgress}%`),
+      this._enterpriseStatHtml('報價 / 訂單', (sum?.orders?.total ? this.formatStatusPrimary(sum.orders, '未建立') : this.formatStatusPrimary(sum?.quotes, '未建立'))),
+      this._enterpriseStatHtml('最近更新', lastTimeText || '—')
+    ].join('');
+
+    const machineOverviewHtml = [
+      this._enterpriseOverviewItemHtml('序號', serial),
+      this._enterpriseOverviewItemHtml('客戶', latest ? (latest.customer || latest.customerName || '—') : '—'),
+      this._enterpriseOverviewItemHtml('機台', latest ? (latest.machine || '—') : '—'),
+      this._enterpriseOverviewItemHtml('最後更新', lastTimeText || '—'),
+      this._enterpriseOverviewItemHtml('維修狀態', repairStatusLine),
+      this._enterpriseOverviewItemHtml('最近焦點', historyFocusText)
+    ].join('');
+
+    const workflowNotesHtml = [
+      this._enterpriseOverviewNoteHtml('零件追蹤', this.formatPartsPrimary(sum?.parts)),
+      this._enterpriseOverviewNoteHtml('報價節點', this.formatStatusPrimary(sum?.quotes, '未建立')),
+      this._enterpriseOverviewNoteHtml('訂單節點', this.formatStatusPrimary(sum?.orders, '未建立')),
+      this._enterpriseOverviewNoteHtml('履歷焦點', historyFocusText)
+    ].join('');
+
+    const machineActionsHtml = [
+      latest ? `<button class="btn" type="button" data-action="openRepair" data-repair-id="${escapeHtml(latest.id)}">開啟最新維修單</button>` : '',
+      `<button class="btn ghost" type="button" data-action="clearQuery">返回清單</button>`
+    ].filter(Boolean).join('');
+
+    const historyHeaderHtml = this._enterpriseSectionHeaderHtml({
+      eyebrow: 'Repair History',
+      title: '維修履歷（最新在上）',
+      desc: '同一序號的維修、零件與商務節點已收斂在同一個時間序列中。',
+      actionsHtml: this._chipHtml(`共 ${repairs.length} 筆`, { static: true, tone: 'primary' })
+    });
 
     detailEl.innerHTML = `
-      <div class="machine-summary">
-        <div class="summary-title">
-          <h3>${escapeHtml(serial)}</h3>
-          <div class="muted">最後更新：${escapeHtml(lastTimeText || '-') }</div>
-        </div>
-
-        <div class="summary-grid">
-          <div class="summary-box">
-            <div class="box-title">🔧 維修</div>
-            <div class="box-main">${escapeHtml(repairStatusLine)}</div>
-            <div class="muted">${latest ? `${escapeHtml((latest.customer || latest.customerName || '-')) } · ${escapeHtml(latest.machine || '-') }` : '—'}</div>
+      <div class="machine-enterprise-detail">
+        <section class="enterprise-detail-hero machine-detail-hero-enterprise">
+          <div class="enterprise-detail-hero-copy">
+            <div class="enterprise-detail-overline">Machine Timeline</div>
+            <div class="enterprise-detail-title-row">
+              <div>
+                <h3 class="enterprise-detail-title">${escapeHtml(serial)}</h3>
+                <p class="enterprise-detail-subtitle">整合維修、零件、報價與訂單節點的單機歷史視圖。</p>
+              </div>
+              <div class="enterprise-detail-title-aside">
+                <span class="enterprise-detail-chip">序號視圖</span>
+                <span class="enterprise-detail-chip is-muted">${escapeHtml(repairStatusLine)}</span>
+              </div>
+            </div>
+            <div class="enterprise-detail-chip-row">
+              ${lastTimeText ? `<span class="enterprise-detail-chip">最後更新 ${escapeHtml(lastTimeText)}</span>` : '<span class="enterprise-detail-chip is-muted">尚無更新時間</span>'}
+              <span class="enterprise-detail-chip is-muted">${escapeHtml(historyFocusText)}</span>
+            </div>
           </div>
+          <div class="enterprise-detail-hero-stats">${heroStatsHtml}</div>
+        </section>
 
-          <div class="summary-box">
-            <div class="box-title">🧩 零件</div>
-            <div class="box-main">${escapeHtml(this.formatPartsPrimary(sum?.parts))}</div>
-            <div class="summary-chips">${this.renderPartsStageChips(sum?.parts)}</div>
+        <section class="enterprise-detail-overview-board machine-detail-overview-board">
+          <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary">
+            <div class="enterprise-detail-overview-card-head">
+              <div>
+                <div class="enterprise-detail-overview-eyebrow">Machine Overview</div>
+                <div class="enterprise-detail-overview-title">單機狀態總覽</div>
+              </div>
+              <div class="enterprise-detail-overview-signal-row">
+                <span class="enterprise-detail-overview-chip tone-primary">維修 ${repairs.length} 筆</span>
+                <span class="enterprise-detail-overview-chip tone-primary">歷史視圖</span>
+              </div>
+            </div>
+            <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">${machineOverviewHtml}</div>
+          </article>
+
+          <article class="enterprise-detail-overview-card">
+            <div class="enterprise-detail-overview-card-head">
+              <div>
+                <div class="enterprise-detail-overview-eyebrow">Flow Summary</div>
+                <div class="enterprise-detail-overview-title">流程節點摘要</div>
+              </div>
+            </div>
+            <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">${workflowNotesHtml}</div>
+          </article>
+
+          <article class="enterprise-detail-overview-card">
+            <div class="enterprise-detail-overview-card-head">
+              <div>
+                <div class="enterprise-detail-overview-eyebrow">Linked Actions</div>
+                <div class="enterprise-detail-overview-title">快速處置</div>
+              </div>
+            </div>
+            <div class="machine-detail-actions ops-actions">${machineActionsHtml}</div>
+          </article>
+        </section>
+
+        <section class="machine-history enterprise-detail-overview-card">
+          ${historyHeaderHtml}
+          <div class="history-list">
+            ${repairs.map(r => this.renderHistoryCard(r)).join('')}
           </div>
-
-          <div class="summary-box">
-            <div class="box-title">🧾 報價</div>
-            <div class="box-main">${escapeHtml(this.formatStatusPrimary(sum?.quotes, '未建立'))}</div>
-            <div class="summary-chips">${this.renderStatusCountChips(sum?.quotes, ['草稿','已送出','已核准','已取消'])}</div>
-          </div>
-
-          <div class="summary-box">
-            <div class="box-title">📦 訂單</div>
-            <div class="box-main">${escapeHtml(this.formatStatusPrimary(sum?.orders, '未建立'))}</div>
-            <div class="summary-chips">${this.renderStatusCountChips(sum?.orders, ['建立','已下單','已到貨','已結案','已取消'])}</div>
-          </div>
-
-          ${this.renderMaintenanceSummaryBox(serial, latest)}
-        </div>
-      </div>
-
-      <div class="machine-history">
-        <div class="machine-history-header">
-          <h4>維修履歷（最新在上）</h4>
-          <div class="muted">共 ${repairs.length} 筆</div>
-        </div>
-        <div class="history-list">
-          ${repairs.map(r => this.renderHistoryCard(r)).join('')}
-        </div>
+        </section>
       </div>
     `;
   }
@@ -267,7 +436,7 @@ class MachinesUI {
 
   renderPartsStageChips(partsSummary) {
     if (!partsSummary || !partsSummary.total) {
-      return `<span class="chip static" style="--chip-color: #64748b;">無</span>`;
+      return this._chipHtml('無', { static: true, tone: 'neutral' });
     }
 
     const total = partsSummary.total;
@@ -289,13 +458,12 @@ class MachinesUI {
     for (const label of order) {
       const c = stageCounts[label] || 0;
       if (c <= 0) continue;
-      const color = colors[label] || 'var(--module-accent)';
-      chips.push(`<span class="chip static" style="--chip-color: ${color};">${escapeHtml(label)} ${c}/${total}</span>`);
+      chips.push(this._chipHtml(`${label} ${c}/${total}`, { static: true, tone: this._toneForBusinessStatus(label) }));
     }
 
     // 若全都 0，代表都已結案
     if (chips.length === 0) {
-      return `<span class="chip static" style="--chip-color: var(--color-success);">已結案 ${total}/${total}</span>`;
+      return this._chipHtml(`已結案 ${total}/${total}`, { static: true, tone: 'success' });
     }
 
     return chips.join('');
@@ -303,7 +471,7 @@ class MachinesUI {
 
   renderStatusCountChips(summary, order) {
     if (!summary || !summary.total) {
-      return `<span class="chip static" style="--chip-color: #64748b;">無</span>`;
+      return this._chipHtml('無', { static: true, tone: 'neutral' });
     }
 
     const total = summary.total;
@@ -325,18 +493,17 @@ class MachinesUI {
     for (const label of order) {
       const c = by[label] || 0;
       if (c <= 0) continue;
-      const color = colors[label] || 'var(--module-accent)';
-      chips.push(`<span class="chip static" style="--chip-color: ${color};">${escapeHtml(label)} ${c}/${total}</span>`);
+      chips.push(this._chipHtml(`${label} ${c}/${total}`, { static: true, tone: this._toneForPartsStage(label) }));
     }
 
     // 其他未知狀態也列出（但不干擾排序）
     for (const [k, v] of Object.entries(by)) {
       if (order.includes(k)) continue;
       if (v <= 0) continue;
-      chips.push(`<span class="chip static" style="--chip-color: var(--module-accent);">${escapeHtml(k)} ${v}/${total}</span>`);
+      chips.push(this._chipHtml(`${k} ${v}/${total}`, { static: true, tone: this._toneForBusinessStatus(k) }));
     }
 
-    return chips.length ? chips.join('') : `<span class="chip static" style="--chip-color: #64748b;">—</span>`;
+    return chips.length ? chips.join('') : this._chipHtml('—', { static: true, tone: 'neutral' });
   }
 
   renderHistoryCard(repair) {
@@ -367,10 +534,10 @@ class MachinesUI {
       : '—';
 
     return `
-      <div class="history-card" onclick="MachinesUI.openRepair('${escapeJsString(repair.id)}')">
+      <button class="history-card" type="button" data-action="openRepair" data-repair-id="${escapeHtml(repair.id)}">
         <div class="history-top">
           <div class="history-no">${no}</div>
-          <span class="chip static" style="--chip-color: var(--module-accent);">${status} ${progress}%</span>
+          ${this._chipHtml(`${status} ${progress}%`, { static: true, tone: this._toneForRepairStatus(repair.status) })}
         </div>
         <div class="history-sub">
           <span>${customer}</span>
@@ -378,276 +545,12 @@ class MachinesUI {
           ${timeText ? `<span>時間：${escapeHtml(timeText)}</span>` : ''}
         </div>
         <div class="history-chips">
-          <span class="chip static" style="--chip-color: var(--color-warning);">🧩 ${escapeHtml(partsText)}</span>
-          <span class="chip static" style="--chip-color: var(--color-accent);">🧾 ${escapeHtml(quotesText)}</span>
-          <span class="chip static" style="--chip-color: var(--color-secondary);">📦 ${escapeHtml(ordersText)}</span>
+          ${this._chipHtml(`🧩 ${partsText}`, { static: true, tone: 'warning' })}
+          ${this._chipHtml(`🧾 ${quotesText}`, { static: true, tone: 'info' })}
+          ${this._chipHtml(`📦 ${ordersText}`, { static: true, tone: 'secondary' })}
         </div>
-      </div>
+      </button>
     `;
-  }
-
-
-  // ================================
-  // Maintenance（機台保養）整合 - MNT-3
-  // ================================
-  _getMaintenanceService() {
-    return window._svc('MaintenanceService');
-  }
-
-  async _ensureMaintenanceInit() {
-    // 深連結情境：避免直接 svc.init；走 ensureReady
-    try {
-      if (window.AppRegistry && typeof window.AppRegistry.ensureReady === 'function') {
-        await window.AppRegistry.ensureReady(['MaintenanceService'], { loadAll: false });
-      }
-    } catch (e) {
-      console.warn('MaintenanceService ensureReady failed:', e);
-    }
-    return this._getMaintenanceService();
-  }
-
-  _getLatestRepairForSerial(serial) {
-    const sn = (serial || '').toString().trim();
-    if (!sn) return null;
-    const repairs = this.getAllRepairsWithSerial().filter(r => r.serialNumber === sn);
-    repairs.sort((a, b) => {
-      const aT = (a.completedAt || a.updatedAt || a.createdAt || '').toString();
-      const bT = (b.completedAt || b.updatedAt || b.createdAt || '').toString();
-      return (bT > aT) ? 1 : (bT < aT) ? -1 : 0;
-    });
-    return repairs[0] || null;
-  }
-
-  _buildMaintenancePrefill(serial, latestRepair) {
-    const sn = (serial || '').toString().trim();
-    const r = latestRepair || null;
-    const pf = {
-      equipmentNo: sn,
-      name: r?.machine || '',
-      model: r?.productLine || '',
-      location: r?.customer || '',
-      owner: r?.ownerName || '',
-      ownerEmail: r?.ownerEmail || '',
-      installDate: '',
-      cycleEvery: 30,
-      cycleUnit: 'day',
-      remindDays: [],
-      tags: []
-    };
-    // tags：優先 productLine，其次 customer
-    const tags = [];
-    if (pf.model) tags.push(pf.model);
-    if (pf.location) tags.push(pf.location);
-    pf.tags = tags.slice(0, 5);
-    return pf;
-  }
-
-  renderMaintenanceSummaryBox(serial, latestRepair) {
-    const sn = (serial || '').toString().trim();
-    const svc = this._getMaintenanceService();
-
-    // 服務不存在
-    if (!svc) {
-      return `
-        <div class="summary-box">
-          <div class="box-title">🛠️ 保養</div>
-          <div class="box-main">未載入</div>
-          <div class="muted">MaintenanceService 未載入（請確認模組已整合）</div>
-          <div class="summary-chips"><span class="chip static" style="--chip-color:#64748b;">—</span></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            <button class="btn" onclick="MachinesUI.openMaintenance('${escapeJsString(sn)}')">開啟</button>
-          </div>
-        </div>
-      `;
-    }
-
-    // 尚未初始化：先顯示載入中（Phase 1：UI 不直接呼叫 svc.init；統一走 AppRegistry.ensureReady）
-    if (!svc.isInitialized) {
-      try {
-        if (!svc.__machinesReadyRequested && window.AppRegistry && typeof window.AppRegistry.ensureReady === 'function') {
-          svc.__machinesReadyRequested = true;
-          window.AppRegistry.ensureReady('MaintenanceService').then(() => {
-            try { delete svc.__machinesReadyRequested; } catch (_) { svc.__machinesReadyRequested = false; }
-            try { window.machinesUI?.renderDetail?.(); } catch (_) {}
-          }).catch(() => {
-            try { delete svc.__machinesReadyRequested; } catch (_) { svc.__machinesReadyRequested = false; }
-          });
-        }
-      } catch (_) {}
-      return `
-        <div class="summary-box">
-          <div class="box-title">🛠️ 保養</div>
-          <div class="box-main">載入中…</div>
-          <div class="muted">正在載入保養資料</div>
-          <div class="summary-chips"><span class="chip static" style="--chip-color:#64748b;">—</span></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            <button class="btn" onclick="MachinesUI.openMaintenance('${escapeJsString(sn)}')">開啟</button>
-          </div>
-        </div>
-      `;
-    }
-
-    const eqs = (typeof svc.getEquipments === 'function') ? (svc.getEquipments() || []) : [];
-    const eq = eqs.find(e => (e?.equipmentNo || '').toString().trim() === sn) || null;
-
-    const chip = (label, color) => `<span class="chip static" style="--chip-color:${color};">${escapeHtml(label)}</span>`;
-
-    if (!eq) {
-      const pf = this._buildMaintenancePrefill(sn, latestRepair);
-      const pfText = (pf.name || pf.model) ? `${escapeHtml(pf.name || '')}${pf.model ? ' · ' + escapeHtml(pf.model) : ''}` : '—';
-      return `
-        <div class="summary-box">
-          <div class="box-title">🛠️ 保養</div>
-          <div class="box-main">未建立</div>
-          <div class="muted">${pfText}</div>
-          <div class="summary-chips">
-            ${chip('未建立設備', '#64748b')}
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            <button class="btn" onclick="MachinesUI.openMaintenance('${escapeJsString(sn)}')">開啟</button>
-            <button class="btn" onclick="MachinesUI.createMaintenanceEquipment('${escapeJsString(sn)}')">建立設備</button>
-            <button class="btn" onclick="MachinesUI.addMaintenanceRecord('${escapeJsString(sn)}')">＋ 建紀錄</button>
-          </div>
-        </div>
-      `;
-    }
-
-    const due = (typeof svc.getDueInfo === 'function') ? (svc.getDueInfo(eq) || {}) : {};
-    const st = (due.status || 'ok').toString();
-    const nextDue = (due.nextDue || '').toString();
-    const lastYMD = (due.lastYMD || '').toString();
-
-    let primary = '正常';
-    let color = 'var(--color-success)';
-    if (st == 'overdue') { primary = `逾期（到期：${nextDue || '—'}）`; color = 'var(--color-error)'; }
-    else if (st == 'dueSoon1') { primary = `即將到期（${nextDue || '—'}）`; color = 'var(--color-warning)'; }
-    else if (st == 'dueSoon2') { primary = `即將到期（${nextDue || '—'}）`; color = 'var(--color-accent)'; }
-    else if (st == 'noRecord') { primary = '尚無紀錄'; color = '#64748b'; }
-    else { primary = `正常（下次：${nextDue || '—'}）`; color = 'var(--color-success)'; }
-
-    const cycleLabel = (window.MaintenanceModel && typeof window.MaintenanceModel.cycleLabel === 'function')
-      ? window.MaintenanceModel.cycleLabel(eq.cycleEvery, eq.cycleUnit)
-      : `${eq.cycleEvery || 30}${(eq.cycleUnit || 'day') === 'month' ? '月' : ((eq.cycleUnit||'day')==='week'?'週':'天')}`;
-
-    return `
-      <div class="summary-box">
-        <div class="box-title">🛠️ 保養</div>
-        <div class="box-main">${escapeHtml(primary)}</div>
-        <div class="muted">上次：${escapeHtml(lastYMD || '—')} · 週期：${escapeHtml(cycleLabel)}</div>
-        <div class="summary-chips">
-          ${chip(st === 'overdue' ? '逾期' : (st === 'dueSoon1' || st === 'dueSoon2' ? '即將到期' : (st === 'noRecord' ? '尚無紀錄' : '正常')), color)}
-          ${lastYMD ? chip(`上次 ${lastYMD}`, 'var(--module-accent)') : ''}
-          ${nextDue ? chip(`下次 ${nextDue}`, 'var(--module-accent)') : ''}
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          <button class="btn" onclick="MachinesUI.openMaintenance('${escapeJsString(sn)}')">開啟</button>
-          <button class="btn" onclick="MachinesUI.addMaintenanceRecord('${escapeJsString(sn)}')">＋ 建紀錄</button>
-          <button class="btn ghost" onclick="MachinesUI.editMaintenanceEquipment('${escapeJsString(sn)}')">編輯設備</button>
-        </div>
-      </div>
-    `;
-  }
-
-  async openMaintenance(serial) {
-    const sn = (serial || '').toString().trim();
-    if (!sn) return;
-
-    const latest = this._getLatestRepairForSerial(sn);
-    const prefill = this._buildMaintenancePrefill(sn, latest);
-
-    const svc = await this._ensureMaintenanceInit();
-    const eqs = (svc && typeof svc.getEquipments === 'function') ? (svc.getEquipments() || []) : [];
-    const eq = eqs.find(e => (e?.equipmentNo || '').toString().trim() === sn) || null;
-
-    // 深連結：若已存在 → 列表篩選；若不存在 → 開啟新增設備 modal（預填）
-    window.__maintenanceDeepLink = eq
-      ? { tab: 'equipments', searchEquip: sn }
-      : { tab: 'equipments', searchEquip: sn, action: { type: 'createEquipment', prefill } };
-
-    if (window.AppRouter?.navigate) {
-      await window.AppRouter.navigate('maintenance');
-    }
-  }
-
-  async createMaintenanceEquipment(serial) {
-    const sn = (serial || '').toString().trim();
-    if (!sn) return;
-
-    const latest = this._getLatestRepairForSerial(sn);
-    const prefill = this._buildMaintenancePrefill(sn, latest);
-
-    const svc = await this._ensureMaintenanceInit();
-    if (!svc || typeof svc.getEquipments !== 'function' || typeof svc.upsertEquipment !== 'function') {
-      window.UI?.toast?.('MaintenanceService 未就緒', { type: 'error' });
-      return;
-    }
-
-    const eqs = svc.getEquipments() || [];
-    let eq = eqs.find(e => (e?.equipmentNo || '').toString().trim() === sn) || null;
-    try {
-      if (!eq) {
-        eq = await svc.upsertEquipment(prefill);
-      }
-    } catch (e) {
-      console.error(e);
-      window.UI?.toast?.(e?.message || '建立設備失敗', { type: 'error' });
-      return;
-    }
-
-    window.__maintenanceDeepLink = { tab: 'equipments', searchEquip: sn, action: { type: 'editEquipment', equipmentId: eq?.id || '' } };
-    if (window.AppRouter?.navigate) {
-      await window.AppRouter.navigate('maintenance');
-    }
-  }
-
-  async editMaintenanceEquipment(serial) {
-    const sn = (serial || '').toString().trim();
-    if (!sn) return;
-
-    const svc = await this._ensureMaintenanceInit();
-    const eqs = (svc && typeof svc.getEquipments === 'function') ? (svc.getEquipments() || []) : [];
-    const eq = eqs.find(e => (e?.equipmentNo || '').toString().trim() === sn) || null;
-
-    if (!eq) {
-      await this.createMaintenanceEquipment(sn);
-      return;
-    }
-
-    window.__maintenanceDeepLink = { tab: 'equipments', searchEquip: sn, action: { type: 'editEquipment', equipmentId: eq.id } };
-    if (window.AppRouter?.navigate) {
-      await window.AppRouter.navigate('maintenance');
-    }
-  }
-
-  async addMaintenanceRecord(serial) {
-    const sn = (serial || '').toString().trim();
-    if (!sn) return;
-
-    const latest = this._getLatestRepairForSerial(sn);
-    const prefill = this._buildMaintenancePrefill(sn, latest);
-
-    const svc = await this._ensureMaintenanceInit();
-    if (!svc || typeof svc.getEquipments !== 'function' || typeof svc.upsertEquipment !== 'function') {
-      window.UI?.toast?.('MaintenanceService 未就緒', { type: 'error' });
-      return;
-    }
-
-    const eqs = svc.getEquipments() || [];
-    let eq = eqs.find(e => (e?.equipmentNo || '').toString().trim() === sn) || null;
-    try {
-      if (!eq) {
-        eq = await svc.upsertEquipment(prefill);
-      }
-    } catch (e) {
-      console.error(e);
-      window.UI?.toast?.(e?.message || '建立設備失敗', { type: 'error' });
-      return;
-    }
-
-    window.__maintenanceDeepLink = { tab: 'records', filterEquipmentId: eq?.id || '', action: { type: 'createRecord', equipmentId: eq?.id || '' } };
-    if (window.AppRouter?.navigate) {
-      await window.AppRouter.navigate('maintenance');
-    }
   }
 
   onQueryDraft(value) {
@@ -753,22 +656,6 @@ class MachinesUI {
 
   static async openRepair(repairId) {
     await window.machinesUI?.openRepair(repairId);
-  }
-
-  static async openMaintenance(serial) {
-    await window.machinesUI?.openMaintenance(serial);
-  }
-
-  static async createMaintenanceEquipment(serial) {
-    await window.machinesUI?.createMaintenanceEquipment(serial);
-  }
-
-  static async editMaintenanceEquipment(serial) {
-    await window.machinesUI?.editMaintenanceEquipment(serial);
-  }
-
-  static async addMaintenanceRecord(serial) {
-    await window.machinesUI?.addMaintenanceRecord(serial);
   }
 }
 

@@ -5,7 +5,7 @@
  * 目標：
  * - 讓使用者在「設定」中切換簡易模式，以降低介面複雜度。
  * - 簡易模式預設僅保留：維修 / 客戶 / 週報 / 設定。
- * - 其餘模組（機台歷史/保養/零件/報價/訂單/知識庫/指南）隱藏並禁止導向。
+ * - 其餘模組（機台歷史/零件/報價/訂單/知識庫/SOP Hub）隱藏並禁止導向。
  */
 (function () {
   'use strict';
@@ -15,9 +15,8 @@
     SIMPLE: 'simple'
   };
 
-  const FULL_ROUTES = ['dashboard', 'repairs', 'machines', 'maintenance', 'customers', 'parts', 'quotes', 'orders', 'analytics', 'kb', 'sops', 'weekly', 'guide', 'settings'];  // N-2 fix: 補上 analytics 與 ROUTE_CONFIG 一致
-  // 與設定頁提示一致：簡易模式仍保留「指南」
-  const SIMPLE_ROUTES = ['dashboard', 'repairs', 'customers', 'weekly', 'guide', 'settings'];
+  const FULL_ROUTES = ['dashboard', 'repairs', 'machines', 'customers', 'parts', 'quotes', 'orders', 'analytics', 'kb', 'sops', 'weekly', 'settings'];
+  const SIMPLE_ROUTES = ['dashboard', 'repairs', 'customers', 'weekly', 'settings'];
 
   let _mode = MODES.STANDARD;
   let _origGlobalSearchOpen = null;

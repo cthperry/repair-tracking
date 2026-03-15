@@ -59,7 +59,7 @@ class CustomerUIForms {
     const hasHistory = Number.isFinite(repairCount) && repairCount > 0;
 
     return `
-      <form id="customer-form" class="modal-dialog modal-large customer-form-dialog" novalidate>
+      <form id="customer-form" class="modal-dialog modal-large customer-form-dialog" novalidate onsubmit="event.preventDefault(); event.stopPropagation(); window.CustomerUIForms.handleSubmit(event); return false;">
         <input type="hidden" name="id" value="${this._escapeAttr(c.id || '')}" />
 
         <div class="modal-header">
@@ -341,23 +341,14 @@ Object.assign(CustomerUIForms, {
   },
 
   async handleSubmit(event) {
-    console.log('[handleSubmit] called, event.type:', event?.type, 'target.id:', event?.target?.id);
     try { event.preventDefault(); } catch (_) {}
+    try { event.stopPropagation(); } catch (_) {}
+    try { event.stopPropagation(); } catch (_) {}
 
-    if (CustomerUIForms._submitting) {
-      console.warn('[handleSubmit] blocked by _submitting flag');
-      return;
-    }
+    if (CustomerUIForms._submitting) return;
 
     const form = event?.target?.closest ? (event.target.closest('form') || event.target) : event?.target;
-    // 注意：使用 getAttribute('id') 而非 form.id
-    // 因為表單內有 <input name="id">，瀏覽器的 named access 會讓 form.id 回傳那個 input 元素而非字串
-    const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : (form?.id || '');
-    console.log('[handleSubmit] formId:', formId);
-    if (!form || formId !== 'customer-form') {
-      console.warn('[handleSubmit] form check failed:', formId);
-      return;
-    }
+    if (!form || form.id !== 'customer-form') return;
 
     try {
       if (window.FormValidate) {

@@ -25,22 +25,6 @@ class SettingsUI {
     if (!container) return;
 
     const settings = await window._svc('SettingsService').getSettings();
-
-    // Maintenance settings（MNT 系列）：允許在「設定」頁面直接管理
-    let maintSettings = null;
-    try {
-      if (window._svc('MaintenanceService') && typeof window._svc('MaintenanceService').init === 'function') {
-        // 避免在 Settings 頁面第一次進入時維護服務未初始化
-        if (!window._svc('MaintenanceService').isInitialized) await window._svc('MaintenanceService').init();
-        if (typeof window._svc('MaintenanceService').getSettings === 'function') {
-          maintSettings = window._svc('MaintenanceService').getSettings();
-        }
-      }
-    } catch (e) {
-      console.warn('SettingsUI: MaintenanceService not ready, skip maintenance settings:', e);
-      maintSettings = null;
-    }
-
     // 取得公司清單（用於釘選新增 autocomplete）
     let companies = [];
     try {
@@ -94,6 +78,11 @@ class SettingsUI {
     const mcModelsText = mcModels.join('\n');
     const mcIsCustom = !!(mcLine && this._machineCatalogCustom && Object.prototype.hasOwnProperty.call(this._machineCatalogCustom, mcLine));
     const mcIsDefault = !!(mcLine && baseCatalog && Object.prototype.hasOwnProperty.call(baseCatalog, mcLine));
+    const weeklyRecipientsCount = String(settings.weeklyRecipients || '').split(/[\n;]/g).map(v => String(v || '').trim()).filter(Boolean).length;
+    const pinnedCompaniesCount = Array.isArray(this._pinnedCompanies) ? this._pinnedCompanies.length : 0;
+    const machineLineCount = allLines.length;
+    const customMachineLineCount = Object.keys(this._machineCatalogCustom || {}).length;
+    const simpleModeLabel = settings.simpleMode ? '簡易模式' : '標準模式';
     // 設定頁 Tab（避免頁面過長）
     const tabKey = `rt_settings_tab_${(window.currentUser && window.currentUser.uid) ? window.currentUser.uid : 'anon'}`;
     const tabs = [
@@ -110,16 +99,54 @@ class SettingsUI {
     this._activeTab = activeTab;
 
     container.innerHTML = `
-      <div class="settings-module">
-        <div class="settings-toolbar module-toolbar">
-          <div class="module-toolbar-left">
-            <div class="page-title">
-              <h2>設定</h2>
-              <span class="muted">週報收件人、簽名檔、常用公司釘選、設備選項、顯示偏好</span>
+      <div class="settings-module ops-module-shell">
+        <div class="enterprise-detail-hero settings-hero">
+          <div class="enterprise-detail-hero-copy">
+            <div class="enterprise-detail-overline">System Settings</div>
+            <div class="enterprise-detail-title-row">
+              <h2 class="enterprise-detail-title">設定中心</h2>
+              <div class="enterprise-detail-title-aside">
+                <span class="enterprise-detail-chip ${settings.simpleMode ? '' : 'is-muted'}">${this.escape(simpleModeLabel)}</span>
+                <span class="enterprise-detail-chip is-muted">BUILD ${this.escape(String(window.AppConfig?.BUILD_NUMBER || '309'))}</span>
+              </div>
+            </div>
+            <p class="enterprise-detail-subtitle">集中管理週報收件人、簽名檔、常用公司、設備選項與帳號權限。各分頁已依維護情境收斂，避免設定散落在不同模組。</p>
+            <div class="enterprise-detail-chip-row">
+              <span class="enterprise-detail-chip">週報寄送</span>
+              <span class="enterprise-detail-chip">常用公司</span>
+              <span class="enterprise-detail-chip">設備清單</span>
+              <span class="enterprise-detail-chip">模板 / 備份</span>
+              ${this.isAdmin() ? '<span class="enterprise-detail-chip">權限管理</span>' : ''}
             </div>
           </div>
-          <div class="module-toolbar-right">
-            <button class="btn primary" onclick="SettingsUI.saveNow()">儲存</button>
+          <div class="enterprise-detail-hero-stats">
+            <div class="enterprise-mini-stat">
+              <span>週報收件人</span>
+              <strong>${weeklyRecipientsCount}</strong>
+            </div>
+            <div class="enterprise-mini-stat">
+              <span>釘選公司</span>
+              <strong>${pinnedCompaniesCount}</strong>
+            </div>
+            <div class="enterprise-mini-stat">
+              <span>產品線</span>
+              <strong>${machineLineCount}</strong>
+            </div>
+            <div class="enterprise-mini-stat">
+              <span>自訂產品線</span>
+              <strong>${customMachineLineCount}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="enterprise-detail-command-bar enterprise-detail-command-bar-compact settings-command-bar">
+          <div class="enterprise-detail-command-copy">
+            <div class="enterprise-detail-command-title">設定操作</div>
+            <div class="enterprise-detail-command-desc">先選分頁，再調整欄位；下方儲存列會持續保留，避免長頁面設定後找不到儲存入口。</div>
+          </div>
+          <div class="enterprise-detail-command-actions">
+            <button class="btn ghost" type="button" id="settings-command-top">回到頂部</button>
+            <button class="btn primary" type="button" id="settings-command-save">儲存設定</button>
           </div>
         </div>
 
@@ -143,18 +170,12 @@ class SettingsUI {
           <div class="settings-card card">
             <div class="settings-card-header card-head">
               <div>
-                <div class="settings-card-title card-title">週報本週工作依據</div>
-                <div class="settings-card-meta muted">建立日：只抓本週內建立的維修單；更新日：只抓本週內有更新的維修單</div>
+                <div class="settings-card-title card-title">週報納入規則</div>
+                <div class="settings-card-meta muted">已改為固定規則，不再使用建立日 / 更新日 basis 切換。</div>
               </div>
             </div>
             <div class="settings-card-body card-body settings-form-shell">
-              <div class="settings-row">
-                <label class="settings-label">依據欄位</label>
-                <select class="input" id="settings-weekly-basis">
-                  <option value="created" ${settings.weeklyThisWeekBasis !== 'updated' ? 'selected' : ''}>建立日（預設）</option>
-                  <option value="updated" ${settings.weeklyThisWeekBasis === 'updated' ? 'selected' : ''}>更新日</option>
-                </select>
-              </div>
+              <div class="settings-hint muted">本週工作總覽只納入兩種情況：1) 本週新增維修單；2) 本週新增工作紀錄。僅狀態改變不列入週報。</div>
             </div>
           </div>
 
@@ -186,7 +207,7 @@ class SettingsUI {
                     <input type="checkbox" id="settings-simple-mode" ${settings.simpleMode ? 'checked' : ''} />
                     <span>啟用精簡介面（隱藏進階模組）</span>
                   </label>
-                  <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 指南 / 設定」，並停用全域搜尋（Ctrl+K）。</div>
+                  <div class="settings-hint muted">啟用後：側邊選單僅保留「維修 / 客戶 / 週報 / 設定」，並停用全域搜尋（Ctrl+K）。</div>
                 </div>
               </div>
 
@@ -239,8 +260,6 @@ class SettingsUI {
         </div>
 
         <div class="settings-tab-pane ${activeTab==='equipment'?'active':''}" data-tab="equipment">
-          ${this.renderMaintenanceSettingsCard(maintSettings)}
-
           <div class="settings-card card">
             <div class="settings-card-header card-head">
               <div>
@@ -338,7 +357,7 @@ class SettingsUI {
               </div>
             </div>
 
-            <div class="ua-createbar" id="ua-createbar" style="display:none;">
+            <div class="ua-createbar" id="ua-createbar" hidden>
               <input class="input" id="ua-create-email" placeholder="新增使用者 Email" autocomplete="off" />
               <input class="input" id="ua-create-name" placeholder="顯示名稱（選填）" autocomplete="off" />
               <select class="input" id="ua-create-role" style="min-width: 140px;">
@@ -348,7 +367,7 @@ class SettingsUI {
               <button class="btn primary ua-mini" type="button" id="ua-create-btn">建立</button>
               <button class="btn ghost ua-mini" type="button" id="ua-create-cancel">取消</button>
             </div>
-            <div class="ua-create-hint muted" id="ua-create-hint" style="display:none;">
+            <div class="ua-create-hint muted" id="ua-create-hint" hidden>
               建立後預設密碼為 <b>123456</b>；首次登入會要求改密碼。
             </div>
 
@@ -402,79 +421,6 @@ class SettingsUI {
         </div>
       </div>
     `.trim();
-  }
-
-  // =========================
-  // 機台保養（Maintenance）設定
-  // - 將保養模組的 Email / 提醒規則等設定同步放到「設定」頁面
-  // =========================
-  renderMaintenanceSettingsCard(maintSettings) {
-    // 若專案未載入 Maintenance 模組，直接略過
-    if (!window._svc('MaintenanceService')) return '';
-
-    const ms = (maintSettings && typeof maintSettings === 'object') ? maintSettings : {
-      emailTo: '',
-      emailCc: '',
-      defaultRemindDays: [3, 7],
-      useOwnerEmail: false,
-      autoEmailEnabled: false,
-      autoEmailIncludeNoRecord: false
-    };
-
-    const days = Array.isArray(ms.defaultRemindDays) ? ms.defaultRemindDays : [3, 7];
-    const daysText = days.join(', ');
-
-    return `
-      <div class="settings-card card">
-        <div class="settings-card-header card-head">
-          <div>
-            <div class="settings-card-title card-title">機台保養設定</div>
-            <div class="settings-card-meta muted">保養提醒收件人、預設提醒天數與自動寄信（Cloud Functions）</div>
-          </div>
-          <div class="settings-card-actions">
-            <button class="btn" type="button" onclick="SettingsUI.saveMaintenanceNow()">儲存保養設定</button>
-          </div>
-        </div>
-        <div class="settings-card-body card-body settings-form-shell">
-          <div class="maint-settings-grid">
-            <div>
-              <div class="settings-hint" style="margin-bottom:6px;">Email To（預設收件人）</div>
-              <input id="settings-maint-email-to" class="input" placeholder="Email To（預設收件人）" value="${this.escapeAttr(ms.emailTo || '')}" />
-            </div>
-            <div>
-              <div class="settings-hint" style="margin-bottom:6px;">Email Cc（可選）</div>
-              <input id="settings-maint-email-cc" class="input" placeholder="Email Cc（可選）" value="${this.escapeAttr(ms.emailCc || '')}" />
-            </div>
-            <div>
-              <div class="settings-hint" style="margin-bottom:6px;">預設提醒天數（例如 3,7）</div>
-              <input id="settings-maint-default-remind" class="input" placeholder="預設提醒天數（例如 3,7）" value="${this.escapeAttr(daysText)}" />
-            </div>
-            <div>
-              <div class="settings-hint" style="margin-bottom:6px;">說明</div>
-              <div class="muted" style="line-height:1.45;">
-                1) 保養模組內已移除「提醒清單/設定區塊」，請在此頁統一管理。<br/>
-                2) 自動寄信為後端排程（非 mailto），需部署 functions（見 docs/MNT-4_SETUP_CloudFunctions_AutoEmail.md）。
-              </div>
-            </div>
-          </div>
-
-          <div class="maint-settings-chips">
-            <label class="chip" style="display:flex;gap:8px;align-items:center;user-select:none;">
-              <input id="settings-maint-use-owner-email" type="checkbox" ${ms.useOwnerEmail ? 'checked' : ''} />
-              優先使用負責人 Email
-            </label>
-            <label class="chip" style="display:flex;gap:8px;align-items:center;user-select:none;">
-              <input id="settings-maint-auto-email-enabled" type="checkbox" ${ms.autoEmailEnabled ? 'checked' : ''} />
-              啟用自動 Email（需部署 Cloud Functions）
-            </label>
-            <label class="chip" style="display:flex;gap:8px;align-items:center;user-select:none;">
-              <input id="settings-maint-auto-email-no-record" type="checkbox" ${ms.autoEmailIncludeNoRecord ? 'checked' : ''} />
-              自動提醒包含「尚無紀錄」
-            </label>
-          </div>
-        </div>
-      </div>
-    `;
   }
 
   async refreshUserAdminList() {
@@ -680,8 +626,8 @@ class SettingsUI {
 
     const setCreateOpen = (open) => {
       if (!createBar || !createHint || !toggleCreateBtn) return;
-      createBar.style.display = open ? '' : 'none';
-      createHint.style.display = open ? '' : 'none';
+      createBar.hidden = !open;
+      createHint.hidden = !open;
       toggleCreateBtn.textContent = open ? '× 取消新增' : '＋ 新增使用者';
       if (open) {
         try { createEmail?.focus(); } catch (_) {}
@@ -696,7 +642,7 @@ class SettingsUI {
 
     if (toggleCreateBtn) {
       toggleCreateBtn.addEventListener('click', () => {
-        const isOpen = (createBar && createBar.style.display !== 'none');
+        const isOpen = !!(createBar && !createBar.hidden);
         setCreateOpen(!isOpen);
       });
     }
@@ -938,12 +884,15 @@ ${email}
   bind() {
     const rec = document.getElementById('settings-weekly-recipients');
     const sig = document.getElementById('settings-signature');
+    const basis = document.getElementById('settings-weekly-basis');
     const den = document.getElementById('settings-density');
     const sm = document.getElementById('settings-simple-mode');
 
     const tabbar = document.getElementById('settings-tabbar');
     const savebarSave = document.getElementById('settings-savebar-save');
     const savebarTop = document.getElementById('settings-savebar-top');
+    const commandSave = document.getElementById('settings-command-save');
+    const commandTop = document.getElementById('settings-command-top');
 
     const topN = document.getElementById('settings-pinned-topn');
     const addInput = document.getElementById('settings-pinned-add');
@@ -966,9 +915,12 @@ ${email}
     // 底部儲存列
     if (savebarSave) savebarSave.addEventListener('click', () => SettingsUI.saveNow());
     if (savebarTop) savebarTop.addEventListener('click', () => this.scrollToTop());
+    if (commandSave) commandSave.addEventListener('click', () => SettingsUI.saveNow());
+    if (commandTop) commandTop.addEventListener('click', () => this.scrollToTop());
 
     if (rec) rec.addEventListener('input', onChange);
     if (sig) sig.addEventListener('input', onChange);
+    if (basis) basis.addEventListener('change', onChange);
     if (den) den.addEventListener('change', onChange);
     if (sm) sm.addEventListener('change', onChange);
 
@@ -1060,13 +1012,13 @@ ${email}
   async save() {
     const rec = document.getElementById('settings-weekly-recipients')?.value || '';
     const sig = document.getElementById('settings-signature')?.value || '';
-    const basis = document.getElementById('settings-weekly-basis')?.value || 'created';
+    const basis = document.getElementById('settings-weekly-basis')?.value === 'created' ? 'created' : 'updated';
     const den = document.getElementById('settings-density')?.value || 'comfortable';
     const simpleMode = !!document.getElementById('settings-simple-mode')?.checked;
 
     await window._svc('SettingsService').update({
       weeklyRecipients: rec,
-      weeklyThisWeekBasis: (basis === 'updated') ? 'updated' : 'created',
+      weeklyThisWeekBasis: basis,
       signature: sig,
       uiDensity: den,
       simpleMode: simpleMode,
@@ -1075,62 +1027,7 @@ ${email}
 
       machineCatalog: this._machineCatalogCustom || {}
     });
-
-    // 同步儲存「機台保養設定」（若 Settings 頁面有顯示該區塊）
-    // - 不強制要求 MaintenanceService 存在，避免其他版本/裁切模組報錯
-    try {
-      await this.saveMaintenanceSettingsOnly();
-    } catch (e) {
-      console.error('Maintenance settings save error:', e);
-      // 一般設定已儲存，此處以提示方式告知（不中斷 Settings 儲存流程）
-      if (window.UI && typeof window.UI.toast === 'function') {
-        window.UI.toast('一般設定已儲存，但保養設定儲存失敗', { type: 'warning' });
-      }
-    }
-
     this.setSaveStatus('已儲存', false);
-  }
-
-  async saveMaintenanceSettingsOnly() {
-    if (!window._svc('MaintenanceService') || typeof window._svc('MaintenanceService').updateSettings !== 'function') return;
-
-    const elTo = document.getElementById('settings-maint-email-to');
-    const elCc = document.getElementById('settings-maint-email-cc');
-    const elRemind = document.getElementById('settings-maint-default-remind');
-    const elUseOwner = document.getElementById('settings-maint-use-owner-email');
-    const elAutoEnabled = document.getElementById('settings-maint-auto-email-enabled');
-    const elAutoNoRecord = document.getElementById('settings-maint-auto-email-no-record');
-
-    // 若該區塊未渲染，代表使用者不需要在此頁管理保養設定
-    if (!elTo && !elCc && !elRemind && !elUseOwner && !elAutoEnabled && !elAutoNoRecord) return;
-
-    const toStr = (v) => (v == null ? '' : String(v));
-    const emailTo = elTo ? toStr(elTo.value).trim() : '';
-    const emailCc = elCc ? toStr(elCc.value).trim() : '';
-    const useOwnerEmail = !!(elUseOwner && elUseOwner.checked);
-    const autoEmailEnabled = !!(elAutoEnabled && elAutoEnabled.checked);
-    const autoEmailIncludeNoRecord = !!(elAutoNoRecord && elAutoNoRecord.checked);
-
-    const defaultRemindDays = (() => {
-      const raw = elRemind ? toStr(elRemind.value).trim() : '';
-      const arr = raw.split(',').map(s => parseInt(String(s).trim(), 10)).filter(n => Number.isFinite(n) && n >= 0);
-      const uniq = Array.from(new Set(arr)).sort((a,b)=>a-b).slice(0, 3);
-      return uniq.length ? uniq : [3, 7];
-    })();
-
-    // 確保 MaintenanceService 已 init（避免首次進入 Settings 頁尚未初始化）
-    if (typeof window._svc('MaintenanceService').init === 'function' && !window._svc('MaintenanceService').isInitialized) {
-      await window._svc('MaintenanceService').init();
-    }
-
-    await window._svc('MaintenanceService').updateSettings({
-      emailTo,
-      emailCc,
-      useOwnerEmail,
-      defaultRemindDays,
-      autoEmailEnabled,
-      autoEmailIncludeNoRecord
-    });
   }
 
   setSaveStatus(text, dirty) {
@@ -2115,23 +2012,8 @@ Object.assign(SettingsUI, {
       if (window.UI && typeof window.UI.toast === 'function') window.UI.toast(msg, { type: 'error' });
       else alert(msg);
     }
-  },
-
-  saveMaintenanceNow: async () => {
-    try {
-      if (window.settingsUI) await window.settingsUI.saveMaintenanceSettingsOnly();
-      const status = document.getElementById('settings-status');
-      if (status) status.textContent = '已儲存';
-      if (window.UI && typeof window.UI.toast === 'function') {
-        window.UI.toast('已儲存保養設定', { type: 'success' });
-      }
-    } catch (e) {
-      console.error('Maintenance settings save error:', e);
-      const msg = '保養設定儲存失敗：' + (e?.message || e);
-      if (window.UI && typeof window.UI.toast === 'function') window.UI.toast(msg, { type: 'error' });
-      else alert(msg);
-    }
   }
 });
+
 
 console.log('✅ SettingsUI loaded');

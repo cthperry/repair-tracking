@@ -52,6 +52,20 @@ class AuthSystem {
       .replace(/\./g, ',');
   }
 
+  async _syncUserEmailDirectory({ uid, email, displayName, now }) {
+    const e = String(email || '').trim().toLowerCase();
+    const id = String(uid || '').trim();
+    if (!e || !id) return false;
+
+    const key = this._safeEmailKey(e);
+    await firebase.database().ref(`usersByEmail/${key}`).update({
+      uid: id,
+      email: e,
+      displayName: String(displayName || '').trim() || e.split('@')[0],
+      updatedAt: now
+    });
+    return true;
+  }
 
   _resolveInitialAuthState() {
     if (this._initialAuthResolved) return;
@@ -208,21 +222,17 @@ class AuthSystem {
       }
     }
 
-    // email index（方便 /users 缺失或資料不完整時仍可由 email 追查 uid）
+    // email directory：以 usersByEmail 為唯一正式索引。
+    // root cause：目前 RTDB rules 未開放 /userEmailIndex，持續寫入只會製造 permission_denied 噪音。
+    // 結構性修正：登入後只同步 usersByEmail，避免舊索引與現行 rules 脫鉤。
     try {
       if (email) {
-        const key = this._safeEmailKey(email);
-        // 相容舊索引
-        try { await db.ref(`userEmailIndex/${key}`).set(uid); } catch (_) {}
-        // 新索引（含基本資訊，供管理介面顯示）
-        try {
-          await db.ref(`usersByEmail/${key}`).update({
-            uid,
-            email,
-            displayName: profile?.displayName || displayName,
-            updatedAt: now
-          });
-        } catch (_) {}
+        await this._syncUserEmailDirectory({
+          uid,
+          email,
+          displayName: profile?.displayName || displayName,
+          now
+        });
       }
     } catch (_) {}
 
@@ -816,13 +826,23 @@ class AuthSystem {
     // Firebase 偶發性 auth state 先掉成 null，再恢復原使用者時，避免立刻跳回登入頁。
     // 只有明確按登出時才立即清空；其他情況先進入短暫 grace period 再確認。
     if (this.authMode === 'firebase' && !this._manualLogoutInProgress) {
-      const hasKnownUser = !!(this.currentUser?.uid || this.firebaseAuth?.currentUser?.uid);
+      const shadowSession = this.loadFirebaseShadowSession();
+      const hasKnownUser = !!(this.currentUser?.uid || this.firebaseAuth?.currentUser?.uid || shadowSession?.uid);
       if (hasKnownUser) {
+        const firstGraceMs = shadowSession ? 3200 : 2200;
+        const secondGraceMs = shadowSession ? 3200 : 1800;
+
         this._clearAuthNullGraceTimer();
-        console.warn('Firebase auth state became null unexpectedly; waiting grace period before showing login form.');
+        console.warn('Firebase auth state became null unexpectedly; waiting guarded grace period before showing login form.');
         this._authNullGraceTimer = setTimeout(async () => {
           this._authNullGraceTimer = null;
-          const recovered = this.firebaseAuth?.currentUser || null;
+
+          let recovered = this.firebaseAuth?.currentUser || null;
+          if (!recovered) {
+            try { await this.applyFirebasePersistence(); } catch (_) {}
+            recovered = this.firebaseAuth?.currentUser || null;
+          }
+
           if (recovered) {
             try {
               await this.handleAuthStateChanged(recovered);
@@ -831,8 +851,26 @@ class AuthSystem {
               console.warn('Auth recovery after null state failed:', e);
             }
           }
+
+          if (shadowSession) {
+            this._authNullGraceTimer = setTimeout(async () => {
+              this._authNullGraceTimer = null;
+              const secondRecovered = this.firebaseAuth?.currentUser || null;
+              if (secondRecovered) {
+                try {
+                  await this.handleAuthStateChanged(secondRecovered);
+                  return;
+                } catch (e) {
+                  console.warn('Second auth recovery after null state failed:', e);
+                }
+              }
+              this._applyLoggedOutState();
+            }, secondGraceMs);
+            return;
+          }
+
           this._applyLoggedOutState();
-        }, 1200);
+        }, firstGraceMs);
         return;
       }
     }
@@ -869,10 +907,13 @@ class AuthSystem {
     // 設定全域變數
     try { (window.AppState && typeof window.AppState.setAuth === 'function') ? window.AppState.setAuth(this.currentUser) : null; } catch (_) { try { window.isAuthenticated = true; window.currentUser = this.currentUser; } catch (_) {} }
 
-    // Session 持久化：Firebase 模式由 SDK 自行管理（IndexedDB），不需另存 localStorage（P2-4）
-    // Local 模式才需要寫入 localStorage 以支援 checkAutoLogin()
+    // Session 持久化：
+    // - Local 模式：沿用原本 session，支援本機自動登入
+    // - Firebase 模式：額外寫入 shadow session，只作 UI/復原保護，不直接取代 Firebase Auth
     if (this.authMode !== 'firebase') {
       this.saveUserSession(this.currentUser);
+    } else {
+      this.saveFirebaseShadowSession(this.currentUser);
     }
 
     // 觸發登入成功事件
@@ -903,7 +944,10 @@ class AuthSystem {
         this.showLoginForm();
         this.notifyAuthListeners();
       }
-      
+
+      try { this.clearUserSession(); } catch (_) {}
+      try { this.clearFirebaseShadowSession(); } catch (_) {}
+
       // 清除全域變數
       try { (window.AppState && typeof window.AppState.clearAuth === 'function') ? window.AppState.clearAuth() : null; } catch (_) { try { window.isAuthenticated = false; window.currentUser = null; } catch (_) {} }
       // 觸發登出事件
@@ -934,60 +978,77 @@ class AuthSystem {
     }
   }
   
+  _getSessionStorageKey(kind = 'session') {
+    const suffix = (kind === null || kind === undefined || kind === '') ? 'session' : String(kind).trim();
+    return AppConfig.system.storage.prefix + suffix;
+  }
+
   /**
    * 儲存使用者 Session
    */
-  saveUserSession(user) {
+  saveUserSession(user, kind = 'session') {
     try {
       const session = {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        authMode: this.authMode,
         timestamp: Date.now()
       };
-      
-      const key = AppConfig.system.storage.prefix + 'session';
+
+      const key = this._getSessionStorageKey(kind);
       localStorage.setItem(key, JSON.stringify(session));
     } catch (error) {
       console.warn('Failed to save session:', error);
     }
   }
-  
+
+  saveFirebaseShadowSession(user) {
+    this.saveUserSession(user, 'firebase_shadow_session');
+  }
+
   /**
    * 載入使用者 Session
    */
-  loadUserSession() {
+  loadUserSession(kind = 'session', maxAgeMs = 24 * 60 * 60 * 1000) {
     try {
-      const key = AppConfig.system.storage.prefix + 'session';
+      const key = this._getSessionStorageKey(kind);
       const data = localStorage.getItem(key);
-      
+
       if (data) {
         const session = JSON.parse(data);
-        
-        // 檢查 Session 是否過期（24小時）
-        const age = Date.now() - session.timestamp;
-        if (age < 24 * 60 * 60 * 1000) {
+
+        const age = Date.now() - Number(session.timestamp || 0);
+        if (age < maxAgeMs) {
           return session;
         }
       }
     } catch (error) {
       console.warn('Failed to load session:', error);
     }
-    
+
     return null;
   }
-  
+
+  loadFirebaseShadowSession() {
+    return this.loadUserSession('firebase_shadow_session', 7 * 24 * 60 * 60 * 1000);
+  }
+
   /**
    * 清除使用者 Session
    */
-  clearUserSession() {
+  clearUserSession(kind = 'session') {
     try {
-      const key = AppConfig.system.storage.prefix + 'session';
+      const key = this._getSessionStorageKey(kind);
       localStorage.removeItem(key);
     } catch (error) {
       console.warn('Failed to clear session:', error);
     }
+  }
+
+  clearFirebaseShadowSession() {
+    this.clearUserSession('firebase_shadow_session');
   }
   
   /**

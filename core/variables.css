@@ -45,17 +45,17 @@
 
   /* ── Corporate Enhancement Tokens (V161.276) ── */
 
-  /* Sidebar：深海軍藍，專業、沉穩 */
-  --sidebar-bg:            #1a2338;
-  --sidebar-bg-alt:        #1e2a40;
-  --sidebar-border:        rgba(255,255,255,0.07);
-  --sidebar-text:          rgba(255,255,255,0.68);
-  --sidebar-text-hover:    rgba(255,255,255,0.92);
-  --sidebar-text-active:   #ffffff;
-  --sidebar-text-muted:    rgba(255,255,255,0.38);
-  --sidebar-item-hover:    rgba(255,255,255,0.07);
-  --sidebar-item-active:   rgba(255,255,255,0.11);
-  --sidebar-brand-color:   rgba(255,255,255,0.90);
+  /* Sidebar：改為淺色企業面板，不再使用深色導覽列 */
+  --sidebar-bg:            #f7f9fd;
+  --sidebar-bg-alt:        #eef3f9;
+  --sidebar-border:        rgba(148,163,184,0.22);
+  --sidebar-text:          #475569;
+  --sidebar-text-hover:    #0f172a;
+  --sidebar-text-active:   #0f172a;
+  --sidebar-text-muted:    #94a3b8;
+  --sidebar-item-hover:    rgba(37,99,235,0.06);
+  --sidebar-item-active:   rgba(37,99,235,0.11);
+  --sidebar-brand-color:   #0f172a;
 
   /* Header */
   --header-bg:             #ffffff;

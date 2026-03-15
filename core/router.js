@@ -21,7 +21,6 @@ class _AppRouter {
     analytics:   { icon: '📈', title: '分析', navLabel: '分析', tabLabel: '分析', subtitle: '趨勢／統計／Top10', controller: 'AnalyticsController', moduleName: '分析模組' },
     repairs:     { icon: '📋', title: '維修管理', navLabel: '維修管理', tabLabel: '維修', subtitle: '維修單建立／進度追蹤／歷史紀錄', controller: 'RepairController', moduleName: '維修模組' },
     machines:    { icon: '🖥️', title: '機台歷史', navLabel: '機台歷史', tabLabel: '機台', subtitle: '依序號快速查詢維修歷史', controller: 'MachinesController', moduleName: '機台歷史模組' },
-    maintenance: { icon: '🛠️', title: '機台保養', navLabel: '機台保養', tabLabel: '保養', subtitle: '設備管理／保養紀錄／提醒／報表', controller: 'MaintenanceController', moduleName: '機台保養模組' },
     customers:   { icon: '👥', title: '客戶管理', navLabel: '客戶管理', tabLabel: '客戶', subtitle: '公司／聯絡人資料維護與釘選', controller: 'CustomerController', moduleName: '客戶模組' },
     parts:       { icon: '🧩', title: '零件追蹤', navLabel: '零件追蹤', tabLabel: '零件', subtitle: '需求 → 報價 → 下單 → 到貨 → 更換', controller: 'PartsController', moduleName: '零件模組', featureFlag: 'enableParts' },
     quotes:      { icon: '🧾', title: '報價管理', navLabel: '報價', tabLabel: '報價', subtitle: '建立報價單並追蹤核准/送出狀態', controller: 'QuotesController', moduleName: '報價模組', featureFlag: 'enableQuotes' },
@@ -29,7 +28,6 @@ class _AppRouter {
     kb:          { icon: '📚', title: '知識庫', navLabel: '知識庫', tabLabel: '知識', subtitle: 'FAQ／故障模式／SOP／案例查詢', controller: 'KBController', moduleName: '知識庫模組' },
     sops:        { icon: '🧾', title: 'SOP Hub', navLabel: 'SOP Hub', tabLabel: 'SOP', subtitle: 'SOP 版本／附件（My Drive）／關聯維修單', controller: 'SOPController', moduleName: 'SOP Hub 模組' },
     weekly:      { icon: '📊', title: '週報', navLabel: '週報', tabLabel: '週報', subtitle: '本週工作彙整／下週計畫', controller: 'WeeklyController', moduleName: '週報模組' },
-    guide:       { icon: '📘', title: '使用者指南', navLabel: '使用者指南', tabLabel: '指南', subtitle: '快速上手／重點流程／FAQ', controller: 'GuideController', moduleName: '操作指南模組' },
     settings:    { icon: '⚙️', title: '設定', navLabel: '設定', tabLabel: '設定', subtitle: '預設值、Top N 釘選、系統參數', controller: 'SettingsController', moduleName: '設定模組' }
   };
 

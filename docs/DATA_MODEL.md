@@ -14,7 +14,6 @@ data/<uid>/
   quotes/
   quoteHistory/
   orders/
-  maintenance/
   kb/
   sophub/
   meta/
@@ -207,7 +206,6 @@ Quote (1)
 - `isDeleted`
 
 ## 10. Maintenance
-路徑：`data/<uid>/maintenance/`
 
 ### equipments/{equipmentId}
 - `id`
@@ -303,7 +301,7 @@ Quote (1)
 
 目前主要欄位：
 - `weeklyRecipients`
-- `weeklyThisWeekBasis`：`created | updated`
+- `weeklyThisWeekBasis`：固定為 `all`（輸出全部維修案件）
 - `signature`
 - `uiDensity`：`comfortable | compact`
 - `simpleMode`
@@ -325,3 +323,45 @@ Quote (1)
 2. Repair、Quote、Order 的 owner / createdBy / updatedBy 欄位可再做一致化
 3. `weeklyPlans` 長期可評估是否併回 `data/<uid>` 命名空間
 4. 舊節點 `repairLogs` / `repairWorkLogs` 持續只保留搬移用途
+
+
+## 商務狀態語意（V161.305）
+- `core/config.js` 為 Quote / Order / Repair Parts / Billing 未下單狀態的唯一真實來源。
+- 每個狀態定義至少包含：
+  - `value`
+  - `label`
+  - `semanticKey`
+  - `stageKind`
+  - `rank`
+  - `terminal`
+  - `badgeClass`
+  - `accent`
+  - `soft`
+- 規則：
+  - `stageKind = flow`：流程階段
+  - `stageKind = result`：結果/終態
+  - `stageKind = reason`：原因分類
+- UI 模組不可自行再維護第二份狀態顏色、badge、排序、終態清單。
+
+
+## 3. Billing domain（目前掛在 Repair 下）
+目前專案尚未建立獨立 `billing/` collection；商務追蹤仍掛在 `repairs/<repairId>/billing` 內。
+
+```text
+repairs/<repairId>/billing/
+  chargeable: true | false | null
+  orderStatus: 'ordered' | 'not_ordered' | null
+  notOrdered/
+    stageCode: 'quote_pending' | 'procurement' | 'reviewing' | 'budget_review' | 'on_hold' | 'other'
+    reasonCode: 'price' | 'budget' | 'internal' | 'spec' | 'other'
+    note: string
+```
+
+說明：
+- `chargeable`：是否需要向客戶收費
+- `orderStatus`：需收費案件是否已下單
+- `notOrdered.stageCode`：未下單案件目前卡在哪個流程節點
+- `notOrdered.reasonCode`：未下單的主原因
+- `notOrdered.note`：商務補充說明
+
+目前 Dashboard / Analytics / Weekly 對 billing 的統計與輸出，皆應以此節點為唯一資料來源。

@@ -96,7 +96,7 @@ class WeeklyModel {
     bodyLines.push('');
     bodyLines.push(`本週工作（${startCN} ~ ${endCN}）`);
     bodyLines.push('');
-    bodyLines.push(thisWeekText || '(本週無維修單更新)');
+    bodyLines.push(thisWeekText || '(本週無新增維修單或工作紀錄)');
     bodyLines.push('');
 
     const nextStart = WeeklyModel.addDays(weekStart, 7);

@@ -307,3 +307,110 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================
+   V161.308 - Parts Editor Enterprise Convergence
+   ======================================== */
+.parts-editor-dialog{
+  max-height:min(90vh, 920px);
+}
+
+.parts-editor-form{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.parts-editor-context{
+  margin-bottom:2px;
+}
+
+.parts-editor-sections{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.parts-form-section{
+  border:1px solid var(--color-border);
+  border-radius:16px;
+  background:linear-gradient(180deg, var(--color-panel) 0%, var(--color-panel-alt) 100%);
+  box-shadow:var(--shadow-sm);
+}
+
+.parts-form-section-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+  flex-wrap:wrap;
+}
+
+.parts-form-section-head .muted{
+  max-width:520px;
+  line-height:1.65;
+}
+
+.parts-enterprise-section-head{
+  margin-bottom:14px;
+}
+
+.parts-enterprise-section-head .enterprise-section-desc{
+  max-width:520px;
+}
+
+.parts-enterprise-section-head.has-actions .enterprise-section-actions{
+  width:auto;
+}
+
+.parts-inline-help{
+  margin-top:6px;
+  font-size:12px;
+  line-height:1.6;
+}
+
+.parts-editor-form .modal-footer.sticky{
+  margin-top:0;
+}
+
+@media (max-width: 720px){
+  .parts-form-section-head{
+    flex-direction:column;
+  }
+  .parts-form-section-head .muted,
+  .parts-enterprise-section-head .enterprise-section-desc{
+    max-width:none;
+  }
+}
+
+
+/* ========================================
+   Parts Team Convergence（V161.323）
+   ======================================== */
+.parts-toolbar-surface{margin-bottom:0;}
+.parts-filters-panel[hidden],
+#parts-modal[hidden]{display:none !important;}
+.parts-summary{margin-top:0;}
+.parts-stats-surface{padding-bottom:2px;}
+.parts-empty-state{min-height:180px;display:grid;place-items:center;}
+.parts-list-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;}
+.parts-module .stat-card{min-width:160px;}
+.parts-module .card-body{align-items:start;}
+.parts-module .parts-search{width:min(320px, 46vw);}
+@media (max-width: 768px){
+  .parts-module{padding:14px;}
+  .parts-module .parts-search{width:100%;min-width:0;}
+  .parts-list-footer{flex-direction:column;align-items:flex-start;}
+}
+
+
+/* ========================================
+   Parts Surface + Delegation Cleanup（V161.324）
+   ======================================== */
+.parts-panel-note{margin-left:10px;}
+.parts-stats .stat-card{position:relative;overflow:hidden;}
+.parts-stats .stat-card::after{content:'';position:absolute;inset:auto 12px 10px;height:2px;border-radius:999px;background:var(--accent, rgba(37,99,235,.28));opacity:.9;}
+.parts-stats .stat-card.clickable:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(15,23,42,.08);}
+.parts-module .chip{cursor:pointer;}
+.parts-editor-dialog .modal-header h3{letter-spacing:-.01em;}
