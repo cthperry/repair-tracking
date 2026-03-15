@@ -59,18 +59,16 @@ class CustomerUIForms {
     const hasHistory = Number.isFinite(repairCount) && repairCount > 0;
 
     return `
-      <form id="customer-form" class="modal-dialog customer-form-dialog" novalidate>
+      <form id="customer-form" class="modal-dialog modal-large customer-form-dialog" novalidate>
         <input type="hidden" name="id" value="${this._escapeAttr(c.id || '')}" />
 
         <div class="modal-header">
-          <div>
-            <h3>${isEdit ? '編輯聯絡人' : '新增聯絡人'}</h3>
-            <p class="customer-modal-subtitle">${isEdit ? '直接維護既有聯絡人資料，儲存後會同步更新客戶清單中的該筆聯絡人。' : '新增公司聯絡窗口時，欄位順序與桌機 / 手機顯示保持一致。'}</p>
-          </div>
+          <h3>${isEdit ? '編輯聯絡人' : '新增聯絡人'}</h3>
           <button type="button" class="modal-close" data-action="closeModal" aria-label="關閉">✕</button>
         </div>
 
         <div class="modal-body enterprise-form customer-form-body">
+          <p class="customer-form-intro">${isEdit ? '直接維護既有聯絡人資料，儲存後會同步更新客戶清單中的該筆聯絡人。' : '新增公司聯絡窗口時，欄位順序與桌機 / 手機顯示保持一致。'}</p>
           <div class="form-context-bar customer-form-statusbar" aria-label="表單狀態摘要">
             <div class="form-context-main customer-form-status-left">
               <span class="form-context-title">${isEdit ? '聯絡人編輯' : '聯絡人建立'}</span>
@@ -155,71 +153,128 @@ class CustomerUIForms {
     const c = customer || {};
     const phone = c.phone ? `<a href="tel:${this._escapeAttr(c.phone)}">${this._escapeHtml(c.phone)}</a>` : '<span class="muted">未填寫</span>';
     const email = c.email ? `<a href="mailto:${this._escapeAttr(c.email)}">${this._escapeHtml(c.email)}</a>` : '<span class="muted">未填寫</span>';
-    const address = c.address ? this._escapeHtml(c.address) : '<span class="muted">未填寫</span>';
+    const address = c.address ? this._escapeHtml(c.address) : '未填寫';
     const repairCount = Number(c.repairCount);
     const safeRepairCount = Number.isFinite(repairCount) ? repairCount : 0;
+    const note = String(c.note || '').trim();
+    const contactName = String(c.contact || '').trim() || '未填寫聯絡人';
+    const companyName = String(c.name || '').trim() || '未命名公司';
+    const createdAt = this._formatDateTime(c.createdAt);
+    const updatedAt = this._formatDateTime(c.updatedAt);
+    const hasAddress = !!String(c.address || '').trim();
+    const hasNote = !!note;
+    const notePreview = hasNote ? this._escapeHtml(note.length > 54 ? `${note.slice(0, 54)}…` : note) : '尚未補充維護備註';
+    const statHTML = (window.UI && typeof window.UI.enterpriseStatHTML === 'function')
+      ? window.UI.enterpriseStatHTML
+      : (label, value) => `<div class="enterprise-mini-stat"><span>${this._escapeHtml(label)}</span><strong>${this._escapeHtml(value || '—')}</strong></div>`;
+    const itemHTML = (window.UI && typeof window.UI.enterpriseOverviewItemHTML === 'function')
+      ? window.UI.enterpriseOverviewItemHTML
+      : (label, value) => `<div class="enterprise-detail-overview-item"><span>${this._escapeHtml(label)}</span><strong>${value || '—'}</strong></div>`;
+    const noteHTML = (window.UI && typeof window.UI.enterpriseOverviewNoteHTML === 'function')
+      ? window.UI.enterpriseOverviewNoteHTML
+      : (label, value, options = {}) => `<div class="enterprise-detail-overview-note"><span>${this._escapeHtml(label)}</span><div>${options.allowHtml ? (value || '—') : this._escapeHtml(value || '—')}</div></div>`;
+    const heroStatsHtml = [
+      statHTML('累計維修', String(safeRepairCount)),
+      statHTML('建立時間', this._escapeHtml(createdAt), { allowHtml: true }),
+      statHTML('最後更新', this._escapeHtml(updatedAt), { allowHtml: true }),
+      statHTML('備註狀態', hasNote ? '已補充' : '未補充')
+    ].join('');
+    const contactOverviewHtml = [
+      itemHTML('聯絡人', this._escapeHtml(contactName), { allowHtml: true }),
+      itemHTML('電話', phone, { allowHtml: true }),
+      itemHTML('Email', email, { allowHtml: true }),
+      itemHTML('地址完整度', hasAddress ? '已建立地址資訊' : '尚未建立地址資訊')
+    ].join('');
+    const lifecycleOverviewHtml = [
+      itemHTML('建立時間', this._escapeHtml(createdAt), { allowHtml: true }),
+      itemHTML('最後更新', this._escapeHtml(updatedAt), { allowHtml: true })
+    ].join('');
+    const notePreviewHtml = noteHTML('快速預覽', notePreview, { allowHtml: true });
+    const fullNoteGridHtml = [
+      noteHTML('地址', address, { allowHtml: true }),
+      noteHTML('備註', hasNote ? this._escapeMultiline(note) : '未填寫', { allowHtml: true })
+    ].join('');
 
     return `
-      <div class="modal-dialog customer-detail-dialog">
-        <div class="modal-header">
-          <div>
-            <h3>聯絡人詳情</h3>
-            <p class="customer-modal-subtitle">以公司為主、聯絡人為輔的正式閱讀順序，讓現場與商務資訊集中呈現。</p>
-          </div>
+      <div class="modal-dialog customer-detail-dialog customer-detail-surface">
+        <div class="modal-header customer-detail-header">
+          <h3>聯絡人詳情</h3>
           <button type="button" class="modal-close" data-action="closeModal" aria-label="關閉">✕</button>
         </div>
 
-        <div class="modal-body customer-detail-body">
-          <div class="customer-detail-hero">
-            <div>
-              <div class="customer-detail-company">${this._escapeHtml(c.name || '(未命名公司)')}</div>
-              <div class="customer-detail-contact">${this._escapeHtml(c.contact || '未填寫聯絡人')}</div>
+        <div class="modal-body customer-detail-body customer-detail-body-enterprise">
+          <p class="customer-form-intro customer-detail-intro">以公司、聯絡方式與維護資訊三層閱讀，讓現場與商務共用同一份正式客戶主檔。</p>
+          <section class="enterprise-detail-hero customer-detail-hero-enterprise">
+            <div class="enterprise-detail-hero-copy">
+              <div class="enterprise-detail-overline">Customer Master</div>
+              <div class="enterprise-detail-title-row">
+                <div>
+                  <h4 class="enterprise-detail-title">${this._escapeHtml(companyName)}</h4>
+                  <p class="enterprise-detail-subtitle">${this._escapeHtml(contactName)}</p>
+                </div>
+                <div class="enterprise-detail-title-aside">
+                  <span class="enterprise-detail-chip">聯絡人主檔</span>
+                  <span class="enterprise-detail-chip is-muted">維修歷史 ${safeRepairCount} 筆</span>
+                </div>
+              </div>
+              <div class="enterprise-detail-chip-row">
+                <span class="enterprise-detail-chip">${String(c.phone || '').trim() ? '已填電話' : '待補電話'}</span>
+                <span class="enterprise-detail-chip">${String(c.email || '').trim() ? '已填 Email' : '待補 Email'}</span>
+                <span class="enterprise-detail-chip is-muted">${hasAddress ? '已填地址' : '待補地址'}</span>
+              </div>
             </div>
-            <div class="customer-summary-pills">
-              <span class="customer-summary-pill">聯絡人主檔</span>
-              <span class="customer-summary-pill">累計維修 ${safeRepairCount}</span>
-            </div>
-          </div>
+            <div class="enterprise-detail-hero-stats">${heroStatsHtml}</div>
+          </section>
 
-          <div class="customer-detail-grid">
-            <section class="customer-detail-block">
-              <div class="customer-detail-block-title">聯絡方式</div>
-              <div class="customer-detail-pair">
-                <div class="detail-label">電話</div>
-                <div class="detail-value">${phone}</div>
+          <section class="enterprise-detail-overview-board customer-detail-overview-board">
+            <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">聯絡方式</div>
+                  <div class="enterprise-detail-overview-title">主要聯絡資訊</div>
+                </div>
+                <div class="enterprise-detail-overview-signal-row">
+                  <span class="enterprise-detail-overview-chip tone-primary">公司主檔</span>
+                  <span class="enterprise-detail-overview-chip ${String(c.email || '').trim() ? 'tone-success' : 'tone-warning'}">${String(c.email || '').trim() ? 'Email 完整' : 'Email 待補'}</span>
+                </div>
               </div>
-              <div class="customer-detail-pair">
-                <div class="detail-label">Email</div>
-                <div class="detail-value">${email}</div>
-              </div>
-            </section>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-4 customer-detail-overview-grid-4">${contactOverviewHtml}</div>
+            </article>
 
-            <section class="customer-detail-block">
-              <div class="customer-detail-block-title">維護資訊</div>
-              <div class="customer-detail-pair">
-                <div class="detail-label">建立時間</div>
-                <div class="detail-value">${this._escapeHtml(this._formatDateTime(c.createdAt))}</div>
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">維護資訊</div>
+                  <div class="enterprise-detail-overview-title">建立與更新節點</div>
+                </div>
               </div>
-              <div class="customer-detail-pair">
-                <div class="detail-label">最後更新</div>
-                <div class="detail-value">${this._escapeHtml(this._formatDateTime(c.updatedAt))}</div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">${lifecycleOverviewHtml}</div>
+            </article>
+
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">備註摘要</div>
+                  <div class="enterprise-detail-overview-title">維護說明</div>
+                </div>
               </div>
-            </section>
+              ${notePreviewHtml}
+            </article>
 
-            <section class="customer-detail-block customer-detail-block-full">
-              <div class="customer-detail-block-title">地址</div>
-              <div class="detail-value customer-detail-text">${address}</div>
-            </section>
-
-            <section class="customer-detail-block customer-detail-block-full">
-              <div class="customer-detail-block-title">備註</div>
-              <div class="detail-value customer-detail-text">${this._escapeMultiline(c.note)}</div>
-            </section>
-          </div>
+            <article class="enterprise-detail-overview-card customer-detail-overview-card-full">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">地址與備註</div>
+                  <div class="enterprise-detail-overview-title">完整補充資訊</div>
+                </div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2 customer-detail-overview-grid-2">${fullNoteGridHtml}</div>
+            </article>
+          </section>
         </div>
 
-        <div class="modal-footer sticky customer-form-footer">
-          <div class="form-actions-note">如需調整公司名稱，建議先確認是否要同步影響同公司其他聯絡人。</div>
+        <div class="modal-footer sticky customer-form-footer customer-detail-footer">
+          <div class="form-actions-note">如需調整公司名稱，建議先確認是否要同步影響同公司其他聯絡人與商務資料。</div>
           <div class="customer-form-footer-actions">
             <button type="button" class="btn" data-action="closeModal">關閉</button>
             <button type="button" class="btn primary" data-action="openForm" data-id="${this._escapeAttr(c.id)}">編輯</button>
@@ -286,12 +341,23 @@ Object.assign(CustomerUIForms, {
   },
 
   async handleSubmit(event) {
+    console.log('[handleSubmit] called, event.type:', event?.type, 'target.id:', event?.target?.id);
     try { event.preventDefault(); } catch (_) {}
 
-    if (CustomerUIForms._submitting) return;
+    if (CustomerUIForms._submitting) {
+      console.warn('[handleSubmit] blocked by _submitting flag');
+      return;
+    }
 
     const form = event?.target?.closest ? (event.target.closest('form') || event.target) : event?.target;
-    if (!form || form.id !== 'customer-form') return;
+    // 注意：使用 getAttribute('id') 而非 form.id
+    // 因為表單內有 <input name="id">，瀏覽器的 named access 會讓 form.id 回傳那個 input 元素而非字串
+    const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : (form?.id || '');
+    console.log('[handleSubmit] formId:', formId);
+    if (!form || formId !== 'customer-form') {
+      console.warn('[handleSubmit] form check failed:', formId);
+      return;
+    }
 
     try {
       if (window.FormValidate) {

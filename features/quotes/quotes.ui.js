@@ -181,8 +181,8 @@ class QuotesUI {
     if (!el) return;
 
     el.innerHTML = `
-      <div class="quotes-module">
-        <div class="module-toolbar">
+      <div class="quotes-module ops-module-shell business-module-shell">
+        <div class="module-toolbar business-module-toolbar">
           <div class="module-toolbar-left">
             <div class="page-title">
               <h2>報價管理</h2>
@@ -199,9 +199,9 @@ class QuotesUI {
           </div>
         </div>
 
-        <div class="quotes-summary" id="quotes-summary"></div>
-        <div class="quotes-filters" id="quotes-filters"></div>
-        <div class="quotes-list" id="quotes-list"><div class="muted" style="padding:16px;">載入中...</div></div>
+        <div class="quotes-summary business-summary" id="quotes-summary"></div>
+        <div class="panel quotes-filters ops-filter-panel business-filter-panel" id="quotes-filters"></div>
+        <div class="panel quotes-list business-list-panel" id="quotes-list"><div class="muted" style="padding:16px;">載入中...</div></div>
       </div>
 
       <div id="quotes-modal" class="modal" style="display:none;">
@@ -262,31 +262,31 @@ class QuotesUI {
     }).length;
 
     host.innerHTML = `
-      <div class="stats-grid quotes-stats">
-        <div class="stat-card clickable" onclick="QuotesUI.setQuickFilter('')" title="顯示全部">
-          <div class="stat-value">${rows.length}</div>
-          <div class="stat-label">全部</div>
-        </div>
-        <div class="stat-card clickable" style="--accent:#7c3aed;" onclick="QuotesUI.setQuickFilter('PENDING')" title="草稿 + 已送出">
-          <div class="stat-value">${pendingCount}</div>
-          <div class="stat-label">待處理</div>
-        </div>
-        <div class="stat-card clickable" style="--accent:#7c3aed;" onclick="QuotesUI.setQuickFilter('草稿')">
-          <div class="stat-value">${countBy('草稿')}</div>
-          <div class="stat-label">草稿</div>
-        </div>
-        <div class="stat-card clickable" style="--accent:#0ea5e9;" onclick="QuotesUI.setQuickFilter('已送出')">
-          <div class="stat-value">${countBy('已送出')}</div>
-          <div class="stat-label">已送出</div>
-        </div>
-        <div class="stat-card clickable" style="--accent:#16a34a;" onclick="QuotesUI.setQuickFilter('已核准')">
-          <div class="stat-value">${countBy('已核准')}</div>
-          <div class="stat-label">已核准</div>
-        </div>
-        <div class="stat-card clickable" style="--accent:#dc2626;" onclick="QuotesUI.setQuickFilter('已取消')">
-          <div class="stat-value">${countBy('已取消')}</div>
-          <div class="stat-label">已取消</div>
-        </div>
+      <div class="ops-kpi-grid business-kpi-grid quotes-stats">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" onclick="QuotesUI.setQuickFilter('')" title="顯示全部">
+          <div class="ops-kpi-label">全部</div>
+          <div class="ops-kpi-value">${rows.length}</div>
+        </button>
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#7c3aed;--module-accent-soft:rgba(124,58,237,.12);" onclick="QuotesUI.setQuickFilter('PENDING')" title="草稿 + 已送出">
+          <div class="ops-kpi-label">待處理</div>
+          <div class="ops-kpi-value">${pendingCount}</div>
+        </button>
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#7c3aed;--module-accent-soft:rgba(124,58,237,.12);" onclick="QuotesUI.setQuickFilter('草稿')">
+          <div class="ops-kpi-label">草稿</div>
+          <div class="ops-kpi-value">${countBy('草稿')}</div>
+        </button>
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#0ea5e9;--module-accent-soft:rgba(14,165,233,.12);" onclick="QuotesUI.setQuickFilter('已送出')">
+          <div class="ops-kpi-label">已送出</div>
+          <div class="ops-kpi-value">${countBy('已送出')}</div>
+        </button>
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#16a34a;--module-accent-soft:rgba(22,163,74,.12);" onclick="QuotesUI.setQuickFilter('已核准')">
+          <div class="ops-kpi-label">已核准</div>
+          <div class="ops-kpi-value">${countBy('已核准')}</div>
+        </button>
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#dc2626;--module-accent-soft:rgba(220,38,38,.10);" onclick="QuotesUI.setQuickFilter('已取消')">
+          <div class="ops-kpi-label">已取消</div>
+          <div class="ops-kpi-value">${countBy('已取消')}</div>
+        </button>
       </div>
     `;
   }
@@ -419,6 +419,13 @@ class QuotesUI {
     });
 
     return rows;
+  }
+
+  _sortLabel() {
+    if (this.sortKey === 'createdAt_desc') return '建立日（新→舊）';
+    if (this.sortKey === 'totalAmount_desc') return '金額（高→低）';
+    if (this.sortKey === 'quoteNo_desc') return '報價單號（新→舊）';
+    return '最近更新';
   }
 
   renderLoadingCards() {
@@ -568,13 +575,22 @@ class QuotesUI {
     const hasMore = visible.length < total;
 
     host.innerHTML = `
-      <div class="card-list quotes-cards is-rendering">
-        ${this.renderLoadingCards()}
-      </div>
-      <div class="quotes-list-footer">
-        <div class="muted">已顯示 <span class="mono">${visible.length}</span> / <span class="mono">${total}</span></div>
-        <div class="quotes-list-footer-actions">
-          ${hasMore ? `<button class="btn" onclick="QuotesUI.loadMore()">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
+      <div class="business-list-shell">
+        <div class="business-panel-head">
+          <div class="business-panel-heading">
+            <div class="business-panel-eyebrow">Quote Queue</div>
+            <div class="business-panel-title">報價案件清單</div>
+          </div>
+          <div class="business-panel-meta">排序：${this._escapeHtml(this._sortLabel())} ・ 共 ${total} 筆</div>
+        </div>
+        <div class="card-list quotes-cards is-rendering">
+          ${this.renderLoadingCards()}
+        </div>
+        <div class="quotes-list-footer">
+          <div class="muted">已顯示 <span class="mono">${visible.length}</span> / <span class="mono">${total}</span></div>
+          <div class="quotes-list-footer-actions">
+            ${hasMore ? `<button class="btn" onclick="QuotesUI.loadMore()">顯示更多</button>` : `<span class="muted">已顯示全部</span>`}
+          </div>
         </div>
       </div>
     `;
@@ -871,23 +887,30 @@ class QuotesUI {
 
   renderCreateFromRepairModal() {
     return `
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-large business-create-dialog">
         <div class="modal-header">
           <h3>從維修單建立報價</h3>
-          <button class="modal-close" onclick="QuotesUI.closeModal()">✕</button>
+          <button class="modal-close" type="button" onclick="QuotesUI.closeModal()">✕</button>
         </div>
-        <form class="modal-body enterprise-form quote-create-form" onsubmit="QuotesUI.handleCreateFromRepair(event)">
+        <form class="modal-body enterprise-form quote-create-form business-create-form" onsubmit="QuotesUI.handleCreateFromRepair(event)">
+          <section class="business-form-intro">
+            <div class="business-form-intro-title">報價建立</div>
+            <div class="business-form-intro-copy">先指定來源維修單，再由系統帶入 repairParts 用料資料，維持維修 → 報價的商務節奏一致。</div>
+          </section>
           <div class="form-section">
-            <div class="form-section-head"><h4 class="form-section-title">選擇維修單</h4><p class="form-section-desc">先指定來源維修單，再由系統建立正式報價資料。</p></div>
+            <div class="form-section-head"><h4 class="form-section-title">選擇維修單</h4><p class="form-section-desc">請先選定來源維修單，再建立正式報價資料。</p></div>
             <div class="form-group">
               <label class="form-label required">維修單</label>
               ${this._renderRepairSelect('')}
             </div>
-            <p class="muted" style="margin:10px 0 0;">將自動帶入該維修單的用料追蹤（repairParts）項目。</p>
+            <p class="muted" style="margin:10px 0 0;">建立後會自動帶入該維修單的用料追蹤（repairParts）項目。</p>
           </div>
-          <div class="modal-footer" style="padding:0;border:0;">
-            <button class="btn" type="button" onclick="QuotesUI.closeModal()">取消</button>
-            <button class="btn primary" type="submit">建立</button>
+          <div class="modal-footer sticky">
+            <div class="business-modal-footer-copy">建立後可直接進入報價明細編輯版本、狀態與項目。</div>
+            <div class="business-modal-footer-actions">
+              <button class="btn" type="button" onclick="QuotesUI.closeModal()">取消</button>
+              <button class="btn primary" type="submit">建立</button>
+            </div>
           </div>
         </form>
       </div>
@@ -904,7 +927,6 @@ class QuotesUI {
     const metaParts = [customer, machine, repairLabel].filter(x => (x || '').toString().trim());
     const metaLine = metaParts.join(' · ');
     const idSafe = this._escapeAttr(q.id);
-    // 使用暫存 items（未儲存前不寫回 QuoteService）
     const draftItems = this._ensureDraftItems(q.id, q.items);
     const draftTotal = (draftItems || []).reduce((sum, it) => {
       const qty = Number(it?.qty || 0);
@@ -912,22 +934,46 @@ class QuotesUI {
       return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(price) ? price : 0);
     }, 0);
     const canConvert = this._isApprovedStatus(q.status);
+
+    let statusAccent = 'var(--module-accent)';
+    let statusSoft = 'var(--module-accent-soft)';
+    try {
+      const accent = window.AppConfig?.getStatusAccent?.('quote', q.status);
+      statusAccent = accent?.accent || statusAccent;
+      statusSoft = accent?.soft || statusSoft;
+    } catch (_) {}
+
+    const safeCustomer = this._escapeHtml(customer || '—');
+    const safeMachine = this._escapeHtml(machine || '—');
+    const safeRepair = this._escapeHtml(repairLabel || '—');
+    const safeCurrency = this._escapeHtml(q.currency || 'TWD');
+    const safeQuoteNo = this._escapeHtml(q.quoteNo || '未編號報價');
+    const safeStatus = this._escapeHtml(q.status || '草稿');
+    const safeAmount = this._escapeHtml(String(draftTotal));
+    const safeItemCount = this._escapeHtml(String(draftItems.length));
+    const safeVersion = this._escapeHtml(String(q.version || 1));
+    const safeCreated = this._escapeHtml(this._isoToDate(q.createdAt));
+    const safeUpdated = this._escapeHtml(this._isoToDateTime(q.updatedAt));
+    const safeUpdatedBy = this._escapeHtml((q.updatedByName || q.updatedByEmail || '—').toString());
+    const safeNote = this._escapeHtml((q.note || '').toString().trim());
+    const headerSub = metaLine ? this._escapeHtml(metaLine) : '報價、版本與商務資訊已整合在同一總覽層。';
+    const statusTone = canConvert ? 'tone-success' : 'tone-warning';
+    const overviewSignalsHtml = [
+      `<span class="enterprise-detail-overview-chip ${statusTone}">${canConvert ? '可轉訂單' : '待核准'}</span>`,
+      `<span class="enterprise-detail-overview-chip tone-primary">版本 v${safeVersion}</span>`,
+      repairLabel ? '<span class="enterprise-detail-overview-chip">已連結維修單</span>' : '<span class="enterprise-detail-overview-chip">未連結維修單</span>'
+    ].join('');
+
     return `
       <div class="modal-dialog modal-xlarge quote-detail-modal">
         <div class="modal-header">
           <div class="detail-header-left">
-            ${canConvert
-              ? `<button class="btn sm" type="button" onclick="QuotesUI.createOrderFromQuote('${this._escapeAttr(q.id)}')">轉訂單</button>`
-              : `<button class="btn sm" type="button" disabled title="需先將狀態改為已核准（簽核）才可轉訂單">轉訂單</button>`
-            }
             <div class="quotes-detail-title">
-              <h3>${this._escapeHtml(q.quoteNo || '報價明細')}</h3>
-              ${metaLine ? `<div class="muted quotes-detail-sub">${this._escapeHtml(metaLine)}</div>` : ''}
+              <h3>${safeQuoteNo}</h3>
+              <div class="muted quotes-detail-sub">${headerSub}</div>
             </div>
           </div>
           <div class="detail-header-right">
-            <span class="badge ${this._badgeClassForQuoteStatus(q.status)}">${this._escapeHtml(q.status || '')}</span>
-            <span class="badge" id="quoteHeaderTotal_${idSafe}">$ ${this._escapeHtml(draftTotal)} ${this._escapeHtml(q.currency || 'TWD')}</span>
             <button class="modal-close" type="button" onclick="QuotesUI.closeModal()">✕</button>
           </div>
         </div>
@@ -935,17 +981,92 @@ class QuotesUI {
         <form class="modal-body enterprise-form quote-form" id="quote-detail-form-${idSafe}" onsubmit="QuotesUI.handleSaveQuote(event)">
           <input type="hidden" name="id" value="${this._escapeAttr(q.id)}" />
 
-          <div class="form-context-bar quote-form-context">
-            <div class="form-context-main">
-              <span class="form-context-title">報價表單</span>
-              <div class="form-context-pills">
-                <span class="form-context-pill is-strong">${this._escapeHtml(q.quoteNo || '未編號')}</span>
-                <span class="form-context-pill">狀態：${this._escapeHtml(q.status || '草稿')}</span>
-                ${customer ? `<span class="form-context-pill">客戶：${this._escapeHtml(customer)}</span>` : ''}
-                <span class="form-context-pill">項目：${this._escapeHtml(String(draftItems.length))} 筆</span>
+          <section class="enterprise-detail-hero" style="--module-accent:${this._escapeAttr(statusAccent)}; --module-accent-soft:${this._escapeAttr(statusSoft)};">
+            <div class="enterprise-detail-hero-copy">
+              <div class="enterprise-detail-overline">Quote Command Center</div>
+              <div class="enterprise-detail-title-row">
+                <h4 class="enterprise-detail-title">${safeQuoteNo}</h4>
+                <div class="enterprise-detail-title-aside">
+                  <span class="badge ${this._badgeClassForQuoteStatus(q.status)}">${safeStatus}</span>
+                </div>
+              </div>
+              <p class="enterprise-detail-subtitle">${headerSub}</p>
+              <div class="enterprise-detail-chip-row">
+                ${customer ? `<span class="enterprise-detail-chip">客戶 ${safeCustomer}</span>` : ''}
+                ${machine ? `<span class="enterprise-detail-chip">設備 ${safeMachine}</span>` : ''}
+                ${repairLabel ? `<span class="enterprise-detail-chip">維修單 ${safeRepair}</span>` : '<span class="enterprise-detail-chip is-muted">尚未連結維修單</span>'}
+                <span class="enterprise-detail-chip">幣別 ${safeCurrency}</span>
               </div>
             </div>
-            <p class="form-context-note">將狀態、品項、備註與版本歷史分段管理，避免商務資訊與版本資訊混寫。</p>
+            <div class="enterprise-detail-hero-stats">
+              <div class="enterprise-mini-stat"><span>報價總額</span><strong>$ ${safeAmount}</strong></div>
+              <div class="enterprise-mini-stat"><span>項目筆數</span><strong>${safeItemCount} 筆</strong></div>
+              <div class="enterprise-mini-stat"><span>目前版本</span><strong>v${safeVersion}</strong></div>
+              <div class="enterprise-mini-stat"><span>最後更新</span><strong>${safeUpdated}</strong></div>
+            </div>
+          </section>
+
+          <section class="enterprise-detail-overview-board">
+            <article class="enterprise-detail-overview-card enterprise-detail-overview-card-primary">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Commercial Overview</div>
+                  <div class="enterprise-detail-overview-title">報價商務總覽</div>
+                </div>
+                <div class="enterprise-detail-overview-signal-row">${overviewSignalsHtml}</div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-4">
+                <div class="enterprise-detail-overview-item"><span>報價狀態</span><strong>${safeStatus}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>幣別</span><strong>${safeCurrency}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>報價總額</span><strong>$ ${safeAmount}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>項目數量</span><strong>${safeItemCount} 筆</strong></div>
+                <div class="enterprise-detail-overview-item"><span>版本號</span><strong>v${safeVersion}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>建立日期</span><strong>${safeCreated}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>最後修改</span><strong>${safeUpdated}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>修改者</span><strong>${safeUpdatedBy}</strong></div>
+              </div>
+            </article>
+
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Relation Context</div>
+                  <div class="enterprise-detail-overview-title">關聯案件與客戶</div>
+                </div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+                <div class="enterprise-detail-overview-item"><span>客戶名稱</span><strong>${safeCustomer}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>設備名稱</span><strong>${safeMachine}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>維修單</span><strong>${safeRepair}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>報價單號</span><strong>${safeQuoteNo}</strong></div>
+              </div>
+            </article>
+
+            <article class="enterprise-detail-overview-card">
+              <div class="enterprise-detail-overview-card-head">
+                <div>
+                  <div class="enterprise-detail-overview-eyebrow">Version Control</div>
+                  <div class="enterprise-detail-overview-title">版本與備註摘要</div>
+                </div>
+              </div>
+              <div class="enterprise-detail-overview-grid enterprise-detail-overview-grid-2">
+                <div class="enterprise-detail-overview-item"><span>可轉訂單</span><strong>${canConvert ? '是' : '否，需先核准'}</strong></div>
+                <div class="enterprise-detail-overview-item"><span>歷史區塊</span><strong>唯讀保存</strong></div>
+              </div>
+              <div class="enterprise-detail-overview-note"><span>備註摘要</span><div>${safeNote || '尚未填寫備註'}</div></div>
+            </article>
+          </section>
+
+          <div class="enterprise-detail-command-bar">
+            <div class="enterprise-detail-command-copy">
+              <div class="enterprise-detail-command-title">報價操作</div>
+              <div class="enterprise-detail-command-desc">報價詳情已改為單一總覽層與 command bar，狀態、版本、客戶與總額不再分散在 header、表單首屏與工具列各處。</div>
+            </div>
+            <div class="enterprise-detail-command-actions quote-command-actions">
+              ${canConvert
+                ? `<button class="btn primary" type="button" onclick="QuotesUI.createOrderFromQuote('${this._escapeAttr(q.id)}')">轉訂單</button>`
+                : `<button class="btn" type="button" disabled title="需先將狀態改為已核准（簽核）才可轉訂單">轉訂單</button>`}
+            </div>
           </div>
 
           <div class="form-section">
@@ -960,6 +1081,14 @@ class QuotesUI {
               <div class="form-group">
                 <label class="form-label">幣別</label>
                 <input class="input" name="currency" value="${this._escapeAttr(q.currency)}" oninput="QuotesUI.recalcTotals('${idSafe}')" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">客戶代號</label>
+                <input class="input" name="customerCode" value="${this._escapeAttr(q.customerCode || '')}" placeholder="例如 C000321" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">交貨天數（下單日起）</label>
+                <input class="input" name="deliveryDays" type="number" min="1" step="1" value="${this._escapeAttr(String(q.deliveryDays ?? 60))}" placeholder="60" />
               </div>
             </div>
           </div>
@@ -998,7 +1127,6 @@ class QuotesUI {
                     const priceNum = Number(it.unitPrice);
                     const qty = Number.isFinite(qtyNum) ? qtyNum : 1;
                     const unitPrice = Number.isFinite(priceNum) ? priceNum : 0;
-                    // UX：單價為 0 時顯示空白，避免使用者每次都要刪除 0
                     const unitPriceDisplay = (Number.isFinite(priceNum) && priceNum != 0) ? priceNum : '';
                     const lineTotal = qty * unitPrice;
                     return `
@@ -1048,7 +1176,6 @@ class QuotesUI {
             <div class="muted quote-scroll-hint">提示：欄位較多時可左右滑動（水平滑桿）。</div>
           </div>
 
-
           <div class="form-section">
             <div class="form-section-head"><h4 class="form-section-title">備註</h4><p class="form-section-desc">保留對客備註與內部說明，避免塞入正式項目欄位。</p></div>
             <textarea class="textarea" name="note" rows="3">${this._escapeHtml(q.note || '')}</textarea>
@@ -1075,10 +1202,13 @@ class QuotesUI {
             <div id="quote_history_${idSafe}" class="quote-history-box"><div class="muted">載入中...</div></div>
           </div>
 
-          <div class="modal-footer sticky">
-            <button class="btn" type="button" onclick="QuotesUI.closeModal()">關閉</button>
-            <button class="btn" type="button" onclick="QuotesUI.exportQuotePdf(\'${idSafe}\')">輸出 PDF</button>
-            <button class="btn primary" type="submit">儲存</button>
+          <div class="modal-footer quote-detail-footer">
+            <div class="business-modal-footer-copy">儲存會保留目前版本與金額摘要；輸出 PDF 會帶入最新表單內容，不再以浮動方式遮住明細尾端。</div>
+            <div class="business-modal-footer-actions">
+              <button class="btn" type="button" onclick="QuotesUI.closeModal()">關閉</button>
+              <button class="btn" type="button" onclick="QuotesUI.exportQuotePdf('${idSafe}')">輸出 PDF</button>
+              <button class="btn primary" type="submit">儲存</button>
+            </div>
           </div>
         </form>
       </div>
@@ -1625,10 +1755,69 @@ async exportQuotePdf(quoteId) {
       return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
+    const measureText = (text, size = 9) => {
+      const t = String(text || '');
+      if (!t) return 0;
+      try { return font.widthOfTextAtSize(t, size); }
+      catch (_) { return t.length * size; }
+    };
+
+    const wrapTextByWidth = (text, maxWidth, size = 9, maxLines = 2) => {
+      const raw = String(text || '').replace(/\r/g, '');
+      if (!raw.trim()) return [];
+      const parts = raw.split(/\n/);
+      const lines = [];
+      let overflow = false;
+
+      const push = (value) => {
+        if (lines.length < maxLines) lines.push(String(value || ''));
+        else overflow = true;
+      };
+
+      outer:
+      for (let pi = 0; pi < parts.length; pi++) {
+        const part = String(parts[pi] || '');
+        if (part === '') {
+          push('');
+          if (lines.length >= maxLines) {
+            overflow = overflow || (pi < parts.length - 1);
+            break;
+          }
+          continue;
+        }
+
+        let cur = '';
+        for (let ci = 0; ci < part.length; ci++) {
+          const ch = part.charAt(ci);
+          if (!cur) { cur = ch; continue; }
+          if (measureText(cur + ch, size) <= maxWidth) { cur += ch; continue; }
+          push(cur);
+          cur = ch;
+          if (lines.length >= maxLines) { overflow = true; break outer; }
+        }
+
+        push(cur);
+
+        if (lines.length >= maxLines) {
+          overflow = overflow || (pi < parts.length - 1);
+          break;
+        }
+      }
+
+      if (overflow && lines.length) {
+        const ell = '…';
+        let last = String(lines[lines.length - 1] || '').replace(/\s+$/g, '');
+        while (last && measureText(last + ell, size) > maxWidth) last = last.slice(0, -1);
+        lines[lines.length - 1] = last ? `${last}${ell}` : ell;
+      }
+
+      return lines.filter((line, idx, arr) => line !== '' || idx < arr.length - 1);
+    };
+
     const rightText = (text, rightX, yTop, size=9) => {
       const t = trim(text);
       if (!t) return;
-      const w = font.widthOfTextAtSize(t, size);
+      const w = measureText(t, size);
       drawText(t, rightX - w, yTop, size);
     };
 
@@ -1639,13 +1828,21 @@ async exportQuotePdf(quoteId) {
       page.drawText(t, { x, y, size, font });
     };
 
-    // ====== Header / Meta ======
-    const created = fmtDateYMD(q.createdAt || q.updatedAt || '');
-    const quoteDate = created;
+    const drawWrappedText = (text, x, yTop, maxWidth, size = 9, maxLines = 2, lineGap = 2) => {
+      const lines = wrapTextByWidth(text, maxWidth, size, maxLines);
+      if (!lines.length) return 0;
+      const step = size + lineGap;
+      lines.forEach((line, index) => drawText(line, x, yTop + (index * step), size));
+      return lines.length;
+    };
 
-    // 報價失效日期：以「產生日（製表日期）」+30天
+    // ====== Header / Meta ======
+    const printDate = fmtDateYMD(new Date().toISOString());
+    const quoteDate = fmtDateYMD(q.quoteDate || q.createdAt || q.updatedAt || printDate);
+
+    // 報價失效日期：以報價日期 + 30 天；若報價日期缺失則退回輸出當天
     const expiryDate = (() => {
-      const base = parseYMD(q.createdAt || q.updatedAt || '');
+      const base = parseYMD(q.quoteDate || q.createdAt || q.updatedAt || printDate) || parseYMD(printDate);
       if (!base) return '';
       return fmtYMDSlash(addDaysUTC(base, 30));
     })();
@@ -1671,85 +1868,24 @@ async exportQuotePdf(quoteId) {
     const contactLine = [contactName, contactPhone].filter(Boolean).join('  ');
 
     // 依附件樣式（以提供的範例 PDF 位置為基準）
-    drawText(created, 73.3, 155.6, 9);          // 製表日期
+    drawText(printDate, 73.3, 155.6, 9);        // 製表日期（輸出當天）
     drawText('1 / 1', 513.6, 156.6, 9);         // 頁次（目前僅支援單頁）
     drawText(quoteNo, 73.3, 169.0, 9);          // 報價單號（貼近「：」後）
     drawText(quoteDate, 73.3, 181.0, 9);        // 報價日期
     drawText(ownerName, 335.9, 182.0, 9);       // 業務經辦（僅姓名）
-    drawText(customerName, 73.3, 204.0, 9);     // 客戶全名（上移避免偏下）
-    drawText(contactLine, 92.0, 227, 9);      // 連絡人&電話
+    drawText(trim(q.customerCode || ''), 73.3, 193.0, 9); // 客戶代號
+    drawWrappedText(customerName, 73.3, 204.0, 242, 9, 2, 2); // 客戶全名：超長時自動換行
+    const pdfDeliveryDays = Number.isFinite(Number(q.deliveryDays)) ? Math.round(Number(q.deliveryDays)) : 60;
+    drawWrappedText(contactLine, 92.0, 227.0, 235, 9, 2, 2);    // 連絡人與電話：超長時自動換行
+    // 交貨日：值區起 x=344.6（標籤「交 貨 日:」結束），「天」預印於 x=407.4 y=229.0
+    drawText(`下單日起 ${pdfDeliveryDays} `, 345.5, 229.0, 9);  // 交貨日（「天」已印在模版 x=407.4）
     // 幣別
     drawText(currency === 'TWD' ? 'NTD' : currency, 335.9, 252.6, 9);
 
     
     // ====== 備註（PDF） ======
     // 需求：備註一 3 行 + 備註二 3 行（共 6 行），超過則第 6 行以「…」截斷
-    // 備註來源優先序：畫面 textarea（未儲存也可輸出）→（若有）draft → q.note / q.notes
-    const wrapText = (text, maxWidth, size = 9, maxLines = 6) => {
-      const raw = String(text || '').replace(/\r/g, '');
-      if (!raw.trim()) return Array.from({ length: maxLines }, () => '');
-      const parts = raw.split(/\n/);
-      const lines = [];
-      let overflow = false;
-
-      const measure = (s) => {
-        try { return font.widthOfTextAtSize(String(s || ''), size); }
-        catch (_) { return String(s || '').length * size; }
-      };
-
-      const push = (s) => {
-        if (lines.length < maxLines) lines.push(String(s || ''));
-        else overflow = true;
-      };
-
-      outer:
-      for (let pi = 0; pi < parts.length; pi++) {
-        const part = String(parts[pi] || '');
-        // 空行：保留換行效果
-        if (part === '') {
-          push('');
-          if (lines.length >= maxLines) {
-            overflow = overflow || (pi < parts.length - 1);
-            break;
-          }
-          continue;
-        }
-
-        let cur = '';
-        for (let ci = 0; ci < part.length; ci++) {
-          const ch = part.charAt(ci);
-          if (!cur) { cur = ch; continue; }
-          if (measure(cur + ch) <= maxWidth) { cur += ch; continue; }
-
-          push(cur);
-          cur = ch;
-
-          if (lines.length >= maxLines) { overflow = true; break outer; }
-        }
-
-        push(cur);
-
-        if (lines.length >= maxLines) {
-          overflow = overflow || (pi < parts.length - 1);
-          break;
-        }
-      }
-
-      while (lines.length < maxLines) lines.push('');
-
-      if (overflow) {
-        const ell = '…';
-        let last = String(lines[maxLines - 1] || '').replace(/\s+$/g, '');
-        if (!last) { lines[maxLines - 1] = ell; return lines; }
-        while (last && measure(last + ell) > maxWidth) {
-          last = last.slice(0, -1);
-        }
-        lines[maxLines - 1] = last + ell;
-      }
-
-      return lines;
-    };
-
+    // 備註來源優先序：畫面 textarea（未儲存也可輸出）→ q.note / q.notes
     const noteFromDom = (() => {
       try {
         const el = document.querySelector('textarea[name="note"], textarea[data-field="note"], #quote_note, #quoteNote');
@@ -1765,7 +1901,11 @@ async exportQuotePdf(quoteId) {
 
     const noteText = trim(noteFromDom || noteFallback || '');
     // 備註欄位在母版上是寬欄位，使用較接近實際欄寬的 maxWidth
-    const noteLines = wrapText(noteText, 470, 9, 6);
+    const noteLines = (() => {
+      const lines = wrapTextByWidth(noteText, 470, 9, 6);
+      while (lines.length < 6) lines.push('');
+      return lines;
+    })();
 
     // 位置（以現行母版文字座標為準）：備註一（上）/ 備註二（下）
     const NOTE_X = 73.3;
@@ -1788,8 +1928,9 @@ async exportQuotePdf(quoteId) {
 
     const startY1 = 396.5;   // 第一行（序號/品號/數量/單價/金額/專案）
     const startY2 = 409.9;   // 第二行（品名/單位/失效日）
-    const rowStep = 46;      // 每筆資料（兩行）高度
-    const maxPerPage = 7;    // 單頁最大筆數（避免碰到底部合計）
+    // 模版實際列高：由 PDF 橫線座標量測 = 48pt（原 46 會累積偏移，導致文字往上跑出格子）
+    const rowStep = 48;      // 每筆資料（兩行）高度（對齊模版格線 y≈393.2/441.5/489.4…）
+    const maxPerPage = 6;    // 模版只有 6 格資料列（第 7 格會壓到合計欄）
 
     let qtySum = 0;
     let subtotal = 0;
@@ -1814,24 +1955,20 @@ async exportQuotePdf(quoteId) {
       const y2 = startY2 + (idx * rowStep);
 
       drawText(seq, 32.0, y1, 9);          // 序號
-      drawText(mpn, 55.3, y1, 9);          // 品號
-      rightText(String(qv || ''), 309.7, y1, 9);     // 數量（右對齊）
-      rightText(fmtMoney(pv), 373.4, y1, 9);         // 單價（右對齊）
-      rightText(fmtMoney(lineTotal), 458.1, y1, 9);  // 金額（右對齊）
+      rightText(String(qv || ''), 309.7, y1 + 8, 9);     // 數量（右對齊）
+      drawText(unit, 296.3, y1 + 20, 9);                 // 單位
+      rightText(fmtMoney(pv), 373.4, y1 + 8, 9);         // 單價（右對齊）
+      rightText(fmtMoney(lineTotal), 458.1, y1 + 8, 9);  // 金額（右對齊）
 
       // 專案代號：優先用 repair.productLine（若無則留白）
       const project = trim(repair?.productLine || '');
       drawText(project, 463.3, y1, 9);
+      drawText(expiryDate, 463.3, y1 + 16, 9);
 
-      // 品名（必要時附 vendor）
-      const nameLine = [name, vendor ? `(${vendor})` : ''].filter(Boolean).join(' ');
-      const shortName = nameLine.length > 60 ? (nameLine.slice(0, 57) + '...') : nameLine;
-      drawText(shortName, 55.3, y2, 9);
-
-      drawText(unit, 296.3, y2, 9);       // 單位
-
-      // 報價失效日期（同一份報價單共用）：產生日 + 30 天
-      drawText(expiryDate, 463.3, y2, 9);
+      // 左側大欄位改為符合範例的三層資訊：Vendor / 品名 / MPN
+      // 長文字統一在欄寬內換行，不再硬切單行導致跑版。
+      const itemCellText = [vendor, name, mpn].filter(Boolean).join('\n');
+      drawWrappedText(itemCellText, 55.3, y1 - 0.5, 228, 8.4, 3, 2);
     });
 
     // ====== Totals ======
@@ -1934,6 +2071,8 @@ async exportQuotePdf(quoteId) {
         ...q,
         status: (data.status || q.status || '').toString(),
         currency: (data.currency || q.currency || '').toString(),
+        customerCode: (data.customerCode != null ? data.customerCode : (q.customerCode || '')).toString(),
+        deliveryDays: (data.deliveryDays !== undefined && data.deliveryDays !== '') ? Number(data.deliveryDays) : (q.deliveryDays ?? 60),
         items,
         note: (data.note || '').toString()
       });

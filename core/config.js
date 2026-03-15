@@ -8,9 +8,9 @@ const AppConfig = {
   // 版本資訊
   // ========================================
   VERSION: 'V161',
-  VERSION_DATE: '2026-03-13',
+  VERSION_DATE: '2026-03-15',
   VERSION_NAME: 'Modular Phoenix',
-  BUILD_NUMBER: '304',
+  BUILD_NUMBER: '346',
   
   // ========================================
   // Firebase 配置
@@ -118,49 +118,64 @@ const AppConfig = {
     repairIdFormat: 'R{YYYYMMDD}-{SEQ}', // 例如：R20241215-001
 
     // 零件追蹤狀態（repairParts）
+    // 說明：此陣列同時作為選單來源與狀態語意的唯一真實來源，避免 UI 模組各自維護 badge / 顏色 / 終態規則。
     partStatus: [
-      { value: '需求提出', label: '需求提出' },
-      { value: '已報價', label: '已報價' },
-      { value: '已下單', label: '已下單' },
-      { value: '已到貨', label: '已到貨' },
-      { value: '已更換', label: '已更換' },
-      { value: '取消', label: '取消' }
+      { value: '需求提出', label: '需求提出', semanticKey: 'request_open', stageKind: 'flow', rank: 1, terminal: false, badgeClass: 'badge-primary', accent: '#7c3aed', soft: 'rgba(124,58,237,.12)' },
+      { value: '已報價', label: '已報價', semanticKey: 'quoted', stageKind: 'flow', rank: 2, terminal: false, badgeClass: 'badge-info', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
+      { value: '已下單', label: '已下單', semanticKey: 'ordered', stageKind: 'flow', rank: 3, terminal: false, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: '已到貨', label: '已到貨', semanticKey: 'arrived', stageKind: 'flow', rank: 4, terminal: false, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
+      { value: '已更換', label: '已更換', semanticKey: 'replaced', stageKind: 'result', rank: 5, terminal: true, badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
+      { value: '取消', label: '取消', semanticKey: 'cancelled', stageKind: 'result', rank: 90, terminal: true, badgeClass: 'badge-error', accent: '#dc2626', soft: 'rgba(220,38,38,.12)' }
     ],
 
     // 報價狀態（quotes）
     quoteStatus: [
-      { value: '草稿', label: '草稿' },
-      { value: '已送出', label: '已送出' },
-      { value: '已核准', label: '已核准' },
-      { value: '已取消', label: '已取消' }
+      { value: '草稿', label: '草稿', semanticKey: 'draft', stageKind: 'flow', rank: 1, terminal: false, badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
+      { value: '已送出', label: '已送出', semanticKey: 'submitted', stageKind: 'flow', rank: 2, terminal: false, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: '已核准', label: '已核准', semanticKey: 'approved', stageKind: 'result', rank: 3, terminal: true, badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
+      { value: '已取消', label: '已取消', semanticKey: 'cancelled', stageKind: 'result', rank: 90, terminal: true, badgeClass: 'badge-error', accent: '#dc2626', soft: 'rgba(220,38,38,.12)' }
     ],
 
     // 訂單狀態（orders）
     orderStatus: [
-      { value: '建立', label: '建立' },
-      { value: '已下單', label: '已下單' },
-      { value: '已到貨', label: '已到貨' },
-      { value: '已結案', label: '已結案' },
-      { value: '已取消', label: '已取消' }
+      { value: '建立', label: '建立', semanticKey: 'created', stageKind: 'flow', rank: 1, terminal: false, badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
+      { value: '已下單', label: '已下單', semanticKey: 'ordered', stageKind: 'flow', rank: 2, terminal: false, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: '已到貨', label: '已到貨', semanticKey: 'arrived', stageKind: 'flow', rank: 3, terminal: false, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
+      { value: '已結案', label: '已結案', semanticKey: 'closed', stageKind: 'result', rank: 4, terminal: true, badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
+      { value: '已取消', label: '已取消', semanticKey: 'cancelled', stageKind: 'result', rank: 90, terminal: true, badgeClass: 'badge-error', accent: '#dc2626', soft: 'rgba(220,38,38,.12)' }
+    ],
+
+    // 收費判定（repair.billing.chargeable）
+    billingChargeable: [
+      { value: 'undecided', label: '尚未決定', semanticKey: 'undecided', stageKind: 'decision', rank: 1, terminal: false, badgeClass: 'badge', accent: '#64748b', soft: 'rgba(100,116,139,.12)' },
+      { value: 'free', label: '不需收費', semanticKey: 'free', stageKind: 'result', rank: 2, terminal: true, badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
+      { value: 'chargeable', label: '需收費', semanticKey: 'chargeable', stageKind: 'decision', rank: 3, terminal: false, badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' }
+    ],
+
+    // 收費案件的下單判定（repair.billing.orderStatus）
+    billingOrderDecision: [
+      { value: 'unknown', label: '尚未確認', semanticKey: 'unknown', stageKind: 'decision', rank: 1, terminal: false, badgeClass: 'badge', accent: '#64748b', soft: 'rgba(100,116,139,.12)' },
+      { value: 'ordered', label: '已下單', semanticKey: 'ordered', stageKind: 'result', rank: 2, terminal: true, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: 'not_ordered', label: '未下單', semanticKey: 'not_ordered', stageKind: 'result', rank: 3, terminal: true, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' }
     ],
 
     // 維修單內『未下單』追蹤狀態（billing.notOrdered.stageCode）
     billingNotOrderedStage: [
-      { value: 'quote_pending', label: '待報價' },
-      { value: 'procurement', label: '請購中' },
-      { value: 'reviewing', label: '客戶評估中' },
-      { value: 'budget_review', label: '預算確認中' },
-      { value: 'on_hold', label: '暫緩' },
-      { value: 'other', label: '其他' }
+      { value: 'quote_pending', label: '待報價', semanticKey: 'quote_pending', stageKind: 'flow', rank: 1, terminal: false, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
+      { value: 'procurement', label: '請購中', semanticKey: 'procurement', stageKind: 'flow', rank: 2, terminal: false, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: 'reviewing', label: '客戶評估中', semanticKey: 'reviewing', stageKind: 'flow', rank: 3, terminal: false, badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
+      { value: 'budget_review', label: '預算確認中', semanticKey: 'budget_review', stageKind: 'flow', rank: 4, terminal: false, badgeClass: 'badge-primary', accent: '#4f46e5', soft: 'rgba(79,70,229,.12)' },
+      { value: 'on_hold', label: '暫緩', semanticKey: 'on_hold', stageKind: 'flow', rank: 5, terminal: false, badgeClass: 'badge-warning', accent: '#b45309', soft: 'rgba(180,83,9,.14)' },
+      { value: 'other', label: '其他', semanticKey: 'other', stageKind: 'flow', rank: 90, terminal: false, badgeClass: 'badge', accent: '#64748b', soft: 'rgba(100,116,139,.12)' }
     ],
 
     // 維修單內『未下單』原因（billing.notOrdered.reasonCode）
     billingNotOrderedReason: [
-      { value: 'price', label: '價格過高' },
-      { value: 'budget', label: '客戶預算不足' },
-      { value: 'internal', label: '客戶內部流程/延後' },
-      { value: 'spec', label: '規格/內容待確認' },
-      { value: 'other', label: '其他' }
+      { value: 'price', label: '價格過高', semanticKey: 'price', stageKind: 'reason', rank: 1, terminal: false, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
+      { value: 'budget', label: '客戶預算不足', semanticKey: 'budget', stageKind: 'reason', rank: 2, terminal: false, badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
+      { value: 'internal', label: '客戶內部流程/延後', semanticKey: 'internal', stageKind: 'reason', rank: 3, terminal: false, badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
+      { value: 'spec', label: '規格/內容待確認', semanticKey: 'spec', stageKind: 'reason', rank: 4, terminal: false, badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
+      { value: 'other', label: '其他', semanticKey: 'other', stageKind: 'reason', rank: 90, terminal: false, badgeClass: 'badge', accent: '#64748b', soft: 'rgba(100,116,139,.12)' }
     ],
     
     // 預設值
@@ -202,6 +217,18 @@ const AppConfig = {
       fontSize: 12,
       lineWidth: 80,
       indent: 2
+    },
+
+    // 週報案件顯示規則
+    caseDisplay: {
+      fallbackLabel: '未命名案件',
+      separator: '｜',
+      overviewTitle: '本週案件總覽',
+      showSummarySection: false,
+      showBasisDateLine: false,
+      issueWrapWidth: 44,
+      workSummaryWrapWidth: 44,
+      workSummaryLabel: '本週處置'
     },
     
     // 週報模式
@@ -392,33 +419,81 @@ const AppConfig = {
     return this.business.repairStatus.find(s => s.value === value);
   },
 
+  _resolveBusinessStatusCollection(type) {
+    const normalized = (type || '').toString().trim().toLowerCase();
+    const map = {
+      quote: 'quoteStatus',
+      quotes: 'quoteStatus',
+      order: 'orderStatus',
+      orders: 'orderStatus',
+      part: 'partStatus',
+      parts: 'partStatus',
+      repairpart: 'partStatus',
+      repairparts: 'partStatus',
+      billing_chargeable: 'billingChargeable',
+      billingchargeable: 'billingChargeable',
+      billing_charge: 'billingChargeable',
+      billing_order: 'billingOrderDecision',
+      billingorder: 'billingOrderDecision',
+      billing_order_status: 'billingOrderDecision',
+      billing_stage: 'billingNotOrderedStage',
+      billingstage: 'billingNotOrderedStage',
+      billing_not_ordered_stage: 'billingNotOrderedStage',
+      billing_reason: 'billingNotOrderedReason',
+      billingreason: 'billingNotOrderedReason',
+      billing_not_ordered_reason: 'billingNotOrderedReason'
+    };
+    return map[normalized] || '';
+  },
+
+  getBusinessStatusOptions(type) {
+    const key = this._resolveBusinessStatusCollection(type);
+    const list = key ? this.business?.[key] : null;
+    return Array.isArray(list) ? list.map(item => ({ ...item })) : [];
+  },
+
+  getBusinessStatusMeta(type, value) {
+    const status = (value || '').toString().trim();
+    if (!status) return null;
+    return this.getBusinessStatusOptions(type).find(item => item.value === status) || null;
+  },
+
+  isTerminalBusinessStatus(type, value) {
+    const meta = this.getBusinessStatusMeta(type, value);
+    return !!(meta && meta.terminal === true);
+  },
+
+  getBusinessStatusRank(type, value) {
+    const meta = this.getBusinessStatusMeta(type, value);
+    return Number.isFinite(Number(meta?.rank)) ? Number(meta.rank) : 999;
+  },
+
   getStatusPresentation(type, value) {
     const entityType = (type || '').toString().trim().toLowerCase();
-    const status = (value || '').toString().trim();
 
-    const maps = {
-      repair: {
+    if (entityType === 'repair') {
+      const repairMaps = {
         '進行中':   { badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
         '需要零件': { badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
         '已完成':   { badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' }
-      },
-      quote: {
-        '草稿':   { badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
-        '已送出': { badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
-        '已核准': { badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
-        '已取消': { badgeClass: 'badge-error', accent: '#dc2626', soft: 'rgba(220,38,38,.12)' }
-      },
-      order: {
-        '建立':   { badgeClass: 'badge-primary', accent: '#2563eb', soft: 'rgba(37,99,235,.12)' },
-        '已下單': { badgeClass: 'badge-info', accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' },
-        '已到貨': { badgeClass: 'badge-warning', accent: '#d97706', soft: 'rgba(217,119,6,.15)' },
-        '已結案': { badgeClass: 'badge-success', accent: '#16a34a', soft: 'rgba(22,163,74,.14)' },
-        '已取消': { badgeClass: 'badge-error', accent: '#dc2626', soft: 'rgba(220,38,38,.12)' }
-      }
-    };
+      };
+      return repairMaps[(value || '').toString().trim()] || {
+        badgeClass: '',
+        accent: 'var(--module-accent)',
+        soft: 'var(--module-accent-soft)'
+      };
+    }
 
-    const group = maps[entityType] || {};
-    return group[status] || {
+    const meta = this.getBusinessStatusMeta(entityType, value);
+    if (meta) {
+      return {
+        badgeClass: meta.badgeClass || '',
+        accent: meta.accent || 'var(--module-accent)',
+        soft: meta.soft || 'var(--module-accent-soft)'
+      };
+    }
+
+    return {
       badgeClass: '',
       accent: 'var(--module-accent)',
       soft: 'var(--module-accent-soft)'
@@ -437,6 +512,57 @@ const AppConfig = {
     };
   },
   
+  getBillingFlowMeta(billing) {
+    const b = (billing && typeof billing === 'object') ? billing : {};
+    const chargeableValue = (b.chargeable === true)
+      ? 'chargeable'
+      : (b.chargeable === false ? 'free' : 'undecided');
+    const chargeableMeta = this.getBusinessStatusMeta('billing_chargeable', chargeableValue);
+
+    const orderDecisionValue = (b.chargeable === true)
+      ? ((b.orderStatus === 'ordered') ? 'ordered' : (b.orderStatus === 'not_ordered' ? 'not_ordered' : 'unknown'))
+      : '';
+    const orderDecisionMeta = orderDecisionValue
+      ? this.getBusinessStatusMeta('billing_order', orderDecisionValue)
+      : null;
+
+    const stageCode = (b.notOrdered && typeof b.notOrdered === 'object')
+      ? (b.notOrdered.stageCode || '')
+      : '';
+    const reasonCode = (b.notOrdered && typeof b.notOrdered === 'object')
+      ? (b.notOrdered.reasonCode || '')
+      : (b.notOrderedReason || '');
+    const note = (b.notOrdered && typeof b.notOrdered === 'object')
+      ? (b.notOrdered.note || '')
+      : '';
+    const stageMeta = stageCode ? this.getBusinessStatusMeta('billing_stage', String(stageCode).toLowerCase()) : null;
+    const reasonMeta = reasonCode ? this.getBusinessStatusMeta('billing_reason', String(reasonCode).toLowerCase()) : null;
+
+    const summaryLabel = [
+      chargeableMeta?.label || '',
+      orderDecisionMeta?.label || ''
+    ].filter(Boolean).join(' / ') || '尚未決定';
+
+    return {
+      chargeableValue,
+      chargeableMeta,
+      orderDecisionValue,
+      orderDecisionMeta,
+      stageCode: stageCode || '',
+      stageMeta,
+      reasonCode: reasonCode || '',
+      reasonMeta,
+      note: note || '',
+      summaryLabel,
+      isChargeable: b.chargeable === true,
+      isFree: b.chargeable === false,
+      isUndecided: b.chargeable !== true && b.chargeable !== false,
+      isOrdered: b.chargeable === true && b.orderStatus === 'ordered',
+      isNotOrdered: b.chargeable === true && b.orderStatus === 'not_ordered',
+      isOrderUnknown: b.chargeable === true && b.orderStatus !== 'ordered' && b.orderStatus !== 'not_ordered'
+    };
+  },
+
   getBillingNotOrderedStageOptions() {
     return Array.isArray(this.business?.billingNotOrderedStage)
       ? this.business.billingNotOrderedStage.map(item => ({ ...item }))
