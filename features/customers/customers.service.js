@@ -88,7 +88,7 @@ async init(options = {}) {
     }
 
     try {
-      console.log('👥 Initializing Customer Service...');
+      console.debug('👥 Initializing Customer Service...');
 
       // 清理舊監聽與 ref
       this._teardownRealtimeListeners();
@@ -106,8 +106,8 @@ async init(options = {}) {
       this._boundAuthMode = authMode;
       this._boundUid = wantFirebase ? uid : '';
 
-      console.log('✅ Customer Service initialized');
-      console.log(`  👥 Loaded ${this.customers.length} customers`);
+      console.debug('✅ Customer Service initialized');
+      console.debug(`  👥 Loaded ${this.customers.length} customers`);
 
     } catch (error) {
       console.error('Customer Service initialization error:', error);
@@ -187,7 +187,7 @@ this.customersRef.on('child_changed', (snapshot) => {
     });
 
     this._listenersReady = true;
-    console.log('  ✓ Customer realtime listeners setup');
+    console.debug('  ✓ Customer realtime listeners setup');
   }
 
   async loadData() {
@@ -209,7 +209,7 @@ this.customersRef.on('child_changed', (snapshot) => {
     const data = snapshot.val();
     if (data) {
       this.customers = Object.values(data).filter(c => !c.isDeleted);
-      console.log(`  ✓ Loaded ${this.customers.length} customers from Firebase`);
+      console.debug(`  ✓ Loaded ${this.customers.length} customers from Firebase`);
       this._touch();
     } else {
       this.customers = [];
@@ -224,7 +224,7 @@ this.customersRef.on('child_changed', (snapshot) => {
       const data = localStorage.getItem(key);
       this.customers = data ? JSON.parse(data) : [];
       this.customers = (this.customers || []).filter(c => !c.isDeleted);
-      console.log(`  ✓ Loaded ${this.customers.length} customers from localStorage`);
+      console.debug(`  ✓ Loaded ${this.customers.length} customers from localStorage`);
       this._touch();
     } catch (error) {
       console.error('Failed to load customers from localStorage:', error);

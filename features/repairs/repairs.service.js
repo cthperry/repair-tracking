@@ -123,7 +123,7 @@ class RepairService {
 
     this._initPromise = (async () => {
       try {
-        console.log('🔧 Initializing Repair Service...');
+        console.debug('🔧 Initializing Repair Service...');
 
         // 初始化 Firebase（如果可用）
         if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {  // N-3 fix: 補可選鏈
@@ -141,8 +141,8 @@ class RepairService {
         await this.loadData();
 
         this.isInitialized = true;
-        console.log('✅ Repair Service initialized');
-        console.log(`  📦 Loaded ${this.repairs.length} repairs`);
+        console.debug('✅ Repair Service initialized');
+        console.debug(`  📦 Loaded ${this.repairs.length} repairs`);
 
       } catch (error) {
         console.error('Repair Service initialization error:', error);
@@ -221,7 +221,7 @@ class RepairService {
     });
 
     this._listenersReady = true;
-    console.log('  ✓ Firebase realtime listeners setup' + (startAt ? ` (startAt ${startAt})` : ''));
+    console.debug('  ✓ Firebase realtime listeners setup' + (startAt ? ` (startAt ${startAt})` : ''));
   }
   
   /**
@@ -297,7 +297,7 @@ class RepairService {
       
       if (historyData) {
         this.repairHistory = this._flattenHistoryData(historyData);
-        console.log(`  ✓ Loaded ${this.repairHistory.length} history records`);
+        console.debug(`  ✓ Loaded ${this.repairHistory.length} history records`);
       }
     }
   }
@@ -378,7 +378,7 @@ class RepairService {
       
       if (historyData) {
         this.repairHistory = JSON.parse(historyData);
-        console.log(`  ✓ Loaded ${this.repairHistory.length} history records from localStorage`);
+        console.debug(`  ✓ Loaded ${this.repairHistory.length} history records from localStorage`);
       }
       return loaded;
     } catch (error) {
@@ -950,7 +950,7 @@ async addHistoryAction(repair, options = {}) {
     // 儲存到本地
     this.saveToLocalStorage();
 
-    console.log('✅ History added:', history.id);
+    console.debug('✅ History added:', history.id);
     return history;
 
   } catch (error) {
@@ -1243,7 +1243,7 @@ getRecentSerialNumbers({ customer, machine, excludeId, limit = 6 } = {}) {
       this.repairHistory = [];
       this.saveToLocalStorage();
       
-      console.log('✅ All repairs cleared');
+      console.debug('✅ All repairs cleared');
       return true;
       
     } catch (error) {

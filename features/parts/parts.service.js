@@ -51,7 +51,7 @@ class PartService {
 
         await this.load();
         this.isInitialized = true;
-        console.log('✅ PartService initialized');
+        console.debug('✅ PartService initialized');
       } finally {
         this._initPromise = null;
       }
@@ -260,7 +260,7 @@ class RepairPartsService {
 
         await this.loadAll();
         this.isInitialized = true;
-        console.log('✅ RepairPartsService initialized');
+        console.debug('✅ RepairPartsService initialized');
       } finally {
         this._initPromise = null;
       }

@@ -11,6 +11,7 @@
 class WeeklyService {
   constructor() {
     this.isInitialized = false;
+    this._initPromise = null;
     this.isFirebase = false;
 
     this.weekStart = '';
@@ -37,19 +38,28 @@ class WeeklyService {
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      // 以 UID 隔離，避免互相覆寫
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || 'unknown');
-      this.ref = this.db.ref(`weeklyPlans/${uid}`);
-    }
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          // 以 UID 隔離，避免互相覆寫
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || 'unknown');
+          this.ref = this.db.ref(`weeklyPlans/${uid}`);
+        }
 
-    await this.syncWeekRange(true);
+        await this.syncWeekRange(true);
 
-    this.isInitialized = true;
-    console.log('✅ WeeklyService initialized');
+        this.isInitialized = true;
+        console.debug('✅ WeeklyService initialized');
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+
+    return this._initPromise;
   }
 
   getWeekKey() {

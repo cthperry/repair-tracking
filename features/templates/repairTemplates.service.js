@@ -18,6 +18,7 @@
       this._onChange = new Set();
       this._lsKey = null;
       this._ready = false;
+      this._initPromise = null;
     }
 
     get uid(){ return this._uid; }
@@ -36,19 +37,29 @@
     }
 
     async init(){
-      const u = (window.AppState?.getCurrentUser?.() || window.currentUser);
-      this._uid = (u && u.uid) ? u.uid : null;
-      this._lsKey = this._buildLsKey();
-      this._ready = false;
+      if (this._ready) return;
+      if (this._initPromise) return this._initPromise;
 
-      await this._loadFromLocal();
+      this._initPromise = (async () => {
+        try {
+          const u = (window.AppState?.getCurrentUser?.() || window.currentUser);
+          this._uid = (u && u.uid) ? u.uid : null;
+          this._lsKey = this._buildLsKey();
 
-      if(window.firebase && this._uid){
-        this._ref = firebase.database().ref(`data/${this._uid}/meta/repairTemplates`);
-        this._setupRealtime();
-      }
-      this._ready = true;
-      this._emit();
+          await this._loadFromLocal();
+
+          if(window.firebase && this._uid){
+            this._ref = firebase.database().ref(`data/${this._uid}/meta/repairTemplates`);
+            this._setupRealtime();
+          }
+          this._ready = true;
+          this._emit();
+        } finally {
+          this._initPromise = null;
+        }
+      })();
+
+      return this._initPromise;
     }
 
     reset(){
@@ -57,6 +68,7 @@
       this._cache = [];
       this._byId = new Map();
       this._ready = false;
+      this._initPromise = null;
       this._teardownRealtime();
       this._emit();
     }

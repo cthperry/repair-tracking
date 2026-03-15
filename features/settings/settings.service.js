@@ -6,6 +6,7 @@
 class SettingsService {
   constructor() {
     this.isInitialized = false;
+    this._initPromise = null;
     this.settings = SettingsModel.defaultSettings();
 
     this.isFirebase = false;
@@ -18,27 +19,36 @@ class SettingsService {
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      // 盡量等待 Auth 先就緒（不破壞 Phase 1–3 規則：只用 AppRegistry.ensureReady）
+    this._initPromise = (async () => {
       try {
-        await window.AppRegistry?.ensureReady?.(['AuthService']);
-      } catch (_) {}
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          // 盡量等待 Auth 先就緒（不破壞 Phase 1–3 規則：只用 AppRegistry.ensureReady）
+          try {
+            await window.AppRegistry?.ensureReady?.(['AuthService']);
+          } catch (_) {}
 
-      // Firebase auth 尚未 ready 時，避免用 unknown 組 path
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || firebase?.auth?.().currentUser?.uid || null);
-      if (uid) {
-        this.db = firebase.database();
-        this.ref = this.db.ref(`users/${uid}/settings`);
-      } else {
-        this.ref = null;
+          // Firebase auth 尚未 ready 時，避免用 unknown 組 path
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || firebase?.auth?.().currentUser?.uid || null);
+          if (uid) {
+            this.db = firebase.database();
+            this.ref = this.db.ref(`users/${uid}/settings`);
+          } else {
+            this.ref = null;
+          }
+        }
+
+        await this.load();
+        this.isInitialized = true;
+        console.debug('✅ SettingsService initialized');
+      } finally {
+        this._initPromise = null;
       }
-    }
+    })();
 
-    await this.load();
-    this.isInitialized = true;
-    console.log('✅ SettingsService initialized');
+    return this._initPromise;
   }
 
   getLocalKey() {

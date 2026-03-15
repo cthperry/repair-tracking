@@ -50,7 +50,7 @@ class WorkLogService {
 
     this._initPromise = (async () => {
       try {
-        console.log('📝 Initializing WorkLog Service...');
+        console.debug('📝 Initializing WorkLog Service...');
 
         if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {
           this.db = firebase.database();
@@ -63,7 +63,7 @@ class WorkLogService {
         await this.loadData();
 
         this.isInitialized = true;
-        console.log(`✅ WorkLog Service initialized (${this.workLogs.length} logs)`);
+        console.debug(`✅ WorkLog Service initialized (${this.workLogs.length} logs)`);
 
       } catch (error) {
         console.error('WorkLog Service initialization error:', error);
@@ -197,7 +197,7 @@ class WorkLogService {
     const data = snapshot.val();
     if (data && typeof data === 'object') {
       this.workLogs = Object.values(data).filter(l => l && l.id);
-      console.log(`  ✓ Loaded ${this.workLogs.length} work logs from Firebase`);
+      console.debug(`  ✓ Loaded ${this.workLogs.length} work logs from Firebase`);
     } else {
       this.workLogs = [];
     }
@@ -242,7 +242,7 @@ class WorkLogService {
     });
 
     this._listenersReady = true;
-    console.log('  ✓ WorkLog realtime listeners setup');
+    console.debug('  ✓ WorkLog realtime listeners setup');
   }
 
   // ========================================
@@ -260,7 +260,7 @@ class WorkLogService {
       const raw = localStorage.getItem(this._getCacheKey());
       if (raw) {
         this.workLogs = JSON.parse(raw);
-        console.log(`  ✓ Loaded ${this.workLogs.length} work logs from localStorage`);
+        console.debug(`  ✓ Loaded ${this.workLogs.length} work logs from localStorage`);
         return true;
       }
     } catch (e) {
