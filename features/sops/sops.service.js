@@ -12,6 +12,7 @@
 class SOPService {
   constructor(){
     this.isInitialized = false;
+    this._initPromise = null;
     this.isFirebase = false;
     this.db = null;
     this.rootRef = null;
@@ -118,28 +119,37 @@ class SOPService {
 
   async init(){
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-      const root = this.db.ref('data').child(uid).child('sophub');
-      this.rootRef = root;
-      this.sopsRef = root.child('sops');
-      this.versionsRef = root.child('versions');
-    }
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          const root = this.db.ref('data').child(uid).child('sophub');
+          this.rootRef = root;
+          this.sopsRef = root.child('sops');
+          this.versionsRef = root.child('versions');
+        }
 
-    // 先用快取
-    this.loadFromLocalStorage();
+        // 先用快取
+        this.loadFromLocalStorage();
 
-    if (this.isFirebase && this.sopsRef) {
-      await this._loadSopsOnce();
-      this._setupRealtime();
-      this.saveToLocalStorage();
-    }
+        if (this.isFirebase && this.sopsRef) {
+          await this._loadSopsOnce();
+          this._setupRealtime();
+          this.saveToLocalStorage();
+        }
 
-    this.isInitialized = true;
-    try { console.log('✅ SOPService initialized'); } catch (_) {}
+        this.isInitialized = true;
+        try { console.debug('✅ SOPService initialized'); } catch (_) {}
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+
+    return this._initPromise;
   }
 
   async loadAll(){

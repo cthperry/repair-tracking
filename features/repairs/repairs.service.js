@@ -40,6 +40,10 @@ class RepairService {
 
     // localStorage 寫入節流（避免大量即時事件時頻繁寫入）
     this._cacheSaveTimer = null;
+
+    // getAll() rev-based 快取（避免 UI 每次 render 都收到可變引用並意外改動內部陣列）
+    this._rev = 0;
+    this._cacheAll = null;
   }
 
   // ===============================
@@ -88,6 +92,13 @@ class RepairService {
     } catch (_) {
       return '';
     }
+  }
+
+  // 每次 repairs 陣列發生變動時呼叫，使 _cacheAll 失效。
+  // 如此 getAll() 的快取在資料未變時可直接回傳，變動後才重新 slice。
+  _touchRepairs() {
+    this._rev = (this._rev || 0) + 1;
+    this._cacheAll = null;
   }
 
   _scheduleCacheSave(delayMs = 1500) {
@@ -275,7 +286,8 @@ class RepairService {
     
     if (data) {
       this.repairs = Object.values(data).filter(r => !r.isDeleted);
-      console.log(`  ✓ Loaded ${this.repairs.length} repairs from Firebase`);
+      this._touchRepairs();
+      console.debug(`  ✓ Loaded ${this.repairs.length} repairs from Firebase`);
     }
     
     // 載入歷程記錄
@@ -336,10 +348,11 @@ class RepairService {
     }
 
     if (changed) {
-      console.log(`  ✓ Delta synced ${changed} repairs from Firebase (startAt ${startAt})`);
+      this._touchRepairs();
+      console.debug(`  ✓ Delta synced ${changed} repairs from Firebase (startAt ${startAt})`);
     }
   }
-  
+
   /**
    * 從本地儲存載入
    */
@@ -354,7 +367,8 @@ class RepairService {
       
       if (data) {
         this.repairs = JSON.parse(data);
-        console.log(`  ✓ Loaded ${this.repairs.length} repairs from localStorage`);
+        this._touchRepairs();
+        console.debug(`  ✓ Loaded ${this.repairs.length} repairs from localStorage`);
         loaded = true;
       }
       
@@ -721,7 +735,7 @@ _computeChangedFields(before, after) {
         console.warn('Customer sync skipped:', e);
       }
 
-      console.log('✅ Repair created:', repair.id);
+      console.debug('✅ Repair created:', repair.id);
       return repair;
       
     } catch (error) {
@@ -809,7 +823,7 @@ _computeChangedFields(before, after) {
         console.warn('Customer sync skipped:', e);
       }
 
-      console.log('✅ Repair updated:', id);
+      console.debug('✅ Repair updated:', id);
       return updated;
       
     } catch (error) {
@@ -870,7 +884,7 @@ _computeChangedFields(before, after) {
         toProgress: existing.progress
       });
       
-      console.log('✅ Repair deleted:', id);
+      console.debug('✅ Repair deleted:', id);
       return deleted;
       
     } catch (error) {
@@ -888,10 +902,15 @@ _computeChangedFields(before, after) {
   }
   
   /**
-   * 取得所有維修單
+   * 取得所有維修單（rev-based cache）
+   * 回傳淺複製陣列，避免呼叫端意外對內部陣列 sort/reverse/splice 造成狀態汙染。
    */
   getAll() {
-    return this.repairs;
+    const rev = this._rev || 0;
+    if (this._cacheAll && this._cacheAll.rev === rev) return this._cacheAll.arr;
+    const arr = (this.repairs || []).slice();
+    this._cacheAll = { rev, arr };
+    return arr;
   }
   
   /**
@@ -982,6 +1001,8 @@ async addHistory(repair, fromStatus, toStatus, note = '') {
    * 通知監聽器
    */
   notifyListeners(action, repair) {
+    // CRUD 操作觸發時使 getAll() 快取失效（每次變動只 slice 一次，非無限重算）
+    this._touchRepairs();
     this.listeners.forEach(callback => {
       try {
         callback(action, repair);
@@ -1007,7 +1028,7 @@ async addHistory(repair, fromStatus, toStatus, note = '') {
     
     try {
       this.isSyncing = true;
-      console.log('🔄 Syncing repairs...');
+      console.debug('🔄 Syncing repairs...');
 
       // 以「上次同步點」做增量同步，避免每次 full download
       const meta = this._loadMeta();
@@ -1023,7 +1044,7 @@ async addHistory(repair, fromStatus, toStatus, note = '') {
       this.saveToLocalStorage();
       
       this.lastSyncTime = Date.now();
-      console.log('✅ Sync completed');
+      console.debug('✅ Sync completed');
       
     } catch (error) {
       console.error('Sync failed:', error);

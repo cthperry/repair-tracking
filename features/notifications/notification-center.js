@@ -16,6 +16,7 @@
   var _listeners = [];
   var _refreshTimer = null;
   var _LS_KEY = '';
+  var _autoRefreshBound = false; // 防止 _setupAutoRefresh 重複綁定 data:changed 監聽器
 
   // === Helpers ===
 
@@ -385,6 +386,10 @@
   // === Auto-refresh (監聽資料變更) ===
 
   function _setupAutoRefresh() {
+    // 防止 init() 被重複呼叫時同一批監聽器疊加（每次導航/重初始化都安全）
+    if (_autoRefreshBound) return;
+    _autoRefreshBound = true;
+
     window.addEventListener('data:changed', function () {
       if (_refreshTimer) return;
       _refreshTimer = setTimeout(function () {

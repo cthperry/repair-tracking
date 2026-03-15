@@ -107,7 +107,7 @@ class QuoteService {
 
         await this.load();
         this.isInitialized = true;
-        console.log('✅ QuoteService initialized');
+        console.debug('✅ QuoteService initialized');
       } finally {
         this._initPromise = null;
       }

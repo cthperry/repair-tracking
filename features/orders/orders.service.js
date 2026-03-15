@@ -87,7 +87,7 @@ class OrderService {
 
         await this.load();
         this.isInitialized = true;
-        console.log('✅ OrderService initialized');
+        console.debug('✅ OrderService initialized');
       } finally {
         this._initPromise = null;
       }

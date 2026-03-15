@@ -98,6 +98,7 @@
   class MaintenanceService {
     constructor(){
       this.isInitialized = false;
+      this._initPromise = null;
       this.isFirebase = false;
       this.db = null;
       this.rootRef = null;
@@ -189,32 +190,41 @@
 
     async init(){
       if (this.isInitialized) return;
+      if (this._initPromise) return this._initPromise;
 
-      this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-
-      // 快取優先
-      this.loadFromLocalStorage();
-      this._ensureSettingsDefaults();
-
-      if (this.isFirebase) {
+      this._initPromise = (async () => {
         try {
-          this.db = firebase.database();
-          const uid = getUid();
-          this.rootRef = this.db.ref('data').child(uid).child('maintenance');
-          this.refs.equipments = this.rootRef.child('equipments');
-          this.refs.records = this.rootRef.child('records');
-          this.refs.settings = this.rootRef.child('settings');
+          this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
 
-          await this._loadFromFirebaseOnce();
-          this._setupRealtime();
-          this.saveToLocalStorage();
-        } catch (e) {
-          console.warn('MaintenanceService init firebase failed:', e);
+          // 快取優先
+          this.loadFromLocalStorage();
+          this._ensureSettingsDefaults();
+
+          if (this.isFirebase) {
+            try {
+              this.db = firebase.database();
+              const uid = getUid();
+              this.rootRef = this.db.ref('data').child(uid).child('maintenance');
+              this.refs.equipments = this.rootRef.child('equipments');
+              this.refs.records = this.rootRef.child('records');
+              this.refs.settings = this.rootRef.child('settings');
+
+              await this._loadFromFirebaseOnce();
+              this._setupRealtime();
+              this.saveToLocalStorage();
+            } catch (e) {
+              console.warn('MaintenanceService init firebase failed:', e);
+            }
+          }
+
+          this.isInitialized = true;
+          try { console.debug('✅ MaintenanceService initialized'); } catch (_) {}
+        } finally {
+          this._initPromise = null;
         }
-      }
+      })();
 
-      this.isInitialized = true;
-      try { console.log('✅ MaintenanceService initialized'); } catch (_) {}
+      return this._initPromise;
     }
 
     async _loadFromFirebaseOnce(){

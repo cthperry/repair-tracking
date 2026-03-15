@@ -11,6 +11,24 @@
 class AnalyticsController {
   constructor() {
     this.isInitialized = false;
+    // 結果快取：以 repairs._rev + quotes._rev + orders._rev + periodMonths 為 key。
+    // 資料未變動時直接回傳上次結果，避免每次切頁都全量重算 O(n) 迴圈。
+    this._cache = null; // { key: string, result: object }
+  }
+
+  // 組合版本號做快取 key：任一 service 資料更新即觸發重算
+  _computeCacheKey(periodMonths) {
+    try {
+      const rs = this._getSvc('RepairService');
+      const qs = this._getSvc('QuoteService');
+      const os = this._getSvc('OrderService');
+      const rRev = (rs && rs._rev) || 0;
+      const qRev = (qs && qs._rev) || 0;
+      const oRev = (os && os._rev) || 0;
+      return `${rRev}:${qRev}:${oRev}:${periodMonths}`;
+    } catch (_) {
+      return null; // 無法取得版本號時不快取
+    }
   }
 
   async _ensureServicesReady() {
@@ -96,6 +114,11 @@ class AnalyticsController {
   }
 
   _compute(periodMonths = 6) {
+    const cacheKey = this._computeCacheKey(periodMonths);
+    if (cacheKey && this._cache && this._cache.key === cacheKey) {
+      return this._cache.result;
+    }
+
     const repairs = this._allRepairs();
     const quoteSvc = this._getSvc('QuoteService');
     const orderSvc = this._getSvc('OrderService');
@@ -333,7 +356,7 @@ class AnalyticsController {
     const momDelta = thisMoCount - prevMoCount;
     const momPct = prevMoCount > 0 ? Math.round((momDelta / prevMoCount) * 100) : null;
 
-    return {
+    const result = {
       trend,
       avgTrend,
       statusCount,
@@ -356,6 +379,9 @@ class AnalyticsController {
       riskStats,
       periodMonths
     };
+
+    if (cacheKey) this._cache = { key: cacheKey, result };
+    return result;
   }
 
   destroy() {

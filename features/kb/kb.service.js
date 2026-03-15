@@ -10,6 +10,7 @@
 class KBService {
   constructor(){
     this.isInitialized = false;
+    this._initPromise = null;
     this.isFirebase = false;
     this.db = null;
     this.rootRef = null;
@@ -129,30 +130,39 @@ class KBService {
 
   async init(){
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-      const root = this.db.ref('data').child(uid).child('kb');
-      this.rootRef = root;
-      this.refs.faqs = root.child('faqs');
-      this.refs.failureModes = root.child('failureModes');
-      this.refs.sops = root.child('sops');
-      this.refs.cases = root.child('cases');
-    }
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          const root = this.db.ref('data').child(uid).child('kb');
+          this.rootRef = root;
+          this.refs.faqs = root.child('faqs');
+          this.refs.failureModes = root.child('failureModes');
+          this.refs.sops = root.child('sops');
+          this.refs.cases = root.child('cases');
+        }
 
-    // 先用本機快取（畫面更快可用）
-    this.loadFromLocalStorage();
+        // 先用本機快取（畫面更快可用）
+        this.loadFromLocalStorage();
 
-    if (this.isFirebase && this.rootRef) {
-      await this._loadFromFirebaseOnce();
-      this._setupRealtime();
-      this.saveToLocalStorage();
-    }
+        if (this.isFirebase && this.rootRef) {
+          await this._loadFromFirebaseOnce();
+          this._setupRealtime();
+          this.saveToLocalStorage();
+        }
 
-    this.isInitialized = true;
-    try { console.log('✅ KBService initialized'); } catch (_) {}
+        this.isInitialized = true;
+        try { console.debug('✅ KBService initialized'); } catch (_) {}
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+
+    return this._initPromise;
   }
 
   async _loadFromFirebaseOnce(){
