@@ -171,17 +171,20 @@ class CustomerUI {
     this._updateFiltersToggleButton();
   }
 
-  _renderEmptyState(message) {
+  _renderEmptyState(message, isFilterEmpty) {
     const text = (message || '目前沒有資料').toString();
+    const clearBtn = isFilterEmpty
+      ? `<button class="btn btn-sm" style="margin-top:8px" onclick="window.customersUI?.clearAll?.()">清除所有篩選</button>`
+      : '';
     if (window.UI && typeof window.UI.emptyStateHTML === 'function') {
       return window.UI.emptyStateHTML({
-        icon: '🏢',
-        title: '沒有符合條件的客戶資料',
+        icon: isFilterEmpty ? '🔍' : '🏢',
+        title: isFilterEmpty ? '找不到符合條件的客戶' : '尚無客戶資料',
         text,
         className: 'customers-empty-state'
-      });
+      }) + clearBtn;
     }
-    return `<div class="empty-state customers-empty-state">${this._escapeAttr(text)}</div>`;
+    return `<div class="empty-state customers-empty-state">${this._escapeAttr(text)}${clearBtn}</div>`;
   }
   scheduleUpdateList() {
     if (this._listUpdateRaf) return;
@@ -615,7 +618,14 @@ class CustomerUI {
     const groups = (svc && typeof svc.searchGroups === 'function') ? svc.searchGroups(this.searchText) : [];
 
     if (!groups || groups.length === 0) {
-      return this._renderEmptyState('請調整搜尋或篩選條件後再試一次。');
+      const totalCompanies = (svc && typeof svc.getCompanies === 'function') ? svc.getCompanies().length : 0;
+      const hasSearch = !!(this.searchText || '').toString().trim();
+      const hasFilters = (this._countActiveFilters() > 0);
+      const isFilterEmpty = totalCompanies > 0 && (hasSearch || hasFilters);
+      const msg = isFilterEmpty
+        ? '請調整搜尋或篩選條件後再試一次。'
+        : '還沒有任何客戶資料，可以從維修單新增，或點擊右上角「新增客戶」。';
+      return this._renderEmptyState(msg, isFilterEmpty);
     }
 
     return groups.map(g => this.renderCompanyCard(g)).join('');
@@ -788,7 +798,11 @@ class CustomerUI {
       const token = ++this._renderToken;
       if (!groups || groups.length === 0) {
         cardsEl.classList.remove('is-rendering');
-        cardsEl.innerHTML = this._renderEmptyState('請調整搜尋或篩選條件後再試一次。');
+        const isFilterEmpty = totalCompanies > 0 && (hasSearch || hasFilters);
+        const emptyMsg = isFilterEmpty
+          ? '請調整搜尋或篩選條件後再試一次。'
+          : '還沒有任何客戶資料，可以從維修單新增，或點擊右上角「新增客戶」。';
+        cardsEl.innerHTML = this._renderEmptyState(emptyMsg, isFilterEmpty);
         return;
       }
 

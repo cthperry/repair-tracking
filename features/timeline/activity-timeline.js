@@ -82,19 +82,28 @@
     generic: '📌'
   };
 
+  // Resolve CSS variable at runtime so colors follow the design token system.
+  // Falls back to a neutral if the variable is not defined.
+  function cssVar(name, fallback) {
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    } catch (_) { return fallback; }
+  }
+
   const COLORS = {
-    create: '#22c55e',
-    update: '#3b82f6',
-    delete: '#ef4444',
-    status: '#8b5cf6',
-    worklog: '#f59e0b',
-    quote_create: '#6366f1',
-    quote_status: '#6366f1',
-    order_create: '#d97706',
-    order_status: '#d97706',
-    part_status: '#16a34a',
-    complete: '#10b981',
-    generic: '#94a3b8'
+    create:       'var(--color-success,#22c55e)',
+    update:       'var(--color-primary,#3b82f6)',
+    delete:       'var(--color-error,#ef4444)',
+    status:       'var(--color-purple,#8b5cf6)',
+    worklog:      'var(--color-warning,#f59e0b)',
+    quote_create: 'var(--color-purple,#6366f1)',
+    quote_status: 'var(--color-purple,#6366f1)',
+    order_create: 'var(--color-warning,#d97706)',
+    order_status: 'var(--color-warning,#d97706)',
+    part_status:  'var(--color-success,#16a34a)',
+    complete:     'var(--color-success,#10b981)',
+    generic:      'var(--color-text-secondary,#94a3b8)'
   };
 
   // ─── Build Events ───

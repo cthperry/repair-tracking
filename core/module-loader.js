@@ -122,7 +122,7 @@
     },
     repairs: {
       styles: ['features/repairs/repairs.css', 'features/worklogs/worklog.css', 'features/timeline/activity-timeline.css'],
-      scripts: ['features/timeline/activity-timeline.js', 'features/worklogs/worklog.ui.js', 'features/repairs/repairs.ui.js', 'features/repairs/repairs.ui-forms.js', 'features/repairs/repairs.controller.js']
+      scripts: ['features/timeline/activity-timeline.js', 'features/worklogs/worklog.ui.js', 'features/repairs/repairs.ui.js', 'features/repairs/repairs.ui-dropdowns.js', 'features/repairs/repairs.ui-actions.js', 'features/repairs/repairs.ui-forms.js', 'features/repairs/repairs.controller.js']
     },
     machines: {
       styles: ['features/machines/machines.css'],
