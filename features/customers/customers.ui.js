@@ -164,8 +164,21 @@ class CustomerUI {
     this.filtersPanelOpen = !this.filtersPanelOpen;
     this._saveFiltersPanelOpen();
     const panel = document.getElementById('customers-filters-panel');
-    if (panel) panel.style.display = this.filtersPanelOpen ? 'block' : 'none';
+    if (panel) panel.hidden = !this.filtersPanelOpen;
     this._updateFiltersToggleButton();
+  }
+
+  _renderEmptyState(message) {
+    const text = (message || '目前沒有資料').toString();
+    if (window.UI && typeof window.UI.emptyStateHTML === 'function') {
+      return window.UI.emptyStateHTML({
+        icon: '🏢',
+        title: '沒有符合條件的客戶資料',
+        text,
+        className: 'customers-empty-state'
+      });
+    }
+    return `<div class="empty-state customers-empty-state">${this._escapeAttr(text)}</div>`;
   }
   scheduleUpdateList() {
     if (this._listUpdateRaf) return;
@@ -332,16 +345,16 @@ class CustomerUI {
     const filtersBtnText = `🔍 ${this.filtersPanelOpen ? '▾ 收合篩選' : '▸ 開啟篩選'}${activeFilters ? ` (${activeFilters})` : ''}`;
 
     container.innerHTML = `
-      <div class="customers-module">
-        <div class="customers-toolbar module-toolbar">
-          <div class="module-toolbar-left">
+      <div class="customers-module ops-module-shell">
+        <div class="customers-toolbar module-toolbar customers-toolbar-surface">
+          <div class="module-toolbar-left ops-toolbar-title">
             <div class="page-title">
             <h2>🏢 客戶管理</h2>
-            <span class="muted" id="customers-count">載入中...</span>
+            <span class="muted ops-toolbar-summary" id="customers-count">載入中...</span>
             </div>
           </div>
 
-          <div class="module-toolbar-right">
+          <div class="module-toolbar-right ops-actions">
             <div class="customers-search">
               <input id="customers-search" class="input" type="text" placeholder="搜尋公司/聯絡人/電話/Email" value="${this._escapeAttr(this.searchDraft)}" />
             </div>
@@ -353,7 +366,7 @@ class CustomerUI {
           </div>
         </div>
 
-        <div class="customers-filters panel compact" id="customers-filters-panel" style="display:${this.filtersPanelOpen ? 'block' : 'none'};">
+        <div class="customers-filters panel compact ops-filter-panel" id="customers-filters-panel" ${this.filtersPanelOpen ? '' : 'hidden'}>
           <div class="panel-row">
             <div class="panel-left">
               <div class="panel-title"><strong>篩選</strong><span class="muted" style="margin-left:10px;">可多條件組合</span></div>
@@ -390,16 +403,18 @@ class CustomerUI {
           </div>
         </div>
 
-        <div class="customers-stats" id="customers-stats">${this.renderStats()}</div>
+        <div class="customers-stats ops-kpi-grid" id="customers-stats">${this.renderStats()}</div>
         <div class="company-cards is-rendering" id="company-cards">${this.renderLoadingCards()}</div>
       </div>
 
-      <div id="customer-modal" class="modal" style="display:none;">
+      <div id="customer-modal" class="modal" hidden>
         <div class="modal-backdrop" data-action="closeModal"></div>
-        <div class="modal-content" id="customer-modal-content"></div>
+        <!-- 使用 modal-host 承載內層 .modal-dialog，避免外層再套一層 modal shell 造成尺寸與關閉按鈕位置異常 -->
+        <div class="modal-host" id="customer-modal-content"></div>
       </div>
     `;
 
+    this._domBound = false; // Reset so handlers rebind to the newly rendered container
     this._bindDomHandlers(container);
     this.updateList();
   }
@@ -517,6 +532,7 @@ class CustomerUI {
 
     // Submit delegation for modal forms
     container.addEventListener('submit', (e) => {
+      e.preventDefault();
       const form = e.target;
       if (!form || !form.id) return;
       if (form.id === 'customer-form') {
@@ -556,25 +572,25 @@ class CustomerUI {
       : { totalCompanies: 0, totalContacts: 0, hasPhone: 0, hasEmail: 0, totalRepairCount: 0 };
 
     return `
-      <div class="stat-card">
-        <div class="stat-value">${stats.totalCompanies || 0}</div>
-        <div class="stat-label">公司數</div>
+      <div class="stat-card ops-kpi-card">
+        <div class="stat-value ops-kpi-value">${stats.totalCompanies || 0}</div>
+        <div class="stat-label ops-kpi-label">公司數</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">${stats.totalContacts || 0}</div>
-        <div class="stat-label">聯絡人數</div>
+      <div class="stat-card ops-kpi-card">
+        <div class="stat-value ops-kpi-value">${stats.totalContacts || 0}</div>
+        <div class="stat-label ops-kpi-label">聯絡人數</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">${stats.hasPhone || 0}</div>
-        <div class="stat-label">有電話</div>
+      <div class="stat-card ops-kpi-card">
+        <div class="stat-value ops-kpi-value">${stats.hasPhone || 0}</div>
+        <div class="stat-label ops-kpi-label">有電話</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">${stats.hasEmail || 0}</div>
-        <div class="stat-label">有 Email</div>
+      <div class="stat-card ops-kpi-card">
+        <div class="stat-value ops-kpi-value">${stats.hasEmail || 0}</div>
+        <div class="stat-label ops-kpi-label">有 Email</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">${stats.totalRepairCount || 0}</div>
-        <div class="stat-label">累計維修數</div>
+      <div class="stat-card ops-kpi-card">
+        <div class="stat-value ops-kpi-value">${stats.totalRepairCount || 0}</div>
+        <div class="stat-label ops-kpi-label">累計維修數</div>
       </div>
     `;
   }
@@ -584,9 +600,7 @@ class CustomerUI {
     const groups = (svc && typeof svc.searchGroups === 'function') ? svc.searchGroups(this.searchText) : [];
 
     if (!groups || groups.length === 0) {
-      return `
-        <div class="empty-state">沒有符合條件的資料</div>
-      `;
+      return this._renderEmptyState('請調整搜尋或篩選條件後再試一次。');
     }
 
     return groups.map(g => this.renderCompanyCard(g)).join('');
@@ -759,7 +773,7 @@ class CustomerUI {
       const token = ++this._renderToken;
       if (!groups || groups.length === 0) {
         cardsEl.classList.remove('is-rendering');
-        cardsEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">沒有符合條件的資料</div>`;
+        cardsEl.innerHTML = this._renderEmptyState('請調整搜尋或篩選條件後再試一次。');
         return;
       }
 
@@ -773,9 +787,36 @@ class CustomerUI {
     const content = document.getElementById('customer-modal-content');
     if (!modal || !content) return;
     content.innerHTML = html;
+
+    // 直接綁定 #customer-form submit，不依賴事件冒泡穿越 modal 遮罩
+    // 此做法在 position:fixed modal 中最可靠，避免事件委派中斷問題
+    try {
+      const customerForm = content.querySelector('#customer-form');
+      console.log('[openModal] customerForm found:', !!customerForm, customerForm?.id);
+      if (customerForm) {
+        customerForm.addEventListener('submit', (e) => {
+          console.log('[submit] fired on form:', e.target?.id);
+          e.preventDefault();
+          e.stopPropagation();
+          const formsApi = this._getFormsApi();
+          console.log('[submit] formsApi:', formsApi, 'handleSubmit:', typeof formsApi?.handleSubmit);
+          if (formsApi && typeof formsApi.handleSubmit === 'function') {
+            formsApi.handleSubmit(e);
+          } else {
+            console.error('[submit] customerUIFormsApi not available for submit');
+          }
+        });
+        console.log('[openModal] submit listener added to #customer-form');
+      } else {
+        console.warn('[openModal] #customer-form NOT found in content');
+      }
+    } catch (e) {
+      console.warn('openModal: failed to bind customer-form submit:', e);
+    }
+
     // 必須使用 flex，才能套用 core/ui.css 的置中與遮罩排版
     // （先前使用 block 會導致視窗位置偏移，尤其在新增聯絡人/編輯時更明顯）
-    modal.style.display = 'flex';
+    modal.hidden = false;
 
     // 避免沿用上一次的捲動位置
     try { content.scrollTop = 0; } catch (_) {}
@@ -850,7 +891,7 @@ class CustomerUI {
     const modal = document.getElementById('customer-modal');
     const content = document.getElementById('customer-modal-content');
     if (content) content.innerHTML = '';
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.hidden = true;
   }
 }
 
