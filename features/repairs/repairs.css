@@ -126,10 +126,15 @@
 
 .repairs-stats {
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  /* 160px 最小寬確保 5 張 KPI 卡在 ~880px+ 容器中都能排進同一列 */
+  grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
   gap:12px;
   min-width:0;
   align-items:stretch;
+}
+/* 若 KPI 區使用全站共用的 .ops-kpi-grid，也同步縮小下限避免第 5 張換行 */
+.repairs-module .ops-kpi-grid{
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .repairs-stats > *{

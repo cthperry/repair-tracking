@@ -234,15 +234,25 @@
 .history-card{width:100%;text-align:left;}
 .history-card .history-no{color:var(--color-text-primary);}
 
-/* 在機台歷史雙欄佈局中，detail 面板寬度有限；
-   viewport ≤1100px 時英雄區改為單欄，避免 stats 溢出覆蓋文字（重疊 bug）。*/
-@media (max-width: 1100px){
+/* 機台歷史英雄區：固定右欄 340px，防止 auto 欄展開至 max-content 造成與左欄重疊。
+   根本原因：.enterprise-detail-hero 用 `auto` 欄，stats 內含 20px 字體日期值
+   (如 "2026-03-06 07:24")，max-content 可達 ~460px，遠超預期的 360px。
+   改用固定寬度後右欄不再膨脹，左欄文字不被擠壓覆蓋。*/
+.machine-detail-hero-enterprise{
+  grid-template-columns: minmax(0,1fr) 340px;
+}
+.machine-detail-hero-enterprise .enterprise-detail-hero-stats{
+  min-width: 0;
+  width: 100%;
+}
+/* viewport ≤900px 時折回單欄（機台+細節雙欄佈局下空間已很緊湊）*/
+@media (max-width: 900px){
   .machine-detail-hero-enterprise{
-    grid-template-columns:1fr;
+    grid-template-columns: 1fr;
   }
   .machine-detail-hero-enterprise .enterprise-detail-hero-stats{
-    min-width:0;
-    grid-template-columns:repeat(2, minmax(0,1fr));
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0,1fr));
   }
 }
 @media (max-width: 640px){
