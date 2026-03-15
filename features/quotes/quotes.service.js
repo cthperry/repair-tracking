@@ -223,6 +223,28 @@ class QuoteService {
     }, Math.max(250, delayMs));
   }
 
+  /**
+   * 從 localStorage 讀取快取的報價資料。
+   * 對應 _saveLocalNow() 寫入的格式：JSON 陣列，存於 this._key()。
+   * 先前此方法僅呼叫 this._loadLocal()（未定義），導致 try/catch 靜默吞掉 TypeError，
+   * 每次啟動都無法讀取快取（localStorage caching broken silent bug）。
+   */
+  _loadLocal() {
+    try {
+      const raw = localStorage.getItem(this._key());
+      if (raw) {
+        const data = JSON.parse(raw);
+        this.quotes = Array.isArray(data)
+          ? data.map(QuoteModel.normalize).filter(Boolean)
+          : [];
+      } else {
+        this.quotes = [];
+      }
+    } catch (_) {
+      this.quotes = [];
+    }
+  }
+
   loadFromLocalStorage() {
     try {
       this._loadLocal();

@@ -233,6 +233,18 @@
 .machine-history.enterprise-detail-overview-card{margin-top:0;}
 .history-card{width:100%;text-align:left;}
 .history-card .history-no{color:var(--color-text-primary);}
+
+/* 在機台歷史雙欄佈局中，detail 面板寬度有限；
+   viewport ≤1100px 時英雄區改為單欄，避免 stats 溢出覆蓋文字（重疊 bug）。*/
+@media (max-width: 1100px){
+  .machine-detail-hero-enterprise{
+    grid-template-columns:1fr;
+  }
+  .machine-detail-hero-enterprise .enterprise-detail-hero-stats{
+    min-width:0;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+}
 @media (max-width: 640px){
   .machine-detail-actions .btn{width:100%;}
 }

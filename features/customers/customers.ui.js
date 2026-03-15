@@ -426,9 +426,10 @@ class CustomerUI {
       </div>
     `;
 
-    // destroy() 只清空 DOM，不會保證重置事件綁定旗標；
-    // render() 必須主動重置，避免第二次回到同頁時沿用舊狀態導致事件失效。
-    this._domBound = false;
+    // _bindDomHandlers 只在容器變更或首次掛載時才重新綁定（有 _domBound 旗標保護）。
+    // 不在此強制重置 _domBound，否則每次 render() 都會累積監聽器，
+    // 導致 toggleCompany 偶數次觸發時互相抵消（折疊按鈕失效 bug）。
+    // 容器變更的情況已由 _bindDomHandlers 內的 _boundContainer 比對處理。
     this._bindDomHandlers(container);
     this.updateList();
   }
