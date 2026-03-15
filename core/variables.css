@@ -10,9 +10,27 @@
   --color-primary-hover: #1d4ed8;
   --color-primary-soft: rgba(37, 99, 235, 0.10);
   --color-secondary: #0ea5e9;
+  --color-secondary-soft: rgba(14,165,233,.12);
   --color-success: #16a34a;
+  --color-success-soft: rgba(22,163,74,.12);
   --color-warning: #d97706;
+  --color-warning-soft: rgba(217,119,6,.12);
   --color-error: #dc2626;
+  --color-error-soft: rgba(220,38,38,.10);
+  --color-purple: #7c3aed;
+  --color-purple-soft: rgba(124,58,237,.12);
+
+  /* 狀態 accent 別名（報價/維修等模組共用） */
+  --status-approved-accent: var(--color-success);
+  --status-approved-soft:   var(--color-success-soft);
+  --status-sent-accent:     var(--color-secondary);
+  --status-sent-soft:       var(--color-secondary-soft);
+  --status-cancelled-accent:var(--color-error);
+  --status-cancelled-soft:  var(--color-error-soft);
+  --status-draft-accent:    var(--color-purple);
+  --status-draft-soft:      var(--color-purple-soft);
+  --status-pending-accent:  var(--color-purple);
+  --status-pending-soft:    var(--color-purple-soft);
 
   /* 三層背景：稍深底色 + 白色面板 + 白色卡片 */
   --color-background: #f4f6fb;

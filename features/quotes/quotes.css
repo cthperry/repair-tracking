@@ -112,10 +112,28 @@
 .quote-total-amount{font-weight:900;color:var(--color-text);}
 .quote-scroll-hint{margin-top:8px;font-size:12px;}
 
+/* 平板橫向（1200px 以下）：縮減 table 最小寬度，減少水平捲動 */
+@media (max-width: 1200px) {
+  .quote-items-table { min-width: 1280px; }
+}
+
+/* 平板直向（1024px 以下）：進一步壓縮 */
+@media (max-width: 1024px) {
+  .quotes-module { padding: 12px; }
+  .quote-items-table { min-width: 1100px; }
+  .quotes-search { width: min(320px, 60vw); }
+}
+
+/* 中等平板（960px 以下）：欄位數減少 → 縮小 table */
+@media (max-width: 960px) {
+  .quote-items-table { min-width: 960px; }
+  .quotes-filters .filter-group { min-width: 150px; }
+}
+
 @media (max-width: 768px) {
   .quotes-search { width: 100%; }
-  .quote-items-table{min-width:1100px;}
-  .quote-total-row{flex-direction:column;align-items:stretch;gap:6px;}
+  .quote-items-table { min-width: 1100px; }
+  .quote-total-row { flex-direction:column; align-items:stretch; gap:6px; }
 }
 
 /* ========================================

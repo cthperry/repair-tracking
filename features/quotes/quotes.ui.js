@@ -169,10 +169,10 @@ class QuotesUI {
     } catch (_) {}
 
     const s = (status || '').toString().trim();
-    if (s === '已核准') return { accent: '#16a34a', soft: 'rgba(22,163,74,.14)' };
-    if (s === '已送出') return { accent: '#0ea5e9', soft: 'rgba(14,165,233,.14)' };
-    if (s === '已取消') return { accent: '#dc2626', soft: 'rgba(220,38,38,.12)' };
-    if (s === '草稿') return { accent: '#2563eb', soft: 'rgba(37,99,235,.12)' };
+    if (s === '已核准') return { accent: 'var(--status-approved-accent)', soft: 'var(--status-approved-soft)' };
+    if (s === '已送出') return { accent: 'var(--status-sent-accent)',      soft: 'var(--status-sent-soft)' };
+    if (s === '已取消') return { accent: 'var(--status-cancelled-accent)', soft: 'var(--status-cancelled-soft)' };
+    if (s === '草稿')   return { accent: 'var(--status-draft-accent)',     soft: 'var(--status-draft-soft)' };
     return { accent: 'var(--module-accent)', soft: 'var(--module-accent-soft)' };
   }
 
@@ -267,23 +267,23 @@ class QuotesUI {
           <div class="ops-kpi-label">全部</div>
           <div class="ops-kpi-value">${rows.length}</div>
         </button>
-        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#7c3aed;--module-accent-soft:rgba(124,58,237,.12);" onclick="QuotesUI.setQuickFilter('PENDING')" title="草稿 + 已送出">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:var(--status-pending-accent);--module-accent-soft:var(--status-pending-soft);" onclick="QuotesUI.setQuickFilter('PENDING')" title="草稿 + 已送出">
           <div class="ops-kpi-label">待處理</div>
           <div class="ops-kpi-value">${pendingCount}</div>
         </button>
-        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#7c3aed;--module-accent-soft:rgba(124,58,237,.12);" onclick="QuotesUI.setQuickFilter('草稿')">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:var(--status-draft-accent);--module-accent-soft:var(--status-draft-soft);" onclick="QuotesUI.setQuickFilter('草稿')">
           <div class="ops-kpi-label">草稿</div>
           <div class="ops-kpi-value">${countBy('草稿')}</div>
         </button>
-        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#0ea5e9;--module-accent-soft:rgba(14,165,233,.12);" onclick="QuotesUI.setQuickFilter('已送出')">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:var(--status-sent-accent);--module-accent-soft:var(--status-sent-soft);" onclick="QuotesUI.setQuickFilter('已送出')">
           <div class="ops-kpi-label">已送出</div>
           <div class="ops-kpi-value">${countBy('已送出')}</div>
         </button>
-        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#16a34a;--module-accent-soft:rgba(22,163,74,.12);" onclick="QuotesUI.setQuickFilter('已核准')">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:var(--status-approved-accent);--module-accent-soft:var(--status-approved-soft);" onclick="QuotesUI.setQuickFilter('已核准')">
           <div class="ops-kpi-label">已核准</div>
           <div class="ops-kpi-value">${countBy('已核准')}</div>
         </button>
-        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:#dc2626;--module-accent-soft:rgba(220,38,38,.10);" onclick="QuotesUI.setQuickFilter('已取消')">
+        <button type="button" class="panel ops-kpi-card business-kpi-card" style="--module-accent:var(--status-cancelled-accent);--module-accent-soft:var(--status-cancelled-soft);" onclick="QuotesUI.setQuickFilter('已取消')">
           <div class="ops-kpi-label">已取消</div>
           <div class="ops-kpi-value">${countBy('已取消')}</div>
         </button>
