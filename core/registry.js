@@ -38,6 +38,10 @@
   // - 預設會：init（若存在且尚未 isInitialized）+ loadAll（若存在且尚未 __loadedOnce）
   const _readyFlags = Object.create(null);
 
+  // 並行去重：相同 key 的進行中 Promise。避免兩個 Controller 同時 ensureReady
+  // 同一個 Service 造成 init()/loadAll() 被呼叫兩次（競態 double-init）。
+  const _pendingReady = Object.create(null);
+
   async function ensureReady(names, opts = {}) {
     const arr = Array.isArray(names) ? names : [names];
     const loadAll = (opts && Object.prototype.hasOwnProperty.call(opts, 'loadAll')) ? !!opts.loadAll : true;
@@ -46,25 +50,41 @@
       const name = _norm(n);
       if (!name) continue;
       const key = `${name}::ready`;
+
+      // 已完成 → 跳過
       if (_readyFlags[key]) continue;
+
+      // 正在進行中 → 等待同一個 Promise（避免重複初始化）
+      if (_pendingReady[key]) {
+        await _pendingReady[key];
+        continue;
+      }
 
       const svc = get(name);
       if (!svc) continue;
 
-      try {
-        if (typeof svc.init === 'function' && !svc.isInitialized) {
-          await svc.init();
-        }
-        if (loadAll && typeof svc.loadAll === 'function') {
-          if (!svc.__loadedOnce) {
-            await svc.loadAll();
-            svc.__loadedOnce = true;
+      // 建立並儲存這次初始化的 Promise（並行呼叫方可直接 await）
+      _pendingReady[key] = (async () => {
+        try {
+          if (typeof svc.init === 'function' && !svc.isInitialized) {
+            await svc.init();
           }
+          if (loadAll && typeof svc.loadAll === 'function') {
+            if (!svc.__loadedOnce) {
+              await svc.loadAll();
+              svc.__loadedOnce = true;
+            }
+          }
+          _readyFlags[key] = true;
+        } catch (e) {
+          try { console.warn(`AppRegistry.ensureReady(${name}) failed`, e); } catch (_) {}
+        } finally {
+          // 無論成功或失敗都清除進行中旗標，讓下次重試可重新進入
+          delete _pendingReady[key];
         }
-        _readyFlags[key] = true;
-      } catch (e) {
-        try { console.warn(`AppRegistry.ensureReady(${name}) failed`, e); } catch (_) {}
-      }
+      })();
+
+      await _pendingReady[key];
     }
 
     return true;

@@ -27,6 +27,9 @@ class OrderService {
     // 關頁/切背景時 flush 本機快取
     this._localFlushHooked = false;
 
+    // 並行 init() 去重（防止兩個 Controller 同時呼叫造成 double-init）
+    this._initPromise = null;
+
     // Realtime Stream
     this._listenersReady = false;
     this._streamRef = null;
@@ -68,20 +71,29 @@ class OrderService {
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-        const root = this.db.ref('data').child(uid);
-        this._userRootRef = root;
-        this.ref = root.child('orders');
-      this.counters = this._userRootRef.child('counters').child('orderNo');
-    }
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          const root = this.db.ref('data').child(uid);
+          this._userRootRef = root;
+          this.ref = root.child('orders');
+          this.counters = this._userRootRef.child('counters').child('orderNo');
+        }
 
-    await this.load();
-    this.isInitialized = true;
-    console.log('✅ OrderService initialized');
+        await this.load();
+        this.isInitialized = true;
+        console.log('✅ OrderService initialized');
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+
+    return this._initPromise;
   }
 
   async load() {

@@ -24,6 +24,9 @@ class RepairService {
     this.historyRef = null;
     this.countersRef = null;
 
+    // 並行 init() 去重（防止兩個 Controller 同時呼叫造成 double-init）
+    this._initPromise = null;
+
     // 避免重複註冊 realtime listeners
     this._listenersReady = false;
     
@@ -98,43 +101,51 @@ class RepairService {
   
   /**
    * 初始化服務
+   * _initPromise 去重：並行呼叫共享同一個 Promise，避免 double-init 競態。
    */
   async init() {
     if (this.isInitialized) {
       console.debug('RepairService already initialized');
       return;
     }
-    
-    try {
-      console.log('🔧 Initializing Repair Service...');
-      
-      // 初始化 Firebase（如果可用）
-      if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {  // N-3 fix: 補可選鏈
-        this.db = firebase.database();
-        const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-        const root = this.db.ref('data').child(uid);
-        this._userRootRef = root;
-        this.repairsRef = root.child('repairs');
-        this.historyRef = root.child('repairHistory');
-        this.countersRef = root.child('counters').child('repairNo');
-        this.serialIndexRef = root.child('serialIndex');
+    if (this._initPromise) return this._initPromise;
+
+    this._initPromise = (async () => {
+      try {
+        console.log('🔧 Initializing Repair Service...');
+
+        // 初始化 Firebase（如果可用）
+        if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {  // N-3 fix: 補可選鏈
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          const root = this.db.ref('data').child(uid);
+          this._userRootRef = root;
+          this.repairsRef = root.child('repairs');
+          this.historyRef = root.child('repairHistory');
+          this.countersRef = root.child('counters').child('repairNo');
+          this.serialIndexRef = root.child('serialIndex');
+        }
+
+        // 載入資料
+        await this.loadData();
+
+        this.isInitialized = true;
+        console.log('✅ Repair Service initialized');
+        console.log(`  📦 Loaded ${this.repairs.length} repairs`);
+
+      } catch (error) {
+        console.error('Repair Service initialization error:', error);
+        window.ErrorHandler.log('HIGH', 'RepairService', 'Initialization failed', { error });
+
+        // 降級：只使用本地儲存
+        await this.loadFromLocalStorage();
+        this.isInitialized = true;
+      } finally {
+        this._initPromise = null;
       }
-      
-      // 載入資料
-      await this.loadData();
-      
-      this.isInitialized = true;
-      console.log('✅ Repair Service initialized');
-      console.log(`  📦 Loaded ${this.repairs.length} repairs`);
-      
-    } catch (error) {
-      console.error('Repair Service initialization error:', error);
-      window.ErrorHandler.log('HIGH', 'RepairService', 'Initialization failed', { error });
-      
-      // 降級：只使用本地儲存
-      await this.loadFromLocalStorage();
-      this.isInitialized = true;
-    }
+    })();
+
+    return this._initPromise;
   }
   
   /**
