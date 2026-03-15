@@ -635,9 +635,9 @@
       { label: '進行中', value: repairs.active, color: 'var(--module-accent, #2563eb)', route: 'repairs' },
       { label: '需要零件', value: repairs.needParts, color: '#f59e0b', route: 'repairs' },
       { label: '待核准報價', value: quotes.pending, color: '#4f46e5', route: 'quotes' },
-      { label: '待到貨訂單', value: orders.ordered, color: '#d97706', route: 'orders' },
-      { label: '逾期維修', value: repairs.overdue.length, color: '#ef4444', route: 'repairs' },
-      { label: 'MTTR', value: (week && week.mttr) ? (week.mttr + ' 天') : '—', color: '#0ea5e9' },
+      { label: '待到貨訂單', value: orders.ordered, color: 'var(--color-warning)', route: 'orders' },
+      { label: '逾期維修', value: repairs.overdue.length, color: 'var(--status-cancelled-accent)', route: 'repairs' },
+      { label: 'MTTR', value: (week && week.mttr) ? (week.mttr + ' 天') : '—', color: 'var(--status-sent-accent)' },
       { label: '轉單率', value: (week && week.quotesSubmitted) ? (week.conversion + '%') : '—', color: '#10b981' }
     ];
 

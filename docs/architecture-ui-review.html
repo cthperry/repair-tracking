@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系統架構 & UI 設計評審 — RepairTracking V161</title>
+<style>
+  :root {
+    --c-bg: #f4f6fb;
+    --c-surface: #ffffff;
+    --c-border: #dbe2ef;
+    --c-text: #0f172a;
+    --c-muted: #64748b;
+    --c-primary: #2563eb;
+    --c-success: #16a34a;
+    --c-warning: #d97706;
+    --c-error: #dc2626;
+    --c-purple: #7c3aed;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+    line-height: 1.6;
+    font-size: 14px;
+  }
+  .page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ─── Header ─── */
+  .report-header {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 32px 36px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow);
+  }
+  .report-header h1 { font-size: 22px; font-weight: 700; color: var(--c-text); margin-bottom: 8px; }
+  .report-header .meta { font-size: 12px; color: var(--c-muted); display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+  .report-header .meta span::before { content: "• "; }
+  .score-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
+  .score-chip {
+    padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .score-chip.arch { background: rgba(37,99,235,.10); color: var(--c-primary); }
+  .score-chip.ui   { background: rgba(124,58,237,.10); color: var(--c-purple); }
+  .score-chip.qa   { background: rgba(217,119,6,.10); color: var(--c-warning); }
+
+  /* ─── Section ─── */
+  .section {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .section-title {
+    font-size: 16px; font-weight: 700; color: var(--c-text);
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--c-border);
+  }
+  .section-title .icon { font-size: 18px; }
+
+  /* ─── Priority Badge ─── */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: .4px;
+    white-space: nowrap;
+  }
+  .badge.p0 { background: rgba(220,38,38,.12); color: var(--c-error); }
+  .badge.p1 { background: rgba(217,119,6,.12); color: var(--c-warning); }
+  .badge.p2 { background: rgba(37,99,235,.10); color: var(--c-primary); }
+  .badge.good { background: rgba(22,163,74,.10); color: var(--c-success); }
+  .badge.note { background: rgba(100,116,139,.10); color: var(--c-muted); }
+
+  /* ─── Finding Card ─── */
+  .finding {
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    background: #fafbfe;
+  }
+  .finding:last-child { margin-bottom: 0; }
+  .finding-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .finding-title { font-weight: 600; font-size: 14px; color: var(--c-text); flex: 1; }
+  .finding-body { font-size: 13px; color: #334155; line-height: 1.65; }
+  .finding-body p { margin-bottom: 6px; }
+  .finding-body p:last-child { margin-bottom: 0; }
+  .finding-body code {
+    background: rgba(15,23,42,.06); border-radius: 4px;
+    padding: 1px 5px; font-family: "Fira Code", "SF Mono", monospace; font-size: 12px;
+  }
+  .fix-hint {
+    margin-top: 10px; padding: 8px 12px;
+    background: rgba(37,99,235,.05); border-left: 3px solid var(--c-primary);
+    border-radius: 0 6px 6px 0; font-size: 12px; color: #1e40af;
+  }
+  .fix-hint strong { font-weight: 600; }
+
+  /* ─── Strength Card ─── */
+  .strength {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px 14px; border-radius: 8px;
+    background: rgba(22,163,74,.05);
+    border: 1px solid rgba(22,163,74,.15);
+    margin-bottom: 10px;
+  }
+  .strength:last-child { margin-bottom: 0; }
+  .strength .icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .strength .body { font-size: 13px; color: #166534; line-height: 1.5; }
+  .strength .body strong { font-weight: 600; }
+
+  /* ─── Architecture Map ─── */
+  .arch-diagram {
+    background: #0f172a; color: #e2e8f0;
+    border-radius: 10px; padding: 20px 24px;
+    font-family: "Fira Code", "SF Mono", monospace;
+    font-size: 12px; line-height: 1.6;
+    overflow-x: auto; margin: 16px 0;
+  }
+  .arch-diagram .c-green { color: #86efac; }
+  .arch-diagram .c-blue  { color: #93c5fd; }
+  .arch-diagram .c-yellow{ color: #fde68a; }
+  .arch-diagram .c-red   { color: #fca5a5; }
+  .arch-diagram .c-gray  { color: #94a3b8; }
+
+  /* ─── Table ─── */
+  .review-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  .review-table th {
+    text-align: left; padding: 8px 12px;
+    background: #f1f5f9; color: var(--c-muted);
+    font-weight: 600; font-size: 11px; letter-spacing: .5px;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .review-table td {
+    padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top;
+  }
+  .review-table tr:last-child td { border-bottom: none; }
+
+  /* ─── Two-col grid ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ─── Roadmap ─── */
+  .roadmap { margin: 14px 0; }
+  .roadmap-phase {
+    display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px;
+  }
+  .phase-badge {
+    flex-shrink: 0; width: 64px; text-align: center;
+    padding: 5px 0; border-radius: 8px; font-size: 11px; font-weight: 700;
+  }
+  .phase-badge.now  { background: rgba(220,38,38,.10); color: var(--c-error); }
+  .phase-badge.next { background: rgba(217,119,6,.10); color: var(--c-warning); }
+  .phase-badge.later{ background: rgba(37,99,235,.08); color: var(--c-primary); }
+  .phase-items { flex: 1; }
+  .phase-items h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .phase-items ul { padding-left: 18px; font-size: 13px; color: #334155; }
+  .phase-items ul li { margin-bottom: 4px; }
+
+  /* ─── Summary row ─── */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+  @media (max-width: 600px) { .summary-grid { grid-template-columns: 1fr; } }
+  .summary-card {
+    padding: 16px; border-radius: 10px; border: 1px solid var(--c-border);
+    text-align: center;
+  }
+  .summary-card .num { font-size: 28px; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+  .summary-card .label { font-size: 11px; color: var(--c-muted); font-weight: 500; }
+  .summary-card.red   { background: rgba(220,38,38,.05); }
+  .summary-card.red .num { color: var(--c-error); }
+  .summary-card.orange{ background: rgba(217,119,6,.05); }
+  .summary-card.orange .num { color: var(--c-warning); }
+  .summary-card.blue  { background: rgba(37,99,235,.05); }
+  .summary-card.blue .num { color: var(--c-primary); }
+
+  h2 { font-size: 15px; font-weight: 700; margin: 20px 0 10px; color: var(--c-text); }
+  h3 { font-size: 13px; font-weight: 600; margin: 14px 0 8px; color: #334155; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="report-header">
+    <h1>🔍 系統架構 &amp; UI 設計評審</h1>
+    <p style="color:var(--c-muted);font-size:13px;margin-top:6px;">RepairTracking V161 · Modular Phoenix · 維修追蹤系統</p>
+    <div class="meta">
+      <span>審查日期：2026-03-15</span>
+      <span>涵蓋範圍：20 個 Feature 模組 + 核心系統</span>
+      <span>BUILD_NUMBER：361</span>
+    </div>
+    <div class="score-row">
+      <div class="score-chip arch">🏛️ 架構成熟度：B+（優點突出，規模化風險存在）</div>
+      <div class="score-chip ui">🎨 UI 一致性：B（設計系統已建，但有斷層）</div>
+      <div class="score-chip qa">🧪 測試覆蓋：C+（框架齊全，覆蓋率待確認）</div>
+    </div>
+  </div>
+
+  <!-- Architecture Diagram -->
+  <div class="section">
+    <div class="section-title"><span class="icon">🗺️</span>系統架構全覽</div>
+    <div class="arch-diagram">
+<span class="c-gray">┌─────────────────────────────────────────────────────────────────────┐</span>
+<span class="c-gray">│</span>  <span class="c-yellow">Entry Points</span>  V161_Desktop.html  ·  V161_Mobile.html                   <span class="c-gray">│</span>
+<span class="c-gray">│   (手動 &lt;script&gt; 載入，40+ tags，無 bundler)</span>                               <span class="c-gray">│</span>
+<span class="c-gray">├─────────────────────────────────────────────────────────────────────┤</span>
+<span class="c-gray">│</span>  <span class="c-green">Bootstrap Layer</span>                                                          <span class="c-gray">│</span>
+<span class="c-gray">│</span>   bootstrap.js → app.js → router.js → module-loader.js               <span class="c-gray">│</span>
+<span class="c-gray">│</span>   auth.js  ←→  Firebase CDN (9.22.0 compat)                          <span class="c-gray">│</span>
+<span class="c-gray">├──────────────────────────┬──────────────────────────────────────────┤</span>
+<span class="c-gray">│</span>  <span class="c-blue">Core Services</span>            <span class="c-gray">│</span>  <span class="c-blue">AppRegistry</span>                                <span class="c-gray">│</span>
+<span class="c-gray">│</span>   ui.js  error-handler.js <span class="c-gray">│</span>   RepairService  QuoteService            <span class="c-gray">│</span>
+<span class="c-gray">│</span>   global-search.js        <span class="c-gray">│</span>   CustomerService  PartsService          <span class="c-gray">│</span>
+<span class="c-gray">│</span>   form-validate.js        <span class="c-gray">│</span>   OrdersService  + 15 more               <span class="c-gray">│</span>
+<span class="c-gray">├──────────────────────────┴──────────────────────────────────────────┤</span>
+<span class="c-gray">│</span>  <span class="c-yellow">Feature Modules (20)  ──  Model / Service / Controller / UI</span>          <span class="c-gray">│</span>
+<span class="c-gray">│</span>   repairs ★  quotes ★  customers  orders  parts  kb  sops           <span class="c-gray">│</span>
+<span class="c-gray">│</span>   weekly  dashboard  analytics  machines  maintenance  settings      <span class="c-gray">│</span>
+<span class="c-gray">├─────────────────────────────────────────────────────────────────────┤</span>
+<span class="c-gray">│</span>  <span class="c-red">Backend：Firebase RTDB + Auth + Cloud Functions</span>                      <span class="c-gray">│</span>
+<span class="c-gray">│</span>   Real-time listeners  ·  Taipei timezone counters  ·  Audit trail  <span class="c-gray">│</span>
+<span class="c-gray">└─────────────────────────────────────────────────────────────────────┘</span>
+<span class="c-gray">    window.* globals permeate every layer  ← 主要技術風險</span>
+    </div>
+  </div>
+
+  <!-- Strengths -->
+  <div class="section">
+    <div class="section-title"><span class="icon">✅</span>架構優點</div>
+    <div class="strength">
+      <span class="icon">🧩</span>
+      <div class="body"><strong>M-S-C-UI 四層分離</strong> — Model（純資料轉換）、Service（Firebase 持久化）、Controller（生命週期）、UI（渲染+事件）責任清晰，新開發者能快速理解模組邊界。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">🚀</span>
+      <div class="body"><strong>Lazy Loading 架構</strong> — module-loader.js 在路由切換時才載入 UI/Controller/CSS，初始頁面不需要加載所有 20 個模組的 JS，首屏體感快。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">📦</span>
+      <div class="body"><strong>AppRegistry 服務注冊</strong> — 統一的 <code>AppRegistry.get()</code>/<code>ensureReady()</code> 減少了 <code>window.*</code> 直接耦合，降低模組間依賴複雜度。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">🔄</span>
+      <div class="body"><strong>Firebase 實時同步 + 增量快取</strong> — Snapshot listener + <code>updatedAt</code> 增量同步策略，配合本地快取，網路請求量低，離線體感良好。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">📝</span>
+      <div class="body"><strong>Audit Trail / 版本歷史</strong> — 報價單、維修單均有完整的變更歷史記錄，適合企業追蹤需求。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">🎨</span>
+      <div class="body"><strong>CSS Design Token 系統</strong> — <code>variables.css</code> 統一管理顏色、陰影、間距。狀態色別名（<code>--status-approved-accent</code> 等）已完成，修改主題只需改一個檔案。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">🧪</span>
+      <div class="body"><strong>測試框架齊備</strong> — Vitest（單元）+ Playwright（E2E）+ JSDOM，工具鏈完整；tests/ 目錄有 e2e/、unit/、helpers/ 分層結構。</div>
+    </div>
+  </div>
+
+  <!-- Architecture Issues -->
+  <div class="section">
+    <div class="section-title"><span class="icon">⚠️</span>架構問題 — 優先度分類</div>
+
+    <div class="summary-grid" style="margin-bottom:20px;">
+      <div class="summary-card red"><div class="num">3</div><div class="label">P0 · 立即處理</div></div>
+      <div class="summary-card orange"><div class="num">4</div><div class="label">P1 · 近期規劃</div></div>
+      <div class="summary-card blue"><div class="num">3</div><div class="label">P2 · 長期改善</div></div>
+    </div>
+
+    <h2>🔴 P0 — 高風險 / 立即處理</h2>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p0">P0</span>
+        <div class="finding-title">全域命名空間污染（window.* 蔓延）</div>
+      </div>
+      <div class="finding-body">
+        <p>所有模組直接掛在 <code>window</code>：<code>window.QuoteModel</code>、<code>window.AuthSystem</code>、<code>window.QuotesUI</code>、<code>window.CustomerUIForms</code>… 估計超過 40 個全域變數。任何第三方腳本、CDN 衝突或打字錯誤都可能造成靜默覆蓋，且難以追蹤來源。</p>
+        <p>更嚴重的是：UI 模組直接呼叫 <code>QuotesUI.setQuickFilter()</code> 寫在 inline HTML attribute <code>onclick</code>，形成無法被靜態分析工具捕捉的隱性依賴。</p>
+        <div class="fix-hint"><strong>建議：</strong>逐步引入 ES Module（<code>type="module"</code>），或以 IIFE namespace 包裝（<code>window.App.Quotes = ...</code>）至少建立一層隔離。長遠方向：Vite 打包。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p0">P0</span>
+        <div class="finding-title">God Files — repairs.ui.js (5,046 行) / quotes.ui.js (2,251 行)</div>
+      </div>
+      <div class="finding-body">
+        <p><code>repairs.ui.js</code> 單檔 5,046 行承擔了：列表渲染、詳細頁渲染、表單渲染、事件綁定、狀態管理、PDF 匯出、進度追蹤、多個 Modal 邏輯。違反 Single Responsibility，任何修改都需要在大量無關程式碼中導航。</p>
+        <p>已知副作用：<code>_domBound</code> flag 跨導覽未重置（本次已修正），說明此類 bug 在大文件中難以察覺。</p>
+        <div class="fix-hint"><strong>建議：</strong>以功能為單位拆分成 <code>repairs.ui-list.js</code>、<code>repairs.ui-detail.js</code>、<code>repairs.ui-form.js</code>（參考 customers 已有 <code>customers.ui-forms.js</code> 的做法）。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p0">P0</span>
+        <div class="finding-title">Firebase CDN 單點故障 — SDK 載入不穩</div>
+      </div>
+      <div class="finding-body">
+        <p>三個 Firebase compat 腳本完全依賴 <code>gstatic.com</code> CDN，無本地備份。本次已重現：CDN 延遲 → <code>typeof firebase === 'undefined'</code> → auth 初始化失敗 → 登入無效。雖然已加入 5 秒 polling，但根本問題未解決。</p>
+        <p>台灣/亞洲地區 Google CDN 偶發性不穩定是已知現象。</p>
+        <div class="fix-hint"><strong>建議：</strong>將 Firebase SDK 下載至 <code>/assets/vendor/firebase/</code> 本地化，消除 CDN 依賴。或使用 npm + Vite 打包時一並解決。</div>
+      </div>
+    </div>
+
+    <h2>🟡 P1 — 近期規劃</h2>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">無模組打包工具 — 40+ &lt;script&gt; 串行載入</div>
+      </div>
+      <div class="finding-body">
+        <p>HTML 中有 40+ 個手動 <code>&lt;script&gt;</code> 標籤，全部串行執行。缺乏 tree-shaking、code splitting、壓縮。<code>BUILD_NUMBER</code> 手動遞增作為 cache-bust，容易遺漏。</p>
+        <div class="fix-hint"><strong>建議：</strong>引入 Vite（對 vanilla JS 友善，配置簡單）。保留現有架構，改由 Vite 處理 bundle + version hash，移除 BUILD_NUMBER 手動維護。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">HTML 字串拼接 — 潛在 XSS 風險</div>
+      </div>
+      <div class="finding-body">
+        <p>所有 UI 模組使用 Template Literal 直接拼接 HTML：<code>&lt;div&gt;${customer.name}&lt;/div&gt;</code>。雖然部分地方有 <code>_escape()</code>、<code>_escapeAttr()</code>，但覆蓋不一致。若 Firebase 資料被污染或有人注入 <code>&lt;script&gt;</code>，前端即遭 XSS。</p>
+        <div class="fix-hint"><strong>建議：</strong>統一使用 <code>_esc()</code> 套用到所有用戶輸入欄位；或引入輕量模板庫（如 lit-html）自動 escape。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">跨模組通信混用兩種機制</div>
+      </div>
+      <div class="finding-body">
+        <p>模組間通信同時使用：① <code>window.dispatchEvent(CustomEvent)</code>，② <code>linkage.js</code> 的 pub/sub，③ 直接 <code>window.RepairService.xxx()</code> 呼叫。三種方式混用導致依賴關係難以追蹤，特別是在除錯事件傳播問題時。</p>
+        <div class="fix-hint"><strong>建議：</strong>統一使用 <code>linkage.js</code> 作為唯一跨模組事件通道；禁止模組直接呼叫其他模組的 UI 實例。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">測試覆蓋率不明 — 業務核心邏輯風險</div>
+      </div>
+      <div class="finding-body">
+        <p>框架齊備（Vitest + Playwright），但 <code>repairs.service.js</code>（1,234 行）、<code>quotes.service.js</code>（998 行）等核心業務邏輯的單元測試覆蓋率不明。本次發現的 <code>form.id</code> / HTML named access bug 應可被自動化測試攔截。</p>
+        <div class="fix-hint"><strong>建議：</strong>執行 <code>npm test -- --coverage</code> 取得覆蓋率報告；優先補齊 repairs.service、quotes.service、auth.js 的測試。目標：業務邏輯 ≥ 70%。</div>
+      </div>
+    </div>
+
+    <h2>🔵 P2 — 長期改善</h2>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p2">P2</span>
+        <div class="finding-title">無 TypeScript — 運行時錯誤難以預防</div>
+      </div>
+      <div class="finding-body">
+        <p>所有 JS 皆為純 JavaScript，無型別系統。<code>form.id</code> 回傳 DOM element 而非 string 的 bug 在 TypeScript + strict mode 下可在開發期捕獲。大型 UI 文件中的資料流難以靜態驗證。</p>
+        <div class="fix-hint"><strong>建議：</strong>可從 JSDoc 型別標注開始（零遷移成本），配合 VS Code 的 TypeScript language server 取得型別提示，無需重寫。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p2">P2</span>
+        <div class="finding-title">Desktop/Mobile 共用邏輯但 HTML 分離</div>
+      </div>
+      <div class="finding-body">
+        <p>Desktop 和 Mobile 各有獨立 HTML 入口，部分 CSS（<code>corporate-enhancement.css</code>）只在 Desktop 載入，造成 Mobile 視覺差異。兩份 HTML 的腳本載入清單需手動同步，容易漏載入新模組。</p>
+        <div class="fix-hint"><strong>建議：</strong>將 CSS 載入移至 <code>module-loader.js</code> 管理，由 JS 根據 viewport 決定載入哪套 CSS；或移除 Mobile 獨立 HTML，統一用 responsive CSS 處理。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p2">P2</span>
+        <div class="finding-title">Service 層 Firebase 初始化分散</div>
+      </div>
+      <div class="finding-body">
+        <p>每個 Service 都有自己的 <code>init()</code> 方法獨立連接 Firebase，初始化邏輯重複（snapshot listener 設置、error handling、Taipei timezone counter）。維護時需在 20 個 service 中同步修改。</p>
+        <div class="fix-hint"><strong>建議：</strong>抽取 <code>BaseFirebaseService</code> 類別，所有 service 繼承它，統一處理 RTDB 連接、snapshot 管理、重試邏輯。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UI Review -->
+  <div class="section">
+    <div class="section-title"><span class="icon">🎨</span>UI 設計評審</div>
+
+    <h2>✅ 設計優點</h2>
+    <div class="strength">
+      <span class="icon">🎨</span>
+      <div class="body"><strong>設計系統基礎健全</strong> — <code>variables.css</code> 的 Design Token、<code>corporate-enhancement.css</code> 的企業感精修、<code>shared.css</code> 的元件庫已形成完整體系。低彩度 B2B 視覺風格定位準確。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">📊</span>
+      <div class="body"><strong>KPI 卡片 + 狀態系統</strong> — <code>ops-kpi-card</code>、<code>accent-left</code>、狀態 badge 設計一致，搭配已統一的 CSS variable 狀態色，視覺識別清晰。</div>
+    </div>
+    <div class="strength">
+      <span class="icon">📱</span>
+      <div class="body"><strong>Desktop/Mobile 雙版本</strong> — 有獨立的 Mobile 入口和 bottom tab bar，移動端體驗有針對性設計，非僅靠 responsive CSS 湊合。</div>
+    </div>
+
+    <h2>⚠️ UI 問題</h2>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p0">P0</span>
+        <div class="finding-title">響應式斷點不一致 — 各模組標準不統一</div>
+      </div>
+      <div class="finding-body">
+        <p>僅 <code>quotes.css</code> 有完整的 1200/1024/960/768px 斷點（本次新增）。其他模組：</p>
+        <p>• <code>repairs.css</code>：只有 768px<br>
+        • <code>customers.css</code>：只有 768px<br>
+        • <code>orders.css</code>、<code>parts.css</code>：只有 768px</p>
+        <p>平板（960-1200px）用戶在維修單、客戶管理模組仍會看到水平捲動。</p>
+        <div class="fix-hint"><strong>建議：</strong>在 <code>shared.css</code> 或 <code>core/ui.css</code> 建立全域 table 斷點規則（<code>.data-table-wrap</code>），套用至所有模組，避免重複在每個 CSS 設定。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p0">P0</span>
+        <div class="finding-title">Mobile 版缺少 corporate-enhancement.css</div>
+      </div>
+      <div class="finding-body">
+        <p>Desktop HTML 載入 <code>corporate-enhancement.css</code>（17KB，包含 sidebar 深色主題、字型精修、元件細節），Mobile HTML 未載入。造成兩版本視覺品質落差：按鈕、卡片、間距等在 Mobile 比 Desktop 明顯粗糙。</p>
+        <div class="fix-hint"><strong>建議：</strong>將 <code>corporate-enhancement.css</code> 中與 sidebar 無關的通用部分（字型、按鈕、卡片）移至 <code>shared.css</code>；sidebar 專屬樣式保留在 desktop-only 的 CSS 中。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">空狀態（Empty State）設計不一致</div>
+      </div>
+      <div class="finding-body">
+        <p>部分模組的空狀態只顯示「沒有資料」，缺乏說明原因（是過濾條件太嚴，還是資料庫真的空）和引導動作（「立即建立第一張報價單」按鈕）。符合標準的 UX Writing 格式應為：<em>這是什麼 → 為什麼是空的 → 怎麼開始</em>。</p>
+        <div class="fix-hint"><strong>建議：</strong>區分「篩選無結果」和「真實空狀態」兩種情況，前者顯示「清除篩選條件」按鈕，後者顯示 CTA 進入新增流程。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">PDF 匯出無進度回饋</div>
+      </div>
+      <div class="finding-body">
+        <p>點擊「匯出 PDF」後，前端在字體載入 + pdf-lib 運算期間（可能 2-5 秒）無任何視覺反饋，用戶不知道系統是否在處理中，傾向重複點擊。</p>
+        <div class="fix-hint"><strong>建議：</strong>在 <code>exportQuotePdf()</code> 開始時將按鈕切換為 loading 狀態（<code>⏳ 產生中...</code> + <code>disabled</code>），完成或失敗後恢復。已有 <code>setLoginButtonState()</code> 可參考。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p1">P1</span>
+        <div class="finding-title">表單無障礙（Accessibility）缺失</div>
+      </div>
+      <div class="finding-body">
+        <p>HTML 字串拼接的表單缺少 <code>aria-label</code>、<code>aria-describedby</code>、<code>role</code> 等屬性。圖示按鈕（如刪除、編輯）無 <code>aria-label</code>，僅有 emoji 作為內容，螢幕閱讀器無法識別。錯誤訊息未透過 <code>aria-live</code> 通知輔助技術。</p>
+        <div class="fix-hint"><strong>建議：</strong>在 <code>core/ui.js</code> 的 <code>createButton()</code>、<code>createInput()</code> 等 factory 函數中加入 aria 參數，確保新元件預設符合 WCAG 2.1 AA。</div>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="badge p2">P2</span>
+        <div class="finding-title">部分顏色值仍 hardcoded 在非 quotes 模組</div>
+      </div>
+      <div class="finding-body">
+        <p>本次已完成 <code>quotes.ui.js</code> 的顏色 variable 化。但 <code>repairs.ui.js</code>、<code>maintenance.ui.js</code>、<code>customers.ui.js</code> 等是否也有 hardcoded hex 值（<code>#16a34a</code> 等）尚未全面審查。</p>
+        <div class="fix-hint"><strong>建議：</strong>執行 <code>grep -r "#[0-9a-f]\{6\}" features/</code> 找出所有 hardcoded 顏色，逐步替換為 CSS variable 引用。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Debt Table -->
+  <div class="section">
+    <div class="section-title"><span class="icon">📊</span>技術債優先度矩陣</div>
+    <table class="review-table">
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>影響</th>
+          <th>風險</th>
+          <th>工作量</th>
+          <th>優先分</th>
+          <th>優先度</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Firebase SDK 本地化</td>
+          <td>5</td><td>5</td><td>2（低）</td>
+          <td><strong>40</strong></td>
+          <td><span class="badge p0">P0</span></td>
+        </tr>
+        <tr>
+          <td>Mobile 補 corporate-enhancement.css</td>
+          <td>4</td><td>3</td><td>1（極低）</td>
+          <td><strong>35</strong></td>
+          <td><span class="badge p0">P0</span></td>
+        </tr>
+        <tr>
+          <td>全域斷點規則統一</td>
+          <td>4</td><td>3</td><td>2（低）</td>
+          <td><strong>28</strong></td>
+          <td><span class="badge p0">P0</span></td>
+        </tr>
+        <tr>
+          <td>repairs.ui.js 拆分</td>
+          <td>5</td><td>4</td><td>4（中高）</td>
+          <td><strong>18</strong></td>
+          <td><span class="badge p1">P1</span></td>
+        </tr>
+        <tr>
+          <td>測試覆蓋率報告 + 補齊</td>
+          <td>4</td><td>4</td><td>4（中高）</td>
+          <td><strong>16</strong></td>
+          <td><span class="badge p1">P1</span></td>
+        </tr>
+        <tr>
+          <td>PDF 匯出進度指示</td>
+          <td>3</td><td>2</td><td>1（極低）</td>
+          <td><strong>15</strong></td>
+          <td><span class="badge p1">P1</span></td>
+        </tr>
+        <tr>
+          <td>XSS escape 全面審查</td>
+          <td>5</td><td>3</td><td>3（中）</td>
+          <td><strong>12</strong></td>
+          <td><span class="badge p1">P1</span></td>
+        </tr>
+        <tr>
+          <td>空狀態 UX 統一</td>
+          <td>3</td><td>2</td><td>2（低）</td>
+          <td><strong>12</strong></td>
+          <td><span class="badge p1">P1</span></td>
+        </tr>
+        <tr>
+          <td>跨模組通信統一（linkage.js）</td>
+          <td>3</td><td>3</td><td>4（中高）</td>
+          <td><strong>12</strong></td>
+          <td><span class="badge p2">P2</span></td>
+        </tr>
+        <tr>
+          <td>Vite 打包工具引入</td>
+          <td>4</td><td>2</td><td>5（高）</td>
+          <td><strong>6</strong></td>
+          <td><span class="badge p2">P2</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:var(--c-muted);margin-top:8px;">優先分 = (影響 + 風險) × (6 - 工作量)。分數越高越應優先處理。</p>
+  </div>
+
+  <!-- Roadmap -->
+  <div class="section">
+    <div class="section-title"><span class="icon">🗓️</span>建議修復路線圖</div>
+    <div class="roadmap">
+      <div class="roadmap-phase">
+        <div class="phase-badge now">立即<br>本週</div>
+        <div class="phase-items">
+          <h4>快速修復（低工作量，高效益）</h4>
+          <ul>
+            <li>Mobile HTML 補載 corporate-enhancement.css 通用樣式</li>
+            <li>PDF 匯出按鈕加 loading 狀態（<code>exportQuotePdf</code>，參考 <code>setLoginButtonState</code>）</li>
+            <li>其他模組 hardcoded 顏色值 grep → 替換為 CSS variable</li>
+            <li>Firebase SDK 下載本地化（複製到 assets/vendor/firebase/）</li>
+          </ul>
+        </div>
+      </div>
+      <div class="roadmap-phase">
+        <div class="phase-badge next">近期<br>1-2週</div>
+        <div class="phase-items">
+          <h4>中期優化</h4>
+          <ul>
+            <li>建立 <code>shared.css</code> 全域 table 響應式規則，各模組繼承</li>
+            <li>執行 <code>npm test -- --coverage</code>，補齊 repairs/quotes/auth 單元測試</li>
+            <li>空狀態 UX 重構：篩選無結果 vs. 真實空狀態分開處理</li>
+            <li>core/ui.js 元件工廠補 aria 屬性支援</li>
+            <li><code>repairs.ui.js</code> 開始拆分出 <code>repairs.ui-form.js</code></li>
+          </ul>
+        </div>
+      </div>
+      <div class="roadmap-phase">
+        <div class="phase-badge later">長期<br>1-2月</div>
+        <div class="phase-items">
+          <h4>架構升級</h4>
+          <ul>
+            <li>評估 Vite 引入，解決打包、cache-busting、tree-shaking 問題</li>
+            <li>抽取 BaseFirebaseService，消除 20 個 service 的重複初始化代碼</li>
+            <li>統一跨模組通信至 linkage.js，廢棄直接 window.* 呼叫</li>
+            <li>JSDoc 型別標注（零成本型別安全起點）</li>
+            <li>E2E 測試補齊核心流程（登入 → 新增維修單 → 建立報價 → 匯出 PDF）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;padding:20px;color:var(--c-muted);font-size:12px;">
+    RepairTracking V161.361 · 審查由 Claude Sonnet 4.6 產生 · 2026-03-15
+  </div>
+
+</div>
+</body>
+</html>

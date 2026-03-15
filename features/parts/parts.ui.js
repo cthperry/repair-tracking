@@ -145,9 +145,9 @@ class PartsUI {
     const p = part || {};
     const active = (p.isActive !== false);
     const qty = Number(p.stockQty);
-    if (!active) return { accent: '#64748b', soft: 'rgba(100,116,139,.12)' };
-    if (Number.isFinite(qty) && qty <= 0) return { accent: '#dc2626', soft: 'rgba(220,38,38,.12)' };
-    if (Number.isFinite(qty) && qty <= 2) return { accent: '#b45309', soft: 'rgba(217,119,6,.15)' };
+    if (!active) return { accent: 'var(--color-text-secondary,#64748b)', soft: 'rgba(100,116,139,.12)' };
+    if (Number.isFinite(qty) && qty <= 0) return { accent: 'var(--status-cancelled-accent)', soft: 'var(--status-cancelled-soft)' };
+    if (Number.isFinite(qty) && qty <= 2) return { accent: 'var(--color-warning)', soft: 'var(--color-warning-soft)' };
     return { accent: 'var(--module-accent)', soft: 'var(--module-accent-soft)' };
   }
 

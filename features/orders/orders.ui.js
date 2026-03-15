@@ -312,19 +312,19 @@ class OrdersUI {
           <div class="stat-value">${rows.length}</div>
           <div class="stat-label">全部</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#7c3aed;" data-action="orders.setQuickFilter" data-value="OPEN" title="未結案/未取消">
+        <div class="stat-card clickable" style="--accent:var(--status-pending-accent);" data-action="orders.setQuickFilter" data-value="OPEN" title="未結案/未取消">
           <div class="stat-value">${openCount}</div>
           <div class="stat-label">待處理</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#0ea5e9;" data-action="orders.setQuickFilter" data-value="已下單">
+        <div class="stat-card clickable" style="--accent:var(--status-sent-accent);" data-action="orders.setQuickFilter" data-value="已下單">
           <div class="stat-value">${countBy('已下單')}</div>
           <div class="stat-label">已下單</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#d97706;" data-action="orders.setQuickFilter" data-value="已到貨">
+        <div class="stat-card clickable" style="--accent:var(--color-warning);" data-action="orders.setQuickFilter" data-value="已到貨">
           <div class="stat-value">${countBy('已到貨')}</div>
           <div class="stat-label">已到貨</div>
         </div>
-        <div class="stat-card clickable" style="--accent:#16a34a;" data-action="orders.setQuickFilter" data-value="已結案">
+        <div class="stat-card clickable" style="--accent:var(--status-approved-accent);" data-action="orders.setQuickFilter" data-value="已結案">
           <div class="stat-value">${countBy('已結案')}</div>
           <div class="stat-label">已結案</div>
         </div>
@@ -359,8 +359,8 @@ class OrdersUI {
               const c = this._accentForStatus(v).accent;
               return `<button class="chip ${active ? 'active' : ''}" style="--chip-color:${this._escapeAttr(c)}" data-action="orders.setQuickFilter" data-value="${this._escapeAttr(v)}">${this._escapeHtml(v)}</button>`;
             }).join('')}
-            <button class="chip ${this.filterOpenOnly ? 'active' : ''}" style="--chip-color:#7c3aed" data-action="orders.setQuickFilter" data-value="OPEN">待處理</button>
-            <button class="chip ${this.filterOverdue ? 'active' : ''}" style="--chip-color:#b45309" data-action="orders.setQuickFilter" data-value="OVERDUE">逾期</button>
+            <button class="chip ${this.filterOpenOnly ? 'active' : ''}" style="--chip-color:var(--status-pending-accent)" data-action="orders.setQuickFilter" data-value="OPEN">待處理</button>
+            <button class="chip ${this.filterOverdue ? 'active' : ''}" style="--chip-color:var(--color-warning)" data-action="orders.setQuickFilter" data-value="OVERDUE">逾期</button>
           </div>
 
           <div class="orders-filters-actions" aria-label="篩選操作">

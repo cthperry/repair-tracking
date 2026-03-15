@@ -566,7 +566,25 @@ class QuotesUI {
     const list = Array.isArray(rows) ? rows : [];
 
     if (!list.length) {
-      host.innerHTML = `<div class="empty-state">目前沒有資料</div>`;
+      const hasFilter = !!(this.searchText || this.filterStatus || this.filterPendingOnly ||
+                          this.filterDateFrom || this.filterDateTo ||
+                          this.filterAmountMin || this.filterAmountMax);
+      if (hasFilter) {
+        host.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-title">沒有符合篩選條件的報價單</div>
+            <div class="empty-state-desc">目前的搜尋或篩選條件沒有結果，請嘗試放寬條件。</div>
+            <button class="btn" type="button" onclick="QuotesUI.clearAllFilters()">清除所有篩選</button>
+          </div>`;
+      } else {
+        host.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🧾</div>
+            <div class="empty-state-title">還沒有任何報價單</div>
+            <div class="empty-state-desc">從維修單建立報價，或點擊「新增報價單」開始。</div>
+          </div>`;
+      }
       return;
     }
 
@@ -1198,7 +1216,7 @@ class QuotesUI {
             <div class="business-modal-footer-copy">儲存會保留目前版本與金額摘要；輸出 PDF 會帶入最新表單內容，不再以浮動方式遮住明細尾端。</div>
             <div class="business-modal-footer-actions">
               <button class="btn" type="button" onclick="QuotesUI.closeModal()">關閉</button>
-              <button class="btn" type="button" onclick="QuotesUI.exportQuotePdf('${idSafe}')">輸出 PDF</button>
+              <button class="btn" type="button" id="quote-pdf-export-btn" onclick="QuotesUI.exportQuotePdf('${idSafe}')">輸出 PDF</button>
               <button class="btn primary" type="submit">儲存</button>
             </div>
           </div>
@@ -1574,6 +1592,16 @@ Object.assign(QuotesUI, {
 async exportQuotePdf(quoteId) {
   const id = (quoteId || '').toString().trim();
   if (!id) return;
+
+  // 顯示 loading 狀態，防止重複點擊
+  const _pdfBtn = document.getElementById('quote-pdf-export-btn');
+  const _setBtnLoading = (loading) => {
+    if (!_pdfBtn) return;
+    _pdfBtn.disabled = loading;
+    _pdfBtn.textContent = loading ? '⏳ 產生中...' : '輸出 PDF';
+    _pdfBtn.style.opacity = loading ? '0.65' : '';
+  };
+  _setBtnLoading(true);
 
   try {
     // 先同步畫面輸入到 draft（避免使用者未儲存就輸出）
@@ -2087,8 +2115,10 @@ async exportQuotePdf(quoteId) {
         : (u ? `（${u.split('/').pop()}）` : ''));
       window.UI.toast('已輸出 PDF ' + note + (ttcHint ? ' ' + ttcHint : ''), { type: 'success', duration: 7000 });
     }
+    _setBtnLoading(false);
   } catch (e) {
     console.error(e);
+    _setBtnLoading(false);
     // 對 TTC 常見錯誤給更明確指引
     const raw = (e?.message || e);
     const msg = String(raw).includes('this.font.layout is not a function')

@@ -300,3 +300,25 @@ button,
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+
+/* ========================================
+   全域響應式 Table（V161.362）
+   各模組 table 繼承這裡的斷點，不必重複在 feature CSS 定義
+   使用方式：在 table 外包一層 <div class="table-scroll-wrap">
+   ======================================== */
+.table-scroll-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll-wrap > table { min-width: 1400px; }
+
+@media (max-width: 1200px) {
+  .table-scroll-wrap > table { min-width: 1200px; }
+}
+@media (max-width: 1024px) {
+  .table-scroll-wrap > table { min-width: 1024px; }
+}
+@media (max-width: 960px) {
+  .table-scroll-wrap > table { min-width: 860px; }
+}
+@media (max-width: 768px) {
+  .table-scroll-wrap > table { min-width: 720px; }
+}

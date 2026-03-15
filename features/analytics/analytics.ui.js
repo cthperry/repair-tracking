@@ -17,7 +17,7 @@
     const momBadge = (data.momPct !== null && data.momPct !== undefined)
       ? (() => {
           const sign = data.momDelta >= 0 ? '+' : '';
-          const color = data.momDelta > 0 ? '#ef4444' : data.momDelta < 0 ? '#16a34a' : '#64748b';
+          const color = data.momDelta > 0 ? 'var(--status-cancelled-accent)' : data.momDelta < 0 ? 'var(--status-approved-accent)' : 'var(--color-text-secondary,#64748b)';
           return `<span class="ana-kpi-delta" style="color:${color}">${sign}${data.momPct}%</span>`;
         })()
       : '';
