@@ -496,7 +496,10 @@ class WorkLogService {
   }
 }
 
-// 全域實例
+// 全域實例（也暴露 class 本身，供測試用 new window.WorkLogService()）
+if (typeof window !== 'undefined') {
+  try { window.WorkLogService = WorkLogService; } catch (_) {}
+}
 const workLogService = new WorkLogService();
 try { window.AppRegistry?.register?.('WorkLogService', workLogService); } catch (_) {}
 

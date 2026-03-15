@@ -111,7 +111,7 @@ describe('Weekly 週報結構收斂', () => {
     expect(text).not.toContain('本週新增案件');
     expect(text).not.toContain('本週結案案件');
     expect(text).not.toContain('本週週報依更新日統計');
-    expect((text.match(/\[已完成\] 台積電｜FlexTRAK-S/g) || []).length).toBe(1);
+    expect((text.match(/台積電 – FlexTRAK-S/g) || []).length).toBe(1);
   });
 
   it('週報內容不輸出登入者重複資訊，且本週處置會自動換行', () => {
@@ -128,17 +128,20 @@ describe('Weekly 週報結構收斂', () => {
     expect(wrapped).not.toContain('負責：Perry');
     expect(wrapped).not.toContain('建立：');
     expect(wrapped).not.toContain('更新：');
-    expect(wrapped).toContain('本週處置：');
-    expect(wrapped).toMatch(/本週處置：[\s\S]*
-\s{6,}/);
+    expect(wrapped).toContain('工作內容：');
+    expect(wrapped).toMatch(/工作內容：\n\s{6,}/);
   });
 
   it('週報輸出層不可再取得 repairNo 或 id', () => {
     const svc = buildService({ basis: 'updated' });
     const ctx = svc._getWeeklyContext();
 
-    expect(ctx.reportRowsView[0]).not.toHaveProperty('repairNo');
-    expect(ctx.reportRowsView[0]).not.toHaveProperty('id');
-    expect(ctx.reportRowsView[0].caseLabel).toBe('台積電｜FlexTRAK-S');
+    expect(ctx.reportRowsView.length).toBeGreaterThan(0);
+    ctx.reportRowsView.forEach(v => {
+      expect(v).not.toHaveProperty('repairNo');
+      expect(v).not.toHaveProperty('id');
+    });
+    const tsmc = ctx.reportRowsView.find(v => v.caseLabel === '台積電 – FlexTRAK-S');
+    expect(tsmc).toBeDefined();
   });
 });

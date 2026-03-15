@@ -701,10 +701,12 @@ this.customersRef.on('child_changed', (snapshot) => {
 
 }
 
-// 全域實例
+// 全域實例（也暴露 class 本身，供測試用 new window.CustomerService()）
+if (typeof window !== 'undefined') {
+  try { window.CustomerService = CustomerService; } catch (_) {}
+}
 const customerService = new CustomerService();
 if (typeof window !== 'undefined') {
-
   try { window.AppRegistry?.register?.('CustomerService', customerService); } catch (_) {}
 }
 

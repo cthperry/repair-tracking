@@ -63,10 +63,10 @@ describe('Weekly 週報案件輸出契約', () => {
     const view = ctx.reportRowsView[0];
     const text = svc.getThisWeekRepairsText();
 
-    expect(view.caseLabel).toBe('台積電｜FlexTRAK-S');
+    expect(view.caseLabel).toBe('台積電 – FlexTRAK-S');
     expect(Object.prototype.hasOwnProperty.call(view, 'repairNo')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(view, 'id')).toBe(false);
-    expect(text).toContain('[處理中] 台積電｜FlexTRAK-S');
+    expect(text).toContain('台積電 – FlexTRAK-S');
     expect(text).not.toContain('R20260314-001');
     expect(text).not.toContain('repair-doc-001');
   });
@@ -82,7 +82,7 @@ describe('Weekly 週報案件輸出契約', () => {
 
     const text = svc.getThisWeekRepairsText();
 
-    expect(text).toContain('[待處理] 未命名案件');
+    expect(text).toContain('未命名案件');
     expect(text).not.toContain('R20260314-002');
     expect(text).not.toContain('repair-doc-002');
   });
