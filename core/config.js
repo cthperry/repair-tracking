@@ -10,7 +10,7 @@ const AppConfig = {
   VERSION: 'V161',
   VERSION_DATE: '2026-03-15',
   VERSION_NAME: 'Modular Phoenix',
-  BUILD_NUMBER: '354',
+  BUILD_NUMBER: '359',
   
   // ========================================
   // Firebase 配置
@@ -219,16 +219,33 @@ const AppConfig = {
       indent: 2
     },
 
-    // 週報案件顯示規則
+    // 週報固定契約（不可漂移）
     caseDisplay: {
       fallbackLabel: '未命名案件',
-      separator: '｜',
+      separator: ' – ',
       overviewTitle: '本週案件總覽',
       showSummarySection: false,
       showBasisDateLine: false,
+      titleIncludeStatus: false,
       issueWrapWidth: 44,
       workSummaryWrapWidth: 44,
-      workSummaryLabel: '本週處置'
+      completionWrapWidth: 44,
+      billingWrapWidth: 44,
+      issueLabel: '問題描述',
+      workSummaryLabel: '工作內容',
+      completionLabel: '完成狀態',
+      billingLabel: '收費',
+      mergePartsIntoWorkContent: true
+    },
+
+    // 下週計畫固定契約（與週報案件契約分開管理，避免欄位漂移）
+    planDisplay: {
+      fallbackLabel: '未命名計畫',
+      planLabel: '計畫內容',
+      wrapWidth: 44,
+      customerPlaceholder: '客戶',
+      projectPlaceholder: '專案/機型',
+      planPlaceholder: '計畫內容'
     },
     
     // 週報模式

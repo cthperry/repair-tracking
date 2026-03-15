@@ -15,7 +15,10 @@ class CustomerUI {
 
     // 方案2：合併刷新避免短時間多次 re-render
     this._listUpdateRaf = null;
-// 增量渲染控制（避免大量公司卡片一次性渲染卡頓）
+    // DOM delegated handlers 綁定狀態（避免跨頁返回後沿用舊容器狀態）
+    this._domBound = false;
+    this._boundContainer = null;
+    // 增量渲染控制（避免大量公司卡片一次性渲染卡頓）
     this._renderToken = 0;
 
     // 公司展開/縮合狀態（以 encodeURIComponent(companyName) 當 key）
@@ -341,6 +344,12 @@ class CustomerUI {
       return;
     }
 
+    // 切換頁面後若掛載容器已變更，需重置 DOM 綁定狀態，避免第二次進頁時按鈕失效
+    if (this._boundContainer !== container) {
+      this._domBound = false;
+      this._boundContainer = container;
+    }
+
     const activeFilters = this._countActiveFilters();
     const filtersBtnText = `🔍 ${this.filtersPanelOpen ? '▾ 收合篩選' : '▸ 開啟篩選'}${activeFilters ? ` (${activeFilters})` : ''}`;
 
@@ -414,7 +423,8 @@ class CustomerUI {
       </div>
     `;
 
-    // 重置 _domBound，確保每次 render() 後重新綁定事件（destroy 不會重置此旗標）
+    // destroy() 只清空 DOM，不會保證重置事件綁定旗標；
+    // render() 必須主動重置，避免第二次回到同頁時沿用舊狀態導致事件失效。
     this._domBound = false;
     this._bindDomHandlers(container);
     this.updateList();
@@ -423,6 +433,7 @@ class CustomerUI {
   _bindDomHandlers(container) {
     if (!container || this._domBound) return;
     this._domBound = true;
+    this._boundContainer = container;
 
     // Click delegation (toolbar + list + modal)
     container.addEventListener('click', (e) => {
@@ -536,13 +547,14 @@ class CustomerUI {
       try { e.preventDefault(); } catch (_) {}
       try { e.stopPropagation(); } catch (_) {}
       const form = e.target;
-      if (!form || !form.id) return;
-      if (form.id === 'customer-form') {
+      const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
+      if (!form || !formId) return;
+      if (formId === 'customer-form') {
         const formsApi = this._getFormsApi();
         if (formsApi && typeof formsApi.handleSubmit === 'function') {
           return formsApi.handleSubmit(e);
         }
-      } else if (form.id === 'company-rename-form') {
+      } else if (formId === 'company-rename-form') {
         if (window.CustomerUI && typeof window.CustomerUI.handleRenameCompany === 'function') {
           return window.CustomerUI.handleRenameCompany(e);
         }
@@ -810,10 +822,10 @@ class CustomerUI {
           try { e.preventDefault(); } catch (_) {}
           try { e.stopPropagation(); } catch (_) {}
           try { e.stopImmediatePropagation?.(); } catch (_) {}
-          // getAttribute('id') 避免 <input name="id"> named access 覆蓋 form.id 屬性
-          const _fid = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
-          if (_fid === 'customer-form' && window.CustomerUIForms?.handleSubmit) return window.CustomerUIForms.handleSubmit(e);
-          if (_fid === 'company-rename-form' && window.CustomerUI?.handleRenameCompany) return window.CustomerUI.handleRenameCompany(e);
+          // 不能用 form.id：表單內存在 <input name="id"> 時，named access 可能覆蓋掉表單 id 屬性。
+          const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
+          if (formId === 'customer-form' && window.CustomerUIForms?.handleSubmit) return window.CustomerUIForms.handleSubmit(e);
+          if (formId === 'company-rename-form' && window.CustomerUI?.handleRenameCompany) return window.CustomerUI.handleRenameCompany(e);
           return undefined;
         };
         form.addEventListener('submit', directSubmit);
@@ -848,7 +860,7 @@ class CustomerUI {
           <button class="modal-close" data-action="closeModal">✕</button>
         </div>
 
-        <form id="company-rename-form" class="modal-body" onsubmit="event.preventDefault(); event.stopPropagation(); window.CustomerUI.handleRenameCompany(event); return false;">
+        <form id="company-rename-form" class="modal-body">
           <div class="form-section">
             <h4 class="form-section-title">更名設定</h4>
             <div class="form-grid">

@@ -59,7 +59,7 @@ class CustomerUIForms {
     const hasHistory = Number.isFinite(repairCount) && repairCount > 0;
 
     return `
-      <form id="customer-form" class="modal-dialog modal-large customer-form-dialog" novalidate onsubmit="event.preventDefault(); event.stopPropagation(); window.CustomerUIForms.handleSubmit(event); return false;">
+      <form id="customer-form" class="modal-dialog modal-large customer-form-dialog" novalidate>
         <input type="hidden" name="id" value="${this._escapeAttr(c.id || '')}" />
 
         <div class="modal-header">
@@ -347,9 +347,7 @@ Object.assign(CustomerUIForms, {
     if (CustomerUIForms._submitting) return;
 
     const form = event?.target?.closest ? (event.target.closest('form') || event.target) : event?.target;
-    // 用 getAttribute('id') 而非 form.id：
-    // 因為表單內有 <input name="id">，瀏覽器 named access 會讓 form.id 回傳該 input 元素而非字串
-    const formId = form && typeof form.getAttribute === 'function' ? form.getAttribute('id') : '';
+    const formId = form?.getAttribute?.('id') || form?.id || '';
     if (!form || formId !== 'customer-form') return;
 
     try {

@@ -13,7 +13,10 @@ class WeeklyUI {
 
     // delegation guards
     this._delegationBound = false;
+    this._boundContainer = null;
     this._lastInputTimer = null;
+    this._pendingPlanDraft = new Map();
+    this._lastEmailSnapshot = null;
   }
 
   render(containerId = 'weekly-container') {
@@ -21,8 +24,17 @@ class WeeklyUI {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const start = window._svc('WeeklyService').weekStart;
-    const end = window._svc('WeeklyService').weekEnd;
+    if (this._boundContainer !== container) {
+      this._delegationBound = false;
+      this._boundContainer = container;
+    }
+
+    const weeklySvc = window._svc('WeeklyService');
+    const planCfg = (weeklySvc && typeof weeklySvc._getWeeklyPlanDisplayConfig === 'function')
+      ? weeklySvc._getWeeklyPlanDisplayConfig()
+      : { customerPlaceholder: '客戶', projectPlaceholder: '專案/機型', planPlaceholder: '計畫內容' };
+    const start = weeklySvc.weekStart;
+    const end = weeklySvc.weekEnd;
     const nextStart = WeeklyModel.addDays(start, 7);
     const nextEnd = WeeklyModel.addDays(end, 7);
     const isPreview = this.view === 'preview';
@@ -127,23 +139,23 @@ class WeeklyUI {
       try {
         switch (action) {
           case 'weekly-toggle-preview': {
+            await this._flushPendingPlanUpdates();
             this.view = (this.view === 'preview') ? 'edit' : 'preview';
             this.render(this.containerId);
             break;
           }
           case 'weekly-refresh-preview': {
+            await this._flushPendingPlanUpdates();
             await this.refreshPreview();
             break;
           }
           case 'weekly-send': {
+            await this._flushPendingPlanUpdates();
             const svc = window._svc('WeeklyService');
-            if (!svc || typeof svc.getEmail !== 'function') throw new Error('WeeklyService not ready');
-            const email = await svc.getEmail();
-            // 使用 mailto（前端純靜態）
-            const to = encodeURIComponent(String(email.to || ''));
-            const subject = encodeURIComponent(String(email.subject || ''));
-            const body = encodeURIComponent(String(email.body || ''));
-            window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+            if (!svc || typeof svc.buildWeeklyEmailPayload !== 'function') throw new Error('WeeklyService not ready');
+            const email = await svc.buildWeeklyEmailPayload();
+            this._lastEmailSnapshot = email;
+            window.location.href = WeeklyModel.encodeMailto(email.to, email.subject, email.body);
             break;
           }
           case 'weekly-toggle-thisweek': {
@@ -157,6 +169,7 @@ class WeeklyUI {
             break;
           }
           case 'weekly-add-plan': {
+            await this._flushPendingPlanUpdates();
             const svc = window._svc('WeeklyService');
             if (!svc || typeof svc.addPlanTop !== 'function') throw new Error('WeeklyService not ready');
             await svc.addPlanTop();
@@ -166,6 +179,7 @@ class WeeklyUI {
           }
           case 'weekly-plan-delete': {
             const id = el.getAttribute('data-plan-id');
+            this._pendingPlanDraft.delete(String(id || ''));
             const svc = window._svc('WeeklyService');
             if (!svc || typeof svc.deletePlan !== 'function') throw new Error('WeeklyService not ready');
             await svc.deletePlan(id);
@@ -188,16 +202,17 @@ class WeeklyUI {
       if (!t || typeof t.getAttribute !== 'function') return;
       const action = t.getAttribute('data-action');
       if (action !== 'weekly-plan-update') return;
-      const id = t.getAttribute('data-plan-id');
-      const key = t.getAttribute('data-key');
+      const id = String(t.getAttribute('data-plan-id') || '');
+      const key = String(t.getAttribute('data-key') || '');
       const value = t.value;
+      if (!id || !key) return;
+
+      this._queuePlanPatch(id, key, value);
 
       if (this._lastInputTimer) clearTimeout(this._lastInputTimer);
       this._lastInputTimer = setTimeout(async () => {
         try {
-          const svc = window._svc('WeeklyService');
-          if (!svc || typeof svc.updatePlan !== 'function') return;
-          await svc.updatePlan(id, { [key]: value });
+          await this._flushPendingPlanUpdates();
           if (this.view === 'preview') await this.refreshPreview();
         } catch (e) {
           console.error('WeeklyUI plan update failed:', e);
@@ -215,28 +230,76 @@ class WeeklyUI {
 
     this.renderPlans();
   }
+
+
+  _queuePlanPatch(id, key, value) {
+    const safeId = String(id || '').trim();
+    const safeKey = String(key || '').trim();
+    if (!safeId || !safeKey) return;
+
+    const patch = this._pendingPlanDraft.get(safeId) || {};
+    patch[safeKey] = value;
+    this._pendingPlanDraft.set(safeId, patch);
+
+    const svc = window._svc('WeeklyService');
+    const list = Array.isArray(svc?.nextPlans) ? svc.nextPlans : [];
+    const target = list.find(item => String(item?.id || '') === safeId);
+    if (!target) return;
+    target[safeKey] = String(value || '');
+    target.updatedAt = new Date().toISOString();
+  }
+
+  async _flushPendingPlanUpdates() {
+    if (this._lastInputTimer) {
+      clearTimeout(this._lastInputTimer);
+      this._lastInputTimer = null;
+    }
+    if (!this._pendingPlanDraft.size) return;
+
+    const svc = window._svc('WeeklyService');
+    if (!svc || typeof svc.updatePlan !== 'function') {
+      this._pendingPlanDraft.clear();
+      return;
+    }
+
+    const entries = Array.from(this._pendingPlanDraft.entries());
+    this._pendingPlanDraft.clear();
+    for (const [id, patch] of entries) {
+      await svc.updatePlan(id, patch);
+    }
+  }
   renderPlans() {
     const host = document.getElementById('nextplans-body');
     if (!host) return;
 
-    const plans = window._svc('WeeklyService').nextPlans || [];
+    const weeklySvc = window._svc('WeeklyService');
+    const plans = weeklySvc?.nextPlans || [];
+    const planCfg = (weeklySvc && typeof weeklySvc._getWeeklyPlanDisplayConfig === 'function')
+      ? weeklySvc._getWeeklyPlanDisplayConfig()
+      : { customerPlaceholder: '客戶', projectPlaceholder: '專案/機型', planPlaceholder: '計畫內容' };
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
     host.innerHTML = plans
       .map((p, idx) => {
-        const safe = (s) => String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeId = escapeHtml(p.id);
         return `
-        <div class="plan-item" data-id="${safe(p.id)}">
+        <div class="plan-item" data-id="${safeId}">
           <div class="plan-item-row">
             <div class="plan-idx">${idx + 1}</div>
             <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
               <div class="plan-fields">
-                <input class="input" placeholder="客戶" value="${safe(p.customer)}" data-action="weekly-plan-update" data-plan-id="${safe(p.id)}" data-key="customer" />
-                <input class="input" placeholder="專案/機型" value="${safe(p.project)}" data-action="weekly-plan-update" data-plan-id="${safe(p.id)}" data-key="project" />
+                <input class="input" placeholder="${escapeHtml(planCfg.customerPlaceholder)}" value="${escapeHtml(p.customer)}" data-action="weekly-plan-update" data-plan-id="${safeId}" data-key="customer" />
+                <input class="input" placeholder="${escapeHtml(planCfg.projectPlaceholder)}" value="${escapeHtml(p.project)}" data-action="weekly-plan-update" data-plan-id="${safeId}" data-key="project" />
               </div>
-              <textarea class="input" rows="3" placeholder="計畫內容" data-action="weekly-plan-update" data-plan-id="${safe(p.id)}" data-key="plan">${safe(p.plan)}</textarea>
+              <textarea class="input" rows="3" placeholder="${escapeHtml(planCfg.planPlaceholder)}" data-action="weekly-plan-update" data-plan-id="${safeId}" data-key="plan">${escapeHtml(p.plan)}</textarea>
             </div>
             <div class="plan-actions">
-              <button class="btn danger" data-action="weekly-plan-delete" data-plan-id="${safe(p.id)}">刪除</button>
+              <button class="btn danger" data-action="weekly-plan-delete" data-plan-id="${safeId}">刪除</button>
             </div>
           </div>
         </div>
@@ -282,18 +345,27 @@ class WeeklyUI {
     bodyEl.textContent = '（產生中...）';
 
     try {
-      const { subject, body } = await window._svc('WeeklyService').getEmail();
-      subjectEl.textContent = subject || '';
-      bodyEl.textContent = body || '';
+      await this._flushPendingPlanUpdates();
+      const svc = window._svc('WeeklyService');
+      if (!svc || typeof svc.buildWeeklyEmailPayload !== 'function') throw new Error('WeeklyService not ready');
+      const snapshot = await svc.buildWeeklyEmailPayload();
+      this._lastEmailSnapshot = snapshot;
+      subjectEl.textContent = snapshot.subject || '';
+      bodyEl.textContent = snapshot.body || '';
     } catch (e) {
+      this._lastEmailSnapshot = null;
       subjectEl.textContent = '（產生失敗）';
       bodyEl.textContent = `（產生失敗）\n${e?.message || e}`;
     }
   }
 
   async send() {
-    const { to, subject, body } = await window._svc('WeeklyService').getEmail();
-    const href = WeeklyModel.encodeMailto(to, subject, body);
+    await this._flushPendingPlanUpdates();
+    const svc = window._svc('WeeklyService');
+    if (!svc || typeof svc.buildWeeklyEmailPayload !== 'function') throw new Error('WeeklyService not ready');
+    const snapshot = await svc.buildWeeklyEmailPayload();
+    this._lastEmailSnapshot = snapshot;
+    const href = WeeklyModel.encodeMailto(snapshot.to, snapshot.subject, snapshot.body);
     window.location.href = href;
   }
 }

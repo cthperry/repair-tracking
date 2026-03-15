@@ -17,13 +17,15 @@ class WeeklyController {
     }
 
     // Phase 1：集中化初始化（避免 Controller 自行 init）
-    await reg.ensureReady(['SettingsService', 'RepairService', 'WorkLogService', 'WeeklyService'], { loadAll: true });
+    await reg.ensureReady(['SettingsService', 'RepairService', 'WorkLogService', 'RepairPartsService', 'WeeklyService'], { loadAll: true });
 
     const WeeklyService = (typeof reg.get === 'function') ? reg.get('WeeklyService') : (typeof window._svc === 'function' ? window._svc('WeeklyService') : null);
 
     if (!WeeklyService || !window.weeklyUI) {
       throw new Error('Weekly module not loaded');
     }
+
+    await WeeklyService.syncWeekRange?.(false);
 
     // render
     window.weeklyUI.render(containerId);

@@ -1,3 +1,45 @@
+## V161.359（2026-03-15）
+- 週報模組整體收斂：固定契約、預覽/寄送輸出來源統一、下週計畫 placeholder 納入設定。
+- WeeklyController 補齊 RepairPartsService 初始化，避免週報零件摘要缺漏。
+- 新增 tools/validate-weekly-contract.js，直接驗證週報固定契約與 Email 一致性。
+
+## V161.358（2026-03-15）
+- 週報模組再收斂：把「下週計畫」也納入固定契約設定，避免 `未命名計畫 / 計畫內容` 等文字在程式中分散硬寫。
+- `WeeklyService.getNextWeekPlansText()` 改復用共用欄位格式器，讓下週計畫與本週案件共用同一套換行與欄位契約。
+- 新增 `tools/validate-weekly-contract.js`，以假資料驗證週報輸出不得再漂回 `問題摘要 / 本週處置 / 商務摘要 / 料件摘要`。
+- 維修表單文案統一改為 `問題描述`，讓資料來源、詳情頁與週報輸出語意一致。
+- BUILD_NUMBER：`357` → `358`。
+
+## V161.357（2026-03-15）
+- 週報模組整體回歸：修正下週計畫 input debounce 尚未落盤時，預覽 / mailto 仍讀到舊內容的同步問題。
+- `WeeklyUI` 新增 pending draft flush 機制；切預覽、重新產生、寄送、新增計畫前都會先同步最新輸入。
+- `WeeklyUI` 補上 `_boundContainer` 容器追蹤，避免切頁後週報事件委派綁在舊 DOM 導致操作失效。
+- `renderPlans()` 改做完整 HTML escaping，修正下週計畫含 `&` / 引號 / 尖括號時的 DOM 破壞風險。
+- `WeeklyService.getNextWeekPlansText()` 標題統一為 `客戶 – 專案/機型`，空白資料回退為 `未命名計畫`。
+- BUILD_NUMBER：`356` → `357`。
+
+## V161.356（2026-03-15）
+- 修復週報案件格式漂移：案件明細恢復固定契約 `問題描述 / 工作內容 / 完成狀態 / 收費`。
+- 移除案件標題前的 `[status]` 前綴，不再輸出 `[需要零件] TI｜FasTRAK` 這類摘要式標題。
+- `WeeklyService` 改由當次 `ctx.repairPartSvc` 直接組裝料件資訊，修正 context cache 尚未建立就先取料件資料的結構問題。
+- `工作內容` 改為多行固定列表，料件需求併回 `工作內容`，不再獨立輸出 `料件摘要`。
+- `收費` 文案恢復為固定契約：`需收費（已下單 / 下單狀態未確認 / 未下單：...）`、`不需收費`、`尚未決定`。
+- BUILD_NUMBER：`355` → `356`。
+
+## V161.355
+- 修正客戶管理 modal submit 鏈 root cause：`customers.ui.js` 兩處表單判斷改用 `getAttribute('id')`
+- 修正客戶頁 render 後主動重置 `_domBound`，避免第二次進頁事件失效
+
+## V161.354（2026-03-15）
+- `customers.ui-forms.js`：`handleSubmit()` 改用 `form.getAttribute('id')`，修正 `<input name="id">` 覆蓋 `form.id` 導致的客戶聯絡人儲存失效。
+- `customer-form` / `company-rename-form` 移除 inline `onsubmit`，submit 鏈統一回到 modal direct submit handler 與 delegated handler，不再重複進入同一流程。
+- `BUILD_NUMBER`：`353` → `354`。
+
+## V161.353（2026-03-15）
+- `CustomerUI.render()` 補上跨容器重掛時的 DOM 綁定狀態重置，修正第二次進入客戶頁面後工具列 / 清單按鈕失效。
+- `customers.ui-forms.js`：移除 `handleSubmit()` 內重複的 `stopPropagation()` 呼叫，避免 submit 鏈多餘攔截。
+- `BUILD_NUMBER`：`352` → `353`。
+
 ## V161.352（2026-03-15）
 - 補上 `window.CustomerUI / window.QuotesUI / window.OrdersUI / window.KBUI` 全域 API 契約，修正跨模組 detail/view 開啟與公司更名同步呼叫失敗。
 - `CustomerUI / QuotesUI / OrdersUI` 同步註冊到 `AppRegistry`。

@@ -20,6 +20,19 @@ class WeeklyService {
 
     this.db = null;
     this.ref = null;
+    this._contextCache = null;
+  }
+
+  async syncWeekRange(forceReload = false) {
+    const { start, end } = WeeklyModel.getWeekRange(new Date());
+    const changed = forceReload || this.weekStart !== start || this.weekEnd !== end;
+    if (!changed && this.weekStart && this.weekEnd) return false;
+
+    this.weekStart = start;
+    this.weekEnd = end;
+    await this.loadPlans();
+    this._contextCache = null;
+    return true;
   }
 
   async init() {
@@ -33,11 +46,7 @@ class WeeklyService {
       this.ref = this.db.ref(`weeklyPlans/${uid}`);
     }
 
-    const { start, end } = WeeklyModel.getWeekRange(new Date());
-    this.weekStart = start;
-    this.weekEnd = end;
-
-    await this.loadPlans();
+    await this.syncWeekRange(true);
 
     this.isInitialized = true;
     console.log('✅ WeeklyService initialized');
@@ -298,13 +307,36 @@ _getWeeklyCaseDisplayConfig() {
     : {};
   return {
     fallbackLabel: String(cfg.fallbackLabel || '未命名案件').trim() || '未命名案件',
-    separator: String(cfg.separator || '｜').trim() || '｜',
+    separator: String(cfg.separator || ' – '),
     overviewTitle: String(cfg.overviewTitle || '本週案件總覽').trim() || '本週案件總覽',
     showSummarySection: cfg.showSummarySection === true,
     showBasisDateLine: cfg.showBasisDateLine === true,
+    titleIncludeStatus: cfg.titleIncludeStatus === true,
     issueWrapWidth: Number(cfg.issueWrapWidth) || 0,
     workSummaryWrapWidth: Number(cfg.workSummaryWrapWidth) || 0,
-    workSummaryLabel: String(cfg.workSummaryLabel || '本週處置').trim() || '本週處置'
+    completionWrapWidth: Number(cfg.completionWrapWidth) || Number(cfg.issueWrapWidth) || 0,
+    billingWrapWidth: Number(cfg.billingWrapWidth) || Number(cfg.issueWrapWidth) || 0,
+    issueLabel: String(cfg.issueLabel || '問題描述').trim() || '問題描述',
+    workSummaryLabel: String(cfg.workSummaryLabel || '工作內容').trim() || '工作內容',
+    completionLabel: String(cfg.completionLabel || '完成狀態').trim() || '完成狀態',
+    billingLabel: String(cfg.billingLabel || '收費').trim() || '收費',
+    mergePartsIntoWorkContent: cfg.mergePartsIntoWorkContent !== false
+  };
+}
+
+_getWeeklyPlanDisplayConfig() {
+  const caseCfg = this._getWeeklyCaseDisplayConfig();
+  const cfg = (AppConfig?.weekly?.planDisplay && typeof AppConfig.weekly.planDisplay === 'object')
+    ? AppConfig.weekly.planDisplay
+    : {};
+  return {
+    fallbackLabel: String(cfg.fallbackLabel || '未命名計畫').trim() || '未命名計畫',
+    planLabel: String(cfg.planLabel || '計畫內容').trim() || '計畫內容',
+    wrapWidth: Number(cfg.wrapWidth) || caseCfg.workSummaryWrapWidth || 0,
+    separator: String(caseCfg.separator || ' – '),
+    customerPlaceholder: String(cfg.customerPlaceholder || '客戶').trim() || '客戶',
+    projectPlaceholder: String(cfg.projectPlaceholder || '專案/機型').trim() || '專案/機型',
+    planPlaceholder: String(cfg.planPlaceholder || '計畫內容').trim() || '計畫內容'
   };
 }
 
@@ -357,12 +389,14 @@ _buildWeeklyCaseLabel(repair) {
 _toWeeklyReportCase(repair, ctx = {}) {
   const repairLogs = Array.isArray(ctx.workLogsByRepair?.[repair?.id]) ? ctx.workLogsByRepair[repair.id] : [];
   const issueText = String(repair?.issue || '').trim() || '（未填）';
+  const partsSummaryText = this._getWeeklyPartsSummary(repair?.id, repair, ctx.repairPartSvc);
   return {
     caseLabel: this._buildWeeklyCaseLabel(repair),
     statusLabel: String(repair?.status || '進行中').trim() || '進行中',
     issueText,
-    workSummaryText: this._getWeeklyWorkSummary(repair, repairLogs),
-    partsSummaryText: this._getWeeklyPartsSummary(repair?.id, repair),
+    workSummaryText: this._getWeeklyWorkSummary(repair, repairLogs, partsSummaryText),
+    partsSummaryText,
+    completionText: this._getWeeklyCompletionSummary(repair),
     billingSummaryText: this._getWeeklyBillingSummary(repair),
     basisDateText: this._formatWeeklyDate(ctx.weeklyBasis === 'created'
       ? (repair?.createdAt || (repair?.createdDate ? (repair.createdDate + 'T00:00:00') : ''))
@@ -466,34 +500,68 @@ _getWeeklyContext() {
   };
 }
 
-_getWeeklyWorkSummary(repair, repairLogs = []) {
+_getWeeklyWorkSummary(repair, repairLogs = [], partsSummaryText = '') {
   const cfg = this._getWeeklyCaseDisplayConfig();
-  const label = `${cfg.workSummaryLabel}：`;
+  const lines = [];
+
   if (Array.isArray(repairLogs) && repairLogs.length > 0) {
-    const detailLines = repairLogs.flatMap(log => {
+    repairLogs.forEach(log => {
       const date = (log.workDate || '').slice(5) || this._formatWeeklyMonthDay(log.updatedAt || log.createdAt || '');
       const action = String(log.action || '').trim().slice(0, 240);
       const resultCfg = (window.WorkLogModel && window.WorkLogModel.getResultConfig)
         ? window.WorkLogModel.getResultConfig(log.result)
         : null;
       const tag = resultCfg ? resultCfg.label : '';
-      const text = `${date || '--'} ${action || '（未填）'}${tag ? ' → ' + tag : ''}`.trim();
-      return this._wrapWeeklyLine(text, cfg.workSummaryWrapWidth);
+      const primary = `${date || '--'} ${action || '（未填）'}${tag ? ' → ' + tag : ''}`.trim();
+      if (primary) lines.push(primary);
+
+      const findingsLines = this._normalizeWeeklyLines(String(log.findings || '').trim());
+      findingsLines.forEach((line, idx) => {
+        lines.push(idx === 0 ? `發現：${line}` : line);
+      });
+
+      const partsLines = this._normalizeWeeklyLines(String(log.partsUsed || '').trim());
+      partsLines.forEach((line, idx) => {
+        lines.push(idx === 0 ? `零件：${line}` : line);
+      });
     });
-    return this._formatWeeklyLabeledBlock(label, detailLines.join('\n'), '   ', { wrapWidth: cfg.workSummaryWrapWidth });
+  } else {
+    const workContentLines = this._normalizeWeeklyLines(String(repair?.content || '').trim());
+    lines.push(...workContentLines);
   }
 
-  const workContent = String(repair?.content || '').trim();
-  if (workContent) return this._formatWeeklyLabeledBlock(label, workContent, '   ', { wrapWidth: cfg.workSummaryWrapWidth });
-  return ['   ' + label, '      （未填）'].join('\n');
+  const partsText = String(partsSummaryText || '').trim();
+  if (cfg.mergePartsIntoWorkContent && partsText) {
+    const joined = lines.join('\n');
+    if (!joined.includes(partsText)) lines.push(partsText);
+  }
+
+  return lines.filter(line => String(line || '').trim());
+}
+
+_formatWeeklyLineListBlock(label, lines, baseIndent = '   ', options = {}) {
+  const entries = Array.isArray(lines) ? lines : [];
+  const width = Number(options.wrapWidth) || 0;
+  const hasColon = /[：:]$/.test(label);
+  const labelLine = `${baseIndent}${hasColon ? label : (label + '：')}`;
+  const childIndent = baseIndent + '   ';
+  if (!entries.length) return [labelLine, `${childIndent}（未填）`].join('\n');
+
+  const out = [labelLine];
+  entries.forEach(item => {
+    const wrapped = this._wrapWeeklyTextLines(String(item || ''), width).filter(Boolean);
+    if (!wrapped.length) return;
+    wrapped.forEach(line => out.push(`${childIndent}${line}`));
+  });
+  return out.join('\n');
 }
 
 
-_getWeeklyPartsSummary(repairId, repair) {
+_getWeeklyPartsSummary(repairId, repair, repairPartSvc) {
   try {
-    const list = this._getWeeklyContextCache?.repairPartSvc?.getForRepair?.(repairId) || [];
+    const list = repairPartSvc?.getForRepair?.(repairId) || [];
     if (!list.length) {
-      return repair?.needParts ? '需要零件（尚無用料追蹤明細）' : '無';
+      return repair?.needParts ? '需要零件（尚無用料追蹤明細）' : '';
     }
     const count = list.length;
     const statusMap = new Map();
@@ -504,23 +572,27 @@ _getWeeklyPartsSummary(repairId, repair) {
     const ordered = Array.from(statusMap.entries())
       .sort((a, b) => AppConfig.getBusinessStatusRank('part', a[0]) - AppConfig.getBusinessStatusRank('part', b[0]))
       .map(([status, qty]) => `${status}${qty > 1 ? '×' + qty : ''}`);
-    return `共 ${count} 筆（${ordered.join('／')}）`;
+    return `需要零件（共 ${count} 筆：${ordered.join('／')}）`;
   } catch (_) {
-    return repair?.needParts ? '需要零件' : '無';
+    return repair?.needParts ? '需要零件（尚無用料追蹤明細）' : '';
   }
 }
 
-_getWeeklyQuoteOrderSummary(repairId) {
-  const quoteSummary = this._getWeeklyContextCache?.quoteSvc?.getSummaryForRepair?.(repairId) || { count: 0, latest: null };
-  const orderSummary = this._getWeeklyContextCache?.orderSvc?.getSummaryForRepair?.(repairId) || { count: 0, latest: null };
 
-  const quoteText = quoteSummary.count
-    ? `報價 ${quoteSummary.count} 筆（最新：${quoteSummary.latest?.status || '未設定'}）`
-    : '報價 0 筆';
-  const orderText = orderSummary.count
-    ? `訂單 ${orderSummary.count} 筆（最新：${orderSummary.latest?.status || '未設定'}）`
-    : '訂單 0 筆';
-  return `${quoteText}；${orderText}`;
+_getWeeklyCompletionSummary(repair) {
+  const rawStatus = String(repair?.status || '').trim();
+  const statusMeta = (window.AppConfig && typeof window.AppConfig.getStatusByValue === 'function')
+    ? window.AppConfig.getStatusByValue(rawStatus)
+    : null;
+  const progressValue = Number(repair?.progress);
+  let progress = Number.isFinite(progressValue) ? Math.max(0, Math.min(100, Math.round(progressValue))) : NaN;
+  if (!Number.isFinite(progress)) progress = Number(statusMeta?.progress);
+  if (!Number.isFinite(progress)) progress = rawStatus === '已完成' ? 100 : 0;
+
+  if (rawStatus === '已完成' || progress >= 100) {
+    return '已完成 (100%)';
+  }
+  return `進行中 (${progress}%)`;
 }
 
 _getWeeklyBillingSummary(repair) {
@@ -530,27 +602,28 @@ _getWeeklyBillingSummary(repair) {
     : null;
   if (billingFlow) {
     if (billingFlow.isOrdered) {
-      return billingFlow.summaryLabel || '需收費 / 已下單';
+      return '需收費（已下單）';
     }
     if (billingFlow.isNotOrdered) {
-      const tail = [billingFlow.stageMeta?.label || '', billingFlow.reasonMeta?.label || '', (billingFlow.note || '').trim()].filter(Boolean).join('｜');
-      return (billingFlow.summaryLabel || '需收費 / 未下單') + (tail ? `（${tail}）` : '');
+      const tail = [billingFlow.stageMeta?.label || '', billingFlow.reasonMeta?.label || '', (billingFlow.note || '').trim()].filter(Boolean).join('／');
+      return `需收費（未下單${tail ? '：' + tail : ''}）`;
     }
     if (billingFlow.isChargeable && billingFlow.isOrderUnknown) {
-      return billingFlow.summaryLabel || '需收費 / 尚未確認';
+      return '需收費（下單狀態未確認）';
     }
-    return billingFlow.chargeableMeta?.label || '尚未決定';
+    if (billingFlow.isFree) return '不需收費';
+    return '尚未決定';
   }
   if (b.chargeable === true) return '需收費';
   if (b.chargeable === false) return '不需收費';
-  return '未決定';
+  return '尚未決定';
 }
 
 _buildWeeklyRepairBlock(item, seq = 1) {
   const cfg = this._getWeeklyCaseDisplayConfig();
   const status = String(item?.statusLabel || '進行中').trim() || '進行中';
   const caseLabel = String(item?.caseLabel || cfg.fallbackLabel).trim() || cfg.fallbackLabel;
-  const title = `${seq}. [${status}] ${caseLabel}`;
+  const title = cfg.titleIncludeStatus ? `${seq}. [${status}] ${caseLabel}` : `${seq}. ${caseLabel}`;
 
   const blocks = [title];
 
@@ -559,13 +632,12 @@ _buildWeeklyRepairBlock(item, seq = 1) {
     blocks.push(`   依據日期：${basisDate}`);
   }
 
-  const issueBlock = this._formatWeeklyLabeledBlock('問題摘要：', String(item?.issueText || '').trim(), '   ', { wrapWidth: cfg.issueWrapWidth });
-  const workBlockRaw = String(item?.workSummaryText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
-  const workBlock = workBlockRaw || ['   ' + cfg.workSummaryLabel + '：', '      （未填）'].join('\n');
-  const billingBlock = this._formatWeeklyLabeledBlock('商務摘要：', String(item?.billingSummaryText || '未決定').trim() || '未決定', '   ', { wrapWidth: cfg.issueWrapWidth });
-  const partsBlock = this._formatWeeklyLabeledBlock('料件摘要：', String(item?.partsSummaryText || '無').trim() || '無', '   ', { wrapWidth: cfg.issueWrapWidth });
+  const issueBlock = this._formatWeeklyLabeledBlock(`${cfg.issueLabel}：`, String(item?.issueText || '').trim(), '   ', { wrapWidth: cfg.issueWrapWidth });
+  const workBlock = this._formatWeeklyLineListBlock(`${cfg.workSummaryLabel}：`, item?.workSummaryText, '   ', { wrapWidth: cfg.workSummaryWrapWidth });
+  const completionBlock = this._formatWeeklyLabeledBlock(`${cfg.completionLabel}：`, String(item?.completionText || '進行中 (0%)').trim(), '   ', { wrapWidth: cfg.completionWrapWidth });
+  const billingBlock = this._formatWeeklyLabeledBlock(`${cfg.billingLabel}：`, String(item?.billingSummaryText || '尚未決定').trim() || '尚未決定', '   ', { wrapWidth: cfg.billingWrapWidth });
 
-  blocks.push(issueBlock, workBlock, billingBlock, partsBlock);
+  blocks.push(issueBlock, workBlock, completionBlock, billingBlock);
   return blocks.join('\n');
 }
 
@@ -617,7 +689,7 @@ _buildWeeklyExecutiveSummary(ctx) {
  */
 getThisWeekRepairsText() {
   const ctx = this._getWeeklyContext();
-  this._getWeeklyContextCache = ctx;
+  this._contextCache = ctx;
 
   const sections = [];
   const overviewTitle = this._getWeeklyCaseDisplayConfig().overviewTitle;
@@ -631,43 +703,15 @@ getThisWeekRepairsText() {
 
 
 getNextWeekPlansText() {
-
     const items = (this.nextPlans || []).filter(p => (p.customer || p.project || p.plan));
     if (!items.length) return '';
 
-    const normalizeLines = (text) => {
-      const raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const lines = raw.split('\n').map(l => l.replace(/\t/g, '    ').trimRight());
-      // trim leading/trailing empty lines
-      while (lines.length && !lines[0].trim()) lines.shift();
-      while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
-      // collapse excessive empty lines (>=2)
-      const out = [];
-      let empty = 0;
-      for (const l of lines) {
-        if (!l.trim()) {
-          empty += 1;
-          if (empty <= 1) out.push('');
-        } else {
-          empty = 0;
-          out.push(l);
-        }
-      }
-      return out;
-    };
-
-    const formatPlanBlock = (text) => {
-      const lines = normalizeLines(text);
-      if (!lines.length) return '   計畫內容：（未填）';
-      if (lines.length === 1) return `   計畫內容：${lines[0]}`;
-      const indent = '      '; // 6 spaces
-      return ['   計畫內容：', ...lines.map(l => `${indent}${l}`)].join('\n');
-    };
-
+    const cfg = this._getWeeklyPlanDisplayConfig();
     return items.map((p, i) => {
-      const title = `${i + 1}. ${(p.customer || '').trim()}${p.project ? ' - ' + (p.project || '').trim() : ''}`.trim();
-      const body = formatPlanBlock((p.plan || '').trim());
-      return [title, body].join('\n');
+      const titleParts = [String(p.customer || '').trim(), String(p.project || '').trim()].filter(Boolean);
+      const titleText = titleParts.length ? titleParts.join(cfg.separator) : cfg.fallbackLabel;
+      const body = this._formatWeeklyLabeledBlock(`${cfg.planLabel}：`, String(p.plan || '').trim(), '   ', { wrapWidth: cfg.wrapWidth });
+      return [`${i + 1}. ${titleText}`, body].join('\n');
     }).join('\n\n');
   }
 
@@ -688,7 +732,8 @@ getNextWeekPlansText() {
     return { recipients, signature };
   }
 
-  async getEmail() {
+  async buildWeeklyEmailPayload() {
+    await this.syncWeekRange(false);
     const u = (window.AppState?.getCurrentUser?.() || window.currentUser);
     const reporterName = u?.displayName || u?.email || '';
     const thisWeekText = this.getThisWeekRepairsText();
@@ -704,7 +749,20 @@ getNextWeekPlansText() {
       signature
     });
 
-    return { ...email, to: recipients };
+    return {
+      to: recipients,
+      subject: email.subject,
+      body: email.body,
+      thisWeekText,
+      nextWeekPlansText,
+      weekStart: this.weekStart,
+      weekEnd: this.weekEnd
+    };
+  }
+
+  async getEmail() {
+    const payload = await this.buildWeeklyEmailPayload();
+    return { to: payload.to, subject: payload.subject, body: payload.body };
   }
 }
 

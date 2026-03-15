@@ -402,16 +402,16 @@ Object.assign(RepairUI.prototype, {
           
           <!-- 問題描述 -->
           <div class="form-section">
-            <div class="form-section-head"><h4 class="form-section-title">問題描述</h4><p class="form-section-desc">先填問題摘要，再補工作內容，讓詳情頁與週報引用欄位保持一致。</p></div>
+            <div class="form-section-head"><h4 class="form-section-title">問題描述</h4><p class="form-section-desc">先填問題描述，再補工作內容，讓維修表單、詳情頁與週報輸出共用同一套契約。</p></div>
             
             <div class="form-group">
-              <label class="form-label required">問題摘要</label>
+              <label class="form-label required">問題描述</label>
               <input
                 type="text"
                 name="issue"
                 class="input"
                 value="${escapeAttr(repair.issue || '')}"
-                placeholder="簡短描述問題"
+                placeholder="請輸入問題描述"
                 required
               />
             </div>
