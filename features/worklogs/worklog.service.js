@@ -29,6 +29,9 @@ class WorkLogService {
     // Realtime
     this._listenersReady = false;
 
+    // 並行 init() 去重
+    this._initPromise = null;
+
     // localStorage 節流
     this._cacheSaveTimer = null;
     this._localDirty = false;
@@ -43,29 +46,36 @@ class WorkLogService {
       console.debug('WorkLogService already initialized');
       return;
     }
+    if (this._initPromise) return this._initPromise;
 
-    try {
-      console.log('📝 Initializing WorkLog Service...');
+    this._initPromise = (async () => {
+      try {
+        console.log('📝 Initializing WorkLog Service...');
 
-      if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {
-        this.db = firebase.database();
-        const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || '').toString();
-        if (uid) {
-          this.workLogsRef = this.db.ref('data').child(uid).child('workLogs');
+        if (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined') {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || '').toString();
+          if (uid) {
+            this.workLogsRef = this.db.ref('data').child(uid).child('workLogs');
+          }
         }
+
+        await this.loadData();
+
+        this.isInitialized = true;
+        console.log(`✅ WorkLog Service initialized (${this.workLogs.length} logs)`);
+
+      } catch (error) {
+        console.error('WorkLog Service initialization error:', error);
+        // 降級：使用本地資料
+        await this.loadFromLocalStorage();
+        this.isInitialized = true;
+      } finally {
+        this._initPromise = null;
       }
+    })();
 
-      await this.loadData();
-
-      this.isInitialized = true;
-      console.log(`✅ WorkLog Service initialized (${this.workLogs.length} logs)`);
-
-    } catch (error) {
-      console.error('WorkLog Service initialization error:', error);
-      // 降級：使用本地資料
-      await this.loadFromLocalStorage();
-      this.isInitialized = true;
-    }
+    return this._initPromise;
   }
 
   // ========================================

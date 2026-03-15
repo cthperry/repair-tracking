@@ -14,6 +14,9 @@ class PartService {
     this.ref = null;
     this.parts = [];
 
+    // 並行 init() 去重
+    this._initPromise = null;
+
     // PartService localStorage debounce
     this._localDirty = false;
     this._localSaveTimer = null;
@@ -28,24 +31,33 @@ class PartService {
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-      if (!uid) {
-        console.warn('PartService init: missing uid, fallback to local mode');
-        this.isFirebase = false;
-      } else {
-        const root = this.db.ref('data').child(uid);
-        this._userRootRef = root;
-        this.ref = root.child('parts');
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          if (!uid) {
+            console.warn('PartService init: missing uid, fallback to local mode');
+            this.isFirebase = false;
+          } else {
+            const root = this.db.ref('data').child(uid);
+            this._userRootRef = root;
+            this.ref = root.child('parts');
+          }
+        }
+
+        await this.load();
+        this.isInitialized = true;
+        console.log('✅ PartService initialized');
+      } finally {
+        this._initPromise = null;
       }
-    }
+    })();
 
-    await this.load();
-    this.isInitialized = true;
-    console.log('✅ PartService initialized');
+    return this._initPromise;
   }
   async load() {
     // Firebase 優先
@@ -206,6 +218,9 @@ class RepairPartsService {
     this._itemsRev = 0;
     this._cacheAllItems = null;
 
+    // 並行 init() 去重
+    this._initPromise = null;
+
     // RepairPartsService localStorage debounce
     this._localDirty = false;
     this._localSaveTimer = null;
@@ -225,24 +240,33 @@ class RepairPartsService {
 
   async init() {
     if (this.isInitialized) return;
+    if (this._initPromise) return this._initPromise;
 
-    this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
-    if (this.isFirebase) {
-      this.db = firebase.database();
-      const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
-      if (!uid) {
-        console.warn('RepairPartsService init: missing uid, fallback to local mode');
-        this.isFirebase = false;
-      } else {
-        const root = this.db.ref('data').child(uid);
-        this._userRootRef = root;
-        this.ref = root.child('repairParts');
+    this._initPromise = (async () => {
+      try {
+        this.isFirebase = (window.AuthSystem?.authMode === 'firebase' && typeof firebase !== 'undefined');
+        if (this.isFirebase) {
+          this.db = firebase.database();
+          const uid = (window.AppState?.getUid?.() || window.currentUser?.uid || window.AuthSystem?.getCurrentUser?.()?.uid || '').toString();
+          if (!uid) {
+            console.warn('RepairPartsService init: missing uid, fallback to local mode');
+            this.isFirebase = false;
+          } else {
+            const root = this.db.ref('data').child(uid);
+            this._userRootRef = root;
+            this.ref = root.child('repairParts');
+          }
+        }
+
+        await this.loadAll();
+        this.isInitialized = true;
+        console.log('✅ RepairPartsService initialized');
+      } finally {
+        this._initPromise = null;
       }
-    }
+    })();
 
-    await this.loadAll();
-    this.isInitialized = true;
-    console.log('✅ RepairPartsService initialized');
+    return this._initPromise;
   }
 
   reset() {
