@@ -458,11 +458,16 @@ if (typeof window !== 'undefined') {
 }
 
 // 頁面載入完成後自動啟動
-if (document.readyState === 'loading') {
+// 注意：defer 模式下，腳本執行時 readyState 已為 'interactive'，
+// 但 DOMContentLoaded 尚未觸發（defer 腳本執行於 DCL 之前）。
+// 使用 !== 'complete' 確保 defer 模式與同步載入模式均能正確等待 DCL，
+// 讓 HTML 末端的 initializeApp() DOMContentLoaded handler 先行完成。
+if (document.readyState !== 'complete') {
   document.addEventListener('DOMContentLoaded', () => {
     bootstrap.start();
   });
 } else {
+  // readyState === 'complete'：頁面已完全載入（動態注入等極端情況）
   bootstrap.start();
 }
 
