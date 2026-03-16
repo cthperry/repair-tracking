@@ -43,83 +43,83 @@
 </head>
 <body>
   <!-- Firebase SDK（本地優先，CDN fallback） -->
-  <script src="assets/vendor/firebase/firebase-app-compat.js"
+  <script defer src="assets/vendor/firebase/firebase-app-compat.js"
           onerror="var s=document.createElement('script');s.src='https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js';document.head.appendChild(s)"></script>
-  <script src="assets/vendor/firebase/firebase-auth-compat.js"
+  <script defer src="assets/vendor/firebase/firebase-auth-compat.js"
           onerror="var s=document.createElement('script');s.src='https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js';document.head.appendChild(s)"></script>
-  <script src="assets/vendor/firebase/firebase-database-compat.js"
+  <script defer src="assets/vendor/firebase/firebase-database-compat.js"
           onerror="var s=document.createElement('script');s.src='https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js';document.head.appendChild(s)"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
 
   <!-- Core -->
-  <script src="core/config.js"></script>
+  <script defer src="core/config.js"></script>
   
-  <script src="core/utils/strings.js"></script>
-  <script src="core/utils/time.js"></script>
-  <script src="core/utils/dom.js"></script>
-<script src="core/mobile-safe-tap.js"></script>
-<script src="core/utils.js"></script>
-  <script src="core/registry.js"></script>
-  <script src="core/app-state.js"></script>
-  <script src="core/theme.js"></script>
-  <script src="core/ui.js"></script>
-  <script src="core/saved-views.js"></script>
-  <script src="core/form-validate.js"></script>
-  <script src="core/listPaging.js"></script>
-  <script src="core/error-handler.js"></script>
-  <script src="core/constants.js"></script>
-  <script src="core/router.js"></script>
-  <script src="core/ui-mode.js"></script>
-  <script src="core/app.js"></script>
-  <script src="core/bootstrap.js"></script>
-  <script src="core/auth.js"></script>
-  <script src="core/user-admin.js"></script>
-  <script src="core/linkage.js"></script>
-  <script src="core/module-loader.js"></script>
+  <script defer src="core/utils/strings.js"></script>
+  <script defer src="core/utils/time.js"></script>
+  <script defer src="core/utils/dom.js"></script>
+<script defer src="core/mobile-safe-tap.js"></script>
+<script defer src="core/utils.js"></script>
+  <script defer src="core/registry.js"></script>
+  <script defer src="core/app-state.js"></script>
+  <script defer src="core/theme.js"></script>
+  <script defer src="core/ui.js"></script>
+  <script defer src="core/saved-views.js"></script>
+  <script defer src="core/form-validate.js"></script>
+  <script defer src="core/listPaging.js"></script>
+  <script defer src="core/error-handler.js"></script>
+  <script defer src="core/constants.js"></script>
+  <script defer src="core/router.js"></script>
+  <script defer src="core/ui-mode.js"></script>
+  <script defer src="core/app.js"></script>
+  <script defer src="core/bootstrap.js"></script>
+  <script defer src="core/auth.js"></script>
+  <script defer src="core/user-admin.js"></script>
+  <script defer src="core/linkage.js"></script>
+  <script defer src="core/module-loader.js"></script>
 
-    <script src="features/notifications/notification-center.js"></script>
+    <script defer src="features/notifications/notification-center.js"></script>
 <!-- Customers (must load before repairs forms auto-complete) -->
-  <script src="features/customers/customers.model.js"></script>
-  <script src="features/customers/customers.service.js"></script>
+  <script defer src="features/customers/customers.model.js"></script>
+  <script defer src="features/customers/customers.service.js"></script>
 
   <!-- Repairs -->
-  <script src="features/repairs/repairs.model.js"></script>
-  <script src="features/repairs/repairs.service.js"></script>
+  <script defer src="features/repairs/repairs.model.js"></script>
+  <script defer src="features/repairs/repairs.service.js"></script>
   <!-- Work Logs (預載 model/service；UI 由 ModuleLoader 延後載入) -->
-  <script src="features/worklogs/worklog.model.js"></script>
-  <script src="features/worklogs/worklog.service.js"></script>
+  <script defer src="features/worklogs/worklog.model.js"></script>
+  <script defer src="features/worklogs/worklog.service.js"></script>
 
   <!-- Machines -->
 
   <!-- Settings -->
-  <script src="features/settings/settings.model.js"></script>
-  <script src="features/settings/settings.service.js"></script>
+  <script defer src="features/settings/settings.model.js"></script>
+  <script defer src="features/settings/settings.service.js"></script>
   <!-- Repair Templates (V161.105) -->
-  <script src="features/templates/repairTemplates.model.js"></script>
-  <script src="features/templates/repairTemplates.service.js"></script>
+  <script defer src="features/templates/repairTemplates.model.js"></script>
+  <script defer src="features/templates/repairTemplates.service.js"></script>
 
   <!-- Weekly -->
-  <script src="features/weekly/weekly.model.js"></script>
-  <script src="features/weekly/weekly.service.js"></script>
+  <script defer src="features/weekly/weekly.model.js"></script>
+  <script defer src="features/weekly/weekly.service.js"></script>
 
   <!-- ========================================
        零件管理模組
        ======================================== -->
-  <script src="features/parts/parts.model.js"></script>
-  <script src="features/parts/parts.service.js"></script>
+  <script defer src="features/parts/parts.model.js"></script>
+  <script defer src="features/parts/parts.service.js"></script>
 
   <!-- ========================================
        報價管理模組
        ======================================== -->
-  <script src="features/quotes/quotes.model.js"></script>
-  <script src="features/quotes/quotes.service.js"></script>
+  <script defer src="features/quotes/quotes.model.js"></script>
+  <script defer src="features/quotes/quotes.service.js"></script>
 
   <!-- ========================================
        訂單/採購追蹤模組
        ======================================== -->
-  <script src="features/orders/orders.model.js"></script>
-  <script src="features/orders/orders.service.js"></script>
+  <script defer src="features/orders/orders.model.js"></script>
+  <script defer src="features/orders/orders.service.js"></script>
 
   <!-- ========================================
        使用者操作指南
@@ -128,28 +128,29 @@
   <!-- ========================================
        知識庫（KB-1）
        ======================================== -->
-  <script src="features/kb/kb.model.js"></script>
-  <script src="features/kb/kb.service.js"></script>
+  <script defer src="features/kb/kb.model.js"></script>
+  <script defer src="features/kb/kb.service.js"></script>
 
   <!-- ========================================
        SOP Hub（SOP-1）
        ======================================== -->
-  <script src="features/sops/sops.model.js"></script>
-  <script src="features/sops/sops.service.js"></script>
+  <script defer src="features/sops/sops.model.js"></script>
+  <script defer src="features/sops/sops.service.js"></script>
 
   <div id="app-container"></div>
 
     <script>
     /**
      * Mobile 版本主應用程式初始化
-     * @note 使用 core/app.js 中的 initializeApp() 統一初始化邏輯
-     * @note Mobile 需要覆寫 header ID 常數
+     * @note defer 模式：等所有 deferred script 執行完後才呼叫
      */
-    initializeApp(MobileApp, {
-      constantOverrides: {
-        HEADER_TITLE_ID: 'mobile-header-title',
-        HEADER_SUBTITLE_ID: 'mobile-header-subtitle'
-      }
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeApp(MobileApp, {
+        constantOverrides: {
+          HEADER_TITLE_ID: 'mobile-header-title',
+          HEADER_SUBTITLE_ID: 'mobile-header-subtitle'
+        }
+      });
     });
   </script>
 </body>

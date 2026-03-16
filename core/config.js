@@ -10,7 +10,7 @@ const AppConfig = {
   VERSION: 'V162',
   VERSION_DATE: '2026-03-16',
   VERSION_NAME: 'Modular Phoenix',
-  BUILD_NUMBER: '371',
+  BUILD_NUMBER: '372',
   
   // ========================================
   // Firebase 配置
